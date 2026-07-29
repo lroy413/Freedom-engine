@@ -257,6 +257,71 @@
   .themeseg button{border:0;background:transparent;color:var(--ink2);font-size:14px;font-weight:580;padding:7px 14px;border-radius:8px}
   .themeseg button.on{background:var(--accent);color:#fff}
   html[data-theme="dark"] .themeseg button.on{color:#12131a}
+
+  /* ---------- navigation: sidebar on wide screens, drawer + bottom bar on phones ---------- */
+  .iconbtn{width:42px;height:42px;flex:none;border:0;background:transparent;color:var(--ink);border-radius:11px;display:none;align-items:center;justify-content:center;padding:0}
+  .iconbtn svg{width:23px;height:23px}
+  .iconbtn:hover{background:var(--raise)}
+  #scrim{position:fixed;inset:0;background:rgba(10,11,15,.5);opacity:0;pointer-events:none;transition:opacity .22s;z-index:44}
+  #scrim.on{opacity:1;pointer-events:auto}
+  .sidebar{position:fixed;top:0;left:0;bottom:0;width:236px;background:var(--card);border-right:1px solid var(--line);z-index:45;display:flex;flex-direction:column;padding:16px 12px;gap:4px;transition:transform .24s cubic-bezier(.4,0,.2,1)}
+  .sbbrand{display:flex;align-items:center;gap:10px;font-weight:760;font-size:17px;letter-spacing:-.025em;padding:6px 8px 14px}
+  .sbbrand .dot{width:27px;height:27px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#0ea5a0);position:relative;flex:none}
+  .sbbrand .dot::after{content:"";position:absolute;inset:8px;border-radius:3px;background:var(--card)}
+  .sblink{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:11px;border:0;background:transparent;color:var(--ink2);font-size:15px;font-weight:570;width:100%;text-align:left;transition:background .14s,color .14s}
+  .sblink svg{width:20px;height:20px;flex:none}
+  .sblink:hover{background:var(--raise);color:var(--ink)}
+  .sblink.active{background:var(--accent-soft);color:var(--accent-ink);font-weight:640}
+  .sbfoot{margin-top:auto;padding:10px 12px 4px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line)}
+  main{margin-left:236px}
+  /* the sidebar already carries the brand, so the top bar is only for narrow screens */
+  @media(min-width:1024px){ header.topbar{display:none} main{padding-top:30px} }
+  header.topbar .topinner{max-width:1000px}
+
+  .bottombar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:none;align-items:flex-end;justify-content:space-around;
+    background:var(--barbg2);backdrop-filter:saturate(180%) blur(12px);border-top:1px solid var(--line2);
+    padding:8px 6px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -2px 18px -8px rgba(20,22,31,.16)}
+  .bb{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;border:0;background:transparent;color:var(--ink2);
+    font-size:11px;font-weight:600;padding:8px 2px;border-radius:12px}
+  .bb svg{width:23px;height:23px}
+  .bb.active{color:var(--accent-ink)}
+  .bb span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bbcenter{flex:none;width:62px;height:62px;margin:-30px 8px 0;border-radius:50%;border:4px solid var(--bg);
+    background:linear-gradient(140deg,#6366f1,#4f46e5);color:#fff;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 8px 22px -8px rgba(79,70,229,.75);transition:transform .16s}
+  .bbcenter svg{width:27px;height:27px}
+  .bbcenter:active{transform:scale(.94)}
+  .bbcenter.active{background:linear-gradient(140deg,#818cf8,#4f46e5)}
+
+  @media(max-width:1023px){
+    .sidebar{transform:translateX(-105%);box-shadow:0 0 40px rgba(0,0,0,.25)}
+    .sidebar.open{transform:none}
+    main{margin-left:0}
+    .iconbtn{display:flex}
+  }
+  @media(max-width:820px){
+    .bottombar{display:flex}
+    main{padding-bottom:120px}
+  }
+  html.in-frame .sidebar{position:absolute}
+
+  /* ---------- holdings, Robinhood-style ---------- */
+  .hrow{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
+  .hrow:hover{background:var(--raise)}
+  .hrow.open{background:var(--raise)}
+  .htick{font-size:16.5px;font-weight:680;letter-spacing:-.01em}
+  .hsub{font-size:13px;color:var(--muted);margin-top:2px}
+  .hmain{flex:1;min-width:0}
+  .hspark{width:120px;height:38px;flex:none}
+  .hbadge{flex:none;min-width:96px;text-align:center;padding:9px 12px;border-radius:9px;font-size:15.5px;font-weight:670;font-variant-numeric:tabular-nums}
+  .hbadge.up{background:var(--pos);color:#06210f}
+  .hbadge.down{background:var(--neg);color:#2b0806}
+  .hbadge.flat{background:var(--raise2);color:var(--ink2)}
+  .hdetail{padding:4px 16px 18px;border-bottom:1px solid var(--line);background:var(--raise)}
+  .hstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px;margin:10px 0 16px}
+  .hstat .k{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:640}
+  .hstat .v{font-size:17px;font-weight:670;margin-top:3px;font-variant-numeric:tabular-nums}
+  @media(max-width:820px){ .hspark{width:78px;height:34px} .hbadge{min-width:84px;font-size:14.5px;padding:8px 10px} .hrow{padding:13px 12px;gap:10px} }
 </style>
 </head>
 <body>
@@ -270,22 +335,19 @@
   </div>
 </div>
 <div id="toast"></div>
+<div id="scrim"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sbbrand"><span class="dot"></span> Freedom Engine</div>
+  <nav id="sbnav"></nav>
+  <div class="sbfoot" id="sbfoot"></div>
+</aside>
 <header class="topbar">
   <div class="topinner">
-    <div class="brand"><span class="dot"></span> Freedom Engine</div>
-    <nav class="tabs" id="tabs">
-      <button data-view="dash" class="active"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span>Home</span></button>
-      <button data-view="accounts"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="2.5"/><path d="M2 10.5h20"/><path d="M6 15h4"/></svg><span>Accounts</span></button>
-      <button data-view="income"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V4"/><path d="M5 11l7-7 7 7"/></svg><span>Income</span></button>
-      <button data-view="expenses"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16"/><path d="M19 13l-7 7-7-7"/></svg><span>Spending</span></button>
-      <button data-view="budget"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12V3.5"/><path d="M12 12l6.5 5.5"/></svg><span>Budget</span></button>
-      <button data-view="goals"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></svg><span>Goals</span></button>
-      <button data-view="credit"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5.5-6 4 4L21 6"/><path d="M15 6h6v6"/></svg><span>Debt</span></button>
-      <button data-view="invest"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4.5" height="9" rx="1.2"/><rect x="9.75" y="7" width="4.5" height="14" rx="1.2"/><rect x="16.5" y="3" width="4.5" height="18" rx="1.2"/></svg><span>Invest</span></button>
-      <button data-view="data"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg><span>Data</span></button>
-    </nav>
+    <button class="iconbtn" id="menuBtn" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="brand"><span class="dot"></span> <span id="viewTitle">Freedom Engine</span></div>
   </div>
 </header>
+<nav class="bottombar" id="bottombar"></nav>
 
 <main>
   <!-- DASHBOARD -->
@@ -505,7 +567,7 @@
     <div class="sectiontitle"><h2>Holdings</h2><span class="spacer"></span><button class="btn sm" id="refreshAllBtn">↻ Refresh prices</button><button class="btn sm" id="addHoldingBtn">+ Add holding</button></div>
     <div id="quoteStatus" class="muted" style="font-size:13.5px;margin-bottom:10px;min-height:20px"></div>
     <div class="card" id="holdingTable"></div>
-    <div class="note" style="margin-top:12px">Add a <b>ticker</b> and hit ↻ to pull the current price. Browsers block most free sources when this runs as a downloaded file, so for reliable quotes add a free API key under <b>Data → Market data</b> (about a minute; Alpha Vantage also returns dividend-per-share). Your browser calls the source directly — only the ticker symbol leaves your device.</div>
+    <div class="note" style="margin-top:12px">Add a <b>ticker</b> and hit ↻ to pull the current price. Browsers block most free sources when this runs as a downloaded file, so for reliable quotes add a free API key under <b>Settings → Market data</b> (about a minute; Alpha Vantage also returns dividend-per-share). Your browser calls the source directly — only the ticker symbol leaves your device.</div>
 
     <div class="sectiontitle"><h2>Dividends</h2><span class="hint">your future cash-flow machine</span></div>
     <div class="card pad">
@@ -522,7 +584,8 @@
 
   <!-- DATA -->
   <section class="view" id="view-data">
-    <h1 class="page">Your data</h1>
+    <h1 class="page">Settings</h1>
+    <p class="lead">Appearance, shortcuts, connections, categories and your data — all in one place.</p>
     <div class="card pad stack">
       <div class="note">Everything lives on your device / in a file <b>you</b> own — nothing is uploaded. <b>Save</b> writes a backup you can reopen with <b>Load</b>. That file is also how you sync your Mac and phone: keep it in iCloud/Dropbox and open it from both.</div>
       <div class="toolbar">
@@ -535,6 +598,12 @@
       </div>
       <div id="autosaveNote" class="muted" style="font-size:12.5px"></div>
     </div>
+    <div class="sectiontitle"><h2>Bottom bar shortcuts</h2><span class="hint">phone only</span></div>
+    <div class="card pad">
+      <p class="muted" style="font-size:14px;margin-top:0">Home sits in the middle and can't be moved. Pick what goes on either side of it — everything else stays in the menu.</p>
+      <div class="formgrid" id="slotPick"></div>
+    </div>
+
     <div class="sectiontitle"><h2>Appearance</h2></div>
     <div class="card pad between" style="flex-wrap:wrap;gap:12px">
       <div><div style="font-size:15px;font-weight:620">Theme</div><div class="muted" style="font-size:13.5px">Auto follows your phone or computer's setting.</div></div>
@@ -916,7 +985,8 @@ const MD_PROVIDERS={
   finnhub:{name:"Finnhub",signup:"https://finnhub.io/register",note:"free key · 60 calls/min · price only"},
   twelvedata:{name:"Twelve Data",signup:"https://twelvedata.com/pricing",note:"free key · 800 calls/day · price only"}
 };
-async function jget(url){ const r=await fetch(url,{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
+function viaRelay(url){ const r=(syncCfg.sfRelay||"").trim(); return r?r.replace(/\/+$/,"")+"/?url="+encodeURIComponent(url):url; }
+async function jget(url){ const r=await fetch(viaRelay(url),{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
 /* keyed providers send CORS headers, so these work even from a downloaded file */
 async function quoteFromKey(t){
   const key=(db.settings.mdKey||"").trim(); if(!key) return null;
@@ -948,7 +1018,7 @@ async function quoteKeyless(t){
     const p=j&&j.chart&&j.chart.result&&j.chart.result[0]&&j.chart.result[0].meta&&j.chart.result[0].meta.regularMarketPrice;
     if(p>0) return {price:p,source:"Yahoo"};
   }catch(e){}
-  try{ const r=await fetch(`https://stooq.com/q/l/?s=${encodeURIComponent(t.toLowerCase())}.us&f=sd2t2ohlcv&h&e=csv`,{cache:"no-store"});
+  try{ const r=await fetch(viaRelay(`https://stooq.com/q/l/?s=${encodeURIComponent(t.toLowerCase())}.us&f=sd2t2ohlcv&h&e=csv`),{cache:"no-store"});
     const lines=(await r.text()).trim().split("\n");
     if(lines.length>1){ const c=parseFloat(lines[1].split(",")[6]); if(c>0) return {price:c,source:"Stooq"}; }
   }catch(e){}
@@ -966,8 +1036,10 @@ async function fetchQuote(ticker){
   const keyed=await quoteFromKey(t); if(keyed) return keyed;      // throws its own clear errors
   const free=await quoteKeyless(t); if(free) return free;
   throw new Error((db.settings.mdKey||"").trim()
-    ? "no price returned"
-    : "your browser blocked the free sources — add a free API key in Data → Market data");
+    ? "no price returned for that symbol"
+    : ((syncCfg.sfRelay||"").trim()
+       ? "the free sources didn't answer — add a free API key under Settings → Market data"
+       : "your browser blocked the free sources — either add a free API key under Settings → Market data, or set a Relay URL under Bank connection and quotes will route through it too"));
 }
 async function fetchDividend(ticker){
   const key=(db.settings.mdKey||"").trim();
@@ -983,7 +1055,7 @@ async function refreshHolding(h,statusEl){
   if(!h.ticker){ if(statusEl)statusEl.textContent="Add a ticker first."; return false; }
   if(statusEl)statusEl.textContent=`Fetching ${h.ticker.toUpperCase()}…`;
   try{
-    const q=await fetchQuote(h.ticker); h.price=q.price; h.lastQuote=todayISO();
+    const q=await fetchQuote(h.ticker); h.price=q.price; h.lastQuote=todayISO(); recordPrice(h);
     const d=await fetchDividend(h.ticker); if(d){ h.divPerShare=d.divPerShare; h.divYield=d.divYield; }
     if(statusEl)statusEl.innerHTML=`✓ ${esc(h.ticker.toUpperCase())} @ ${fmt2(q.price)} <span class="muted">via ${q.source}${d?" · dividend data included":""}</span>`;
     return true;
@@ -1528,31 +1600,71 @@ function renderCredit(){
 }
 
 /* INVESTMENTS */
+let expHolding=null;
+function recordPrice(h){
+  const p=num(h.price); if(!p)return;
+  if(!Array.isArray(h.hist))h.hist=[];
+  const d=todayISO(), last=h.hist[h.hist.length-1];
+  if(last&&last.d===d) last.p=p; else h.hist.push({d,p});
+  if(h.hist.length>40)h.hist=h.hist.slice(-40);
+}
+function sparkFor(h,dir){
+  const pts=(h.hist||[]).map(x=>num(x.p)).filter(v=>v>0);
+  if(pts.length<2) return `<svg class="hspark" viewBox="0 0 120 38" preserveAspectRatio="none"><line x1="4" y1="19" x2="116" y2="19" stroke="${CH.grid}" stroke-width="2" stroke-dasharray="3 4"/></svg>`;
+  const lo=Math.min.apply(null,pts),hi=Math.max.apply(null,pts),sp=(hi-lo)||1;
+  const col=dir==="down"?cssVar("--neg","#e0463e"):dir==="up"?cssVar("--pos","#0ca35a"):cssVar("--muted","#9195a1");
+  const d=pts.map((v,i)=>`${i?"L":"M"}${(4+i/(pts.length-1)*112).toFixed(1)},${(33-((v-lo)/sp)*28).toFixed(1)}`).join(" ");
+  return `<svg class="hspark" viewBox="0 0 120 38" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
 function renderInvest(){
   const val=investTotal(),cost=investCost(),gain=val-cost;
   document.getElementById("investKpis").innerHTML=`
     <div class="card kpi"><div class="label">Portfolio value</div><div class="val invest" style="color:var(--invest)">${fmt(val)}</div><div class="sub">${db.holdings.length} holdings</div></div>
     <div class="card kpi"><div class="label">Total gain / loss</div><div class="val ${gain>=0?'pos':'neg'}">${gain>=0?'+':''}${fmt(gain)}</div><div class="sub">${cost?((gain/cost)*100).toFixed(1)+"% vs cost":"add cost basis"}</div></div>
     <div class="card kpi"><div class="label">Est. annual dividends</div><div class="val pos">${fmt(estAnnualDiv())}</div><div class="sub">${estAnnualDiv()>0?(val?((estAnnualDiv()/val)*100).toFixed(2)+"% forward yield":""):"add tickers to estimate"}</div></div>`;
-  document.getElementById("holdingTable").innerHTML=db.holdings.length?`<table><thead><tr><th>Holding</th><th>Ticker</th><th class="amt">Shares</th><th class="amt">Avg cost/sh</th><th class="amt">Price</th><th class="amt">Value</th><th class="amt">Gain/loss</th><th></th></tr></thead><tbody>${db.holdings.map(h=>{
-    const v=num(h.shares)*num(h.price), c=holdingCost(h), g=v-c;
-    return `<tr>
-    <td><input class="miniedit" style="width:140px;text-align:left" value="${esc(h.name)}" data-hname="${h.id}"></td>
-    <td><input class="miniedit" style="width:78px;text-align:left;text-transform:uppercase" value="${esc(h.ticker||"")}" placeholder="SCHD" data-htk="${h.id}"></td>
-    <td class="amt"><input class="miniedit" style="width:78px" value="${num(h.shares)}" data-hsh="${h.id}"></td>
-    <td class="amt"><input class="miniedit" style="width:86px" value="${num(h.avgCost)}" data-hac="${h.id}"></td>
-    <td class="amt"><input class="miniedit" style="width:86px" value="${num(h.price)}" data-hpr="${h.id}"></td>
-    <td class="amt"><b>${fmt(v)}</b><div class="muted" style="font-size:11.5px">cost ${fmt(c)}</div></td>
-    <td class="amt ${g>=0?'pos':'neg'}"><b>${g>=0?'+':''}${fmt(g)}</b><div class="muted" style="font-size:11.5px">${c>0?((g/c)*100).toFixed(1)+'%':'—'}</div></td>
-    <td class="flex" style="gap:4px"><button class="btn ghost sm" data-href="${h.id}" title="Fetch current price">↻</button><button class="btn ghost sm" data-hdel="${h.id}">✕</button></td></tr>`;}).join("")}</tbody></table>`:`<div class="empty">No holdings yet.</div>`;
-  document.querySelectorAll("[data-hname]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.target.dataset.hname);if(h){h.name=e.target.value;saveAll();}});
-  document.querySelectorAll("[data-htk]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.target.dataset.htk);if(h){h.ticker=e.target.value.trim().toUpperCase();saveAll();}});
-  document.querySelectorAll("[data-hsh]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.target.dataset.hsh);if(h){h.shares=num(e.target.value);saveAll();}});
-  document.querySelectorAll("[data-hpr]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.target.dataset.hpr);if(h){h.price=num(e.target.value);saveAll();}});
-  document.querySelectorAll("[data-hac]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.target.dataset.hac);if(h){h.avgCost=num(e.target.value);saveAll();}});
-  document.querySelectorAll("[data-href]").forEach(b=>b.onclick=async e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.href);
-    if(h&&await refreshHolding(h,document.getElementById("quoteStatus")))saveAll();});
-  document.querySelectorAll("[data-hdel]").forEach(b=>b.onclick=e=>{db.holdings=db.holdings.filter(x=>x.id!==e.currentTarget.dataset.hdel);saveAll();});
+  const box=document.getElementById("holdingTable");
+  box.innerHTML=db.holdings.length?db.holdings.map(h=>{
+    const val=num(h.shares)*num(h.price), cost=holdingCost(h), gain=val-cost;
+    const dir=cost>0?(gain>0?"up":gain<0?"down":"flat"):"flat";
+    const open=expHolding===h.id;
+    const shares=num(h.shares), sh=shares?(shares%1?String(parseFloat(shares.toFixed(6))):shares)+" share"+(shares===1?"":"s"):"no shares";
+    return `<div class="hrow${open?" open":""}" data-hexp="${h.id}">
+        <div class="hmain"><div class="htick">${esc(h.ticker||h.name||"—")}</div><div class="hsub">${esc(sh)}</div></div>
+        ${sparkFor(h,dir)}
+        <div class="hbadge ${dir}">${num(h.price)?fmt2(num(h.price)):"—"}</div>
+      </div>
+      ${open?`<div class="hdetail">
+        <div class="hstats">
+          <div class="hstat"><div class="k">Market value</div><div class="v">${fmt2(val)}</div></div>
+          <div class="hstat"><div class="k">Total cost</div><div class="v">${fmt2(cost)}</div></div>
+          <div class="hstat"><div class="k">Gain / loss</div><div class="v ${gain>=0?'pos':'neg'}">${gain>=0?"+":""}${fmt2(gain)}${cost>0?` <span class="muted" style="font-size:13px">(${((gain/cost)*100).toFixed(1)}%)</span>`:""}</div></div>
+          <div class="hstat"><div class="k">Est. dividends /yr</div><div class="v">${fmt2(num(h.divPerShare)*shares)}</div></div>
+        </div>
+        <div class="formgrid">
+          <div class="field"><label>Name</label><input value="${esc(h.name||"")}" data-hname="${h.id}"></div>
+          <div class="field"><label>Ticker</label><input value="${esc(h.ticker||"")}" placeholder="SCHD" style="text-transform:uppercase" data-htk="${h.id}"></div>
+          <div class="field"><label>Shares</label><input type="number" step="any" value="${shares}" data-hsh="${h.id}"></div>
+          <div class="field"><label>Avg cost / share</label><input type="number" step="any" value="${num(h.avgCost)}" data-hac="${h.id}"></div>
+          <div class="field"><label>Current price</label><input type="number" step="any" value="${num(h.price)}" data-hpr="${h.id}"></div>
+        </div>
+        <div class="toolbar" style="margin:14px 0 0">
+          <button class="btn sm" data-href="${h.id}">↻ Refresh price</button>
+          <span class="muted" style="font-size:13px">${h.lastQuote?"updated "+h.lastQuote:"never fetched"}</span>
+          <div class="spacer"></div>
+          <button class="btn sm danger" data-hdel="${h.id}">Remove</button>
+        </div>
+      </div>`:""}`;}).join(""):`<div class="empty">No holdings yet — add one to start tracking.</div>`;
+  box.querySelectorAll("[data-hexp]").forEach(r=>r.onclick=e=>{
+    if(e.target.closest("input,button,select"))return;
+    const id=r.dataset.hexp; expHolding=expHolding===id?null:id; renderInvest();});
+  box.querySelectorAll("[data-hname]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hname);if(h){h.name=e.currentTarget.value;saveAll();}});
+  box.querySelectorAll("[data-htk]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.htk);if(h){h.ticker=e.currentTarget.value.trim().toUpperCase();saveAll();}});
+  box.querySelectorAll("[data-hsh]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hsh);if(h){h.shares=num(e.currentTarget.value);saveAll();}});
+  box.querySelectorAll("[data-hpr]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hpr);if(h){h.price=num(e.currentTarget.value);recordPrice(h);saveAll();}});
+  box.querySelectorAll("[data-hac]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hac);if(h){h.avgCost=num(e.currentTarget.value);saveAll();}});
+  box.querySelectorAll("[data-href]").forEach(b=>b.onclick=async e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.href);
+    if(h&&await refreshHolding(h,document.getElementById("quoteStatus"))){recordPrice(h);saveAll();}});
+  box.querySelectorAll("[data-hdel]").forEach(b=>b.onclick=e=>{db.holdings=db.holdings.filter(x=>x.id!==e.currentTarget.dataset.hdel);expHolding=null;saveAll();});
   document.getElementById("divKpis").innerHTML=`
     <div class="card kpi"><div class="label">Received (12 mo)</div><div class="val pos">${fmt(divTrailing12())}</div><div class="sub">trailing 12 months</div></div>
     <div class="card kpi"><div class="label">All-time dividends</div><div class="val">${fmt(divTotal())}</div><div class="sub">${db.dividends.length} payments</div></div>
@@ -1774,12 +1886,63 @@ function renderRules(){
   document.getElementById("ruleCat").innerHTML=db.categories.map(c=>`<option>${c}</option>`).join("");
 }
 
-function renderAll(){ captureSnapshot(); syncTheme(); renderCats();renderDash();renderTrends();renderIncome();renderPaychecks();renderTx();renderBudget();renderGoals();renderForecast();renderHistoryList();renderCash();renderCredit();renderInvest();renderRules(); }
+
+/* ---------- navigation ---------- */
+const ICONS={
+ dash:'<path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/>',
+ accounts:'<rect x="2" y="6" width="20" height="13" rx="2.5"/><path d="M2 10.5h20M6 15h4"/>',
+ income:'<path d="M12 20V4M5 11l7-7 7 7"/>',
+ expenses:'<path d="M12 4v16M19 13l-7 7-7-7"/>',
+ budget:'<circle cx="12" cy="12" r="9"/><path d="M12 12V3.5M12 12l6.5 5.5"/>',
+ goals:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>',
+ credit:'<path d="M3 17l5.5-6 4 4L21 6"/><path d="M15 6h6v6"/>',
+ invest:'<rect x="3" y="12" width="4.5" height="9" rx="1.2"/><rect x="9.75" y="7" width="4.5" height="14" rx="1.2"/><rect x="16.5" y="3" width="4.5" height="18" rx="1.2"/>',
+ data:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8.9 19a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'
+};
+const VIEWS=[
+ {id:"dash",label:"Home"},{id:"accounts",label:"Accounts"},{id:"income",label:"Income"},
+ {id:"expenses",label:"Spending"},{id:"budget",label:"Budget"},{id:"goals",label:"Goals"},
+ {id:"credit",label:"Debt"},{id:"invest",label:"Invest"},{id:"data",label:"Settings"}
+];
+const viewLabel=id=>{const v=VIEWS.find(x=>x.id===id);return v?v.label:id;};
+const icon=id=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[id]||""}</svg>`;
+let currentView="dash";
+function navSlots(){
+  const d=(db.settings&&db.settings.navSlots)||["accounts","expenses","budget","invest"];
+  const out=d.slice(0,4); while(out.length<4)out.push("accounts"); return out;
+}
+function setView(id){
+  if(!VIEWS.some(v=>v.id===id))id="dash";
+  currentView=id;
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+id));
+  const t=document.getElementById("viewTitle"); if(t)t.textContent=id==="dash"?"Freedom Engine":viewLabel(id);
+  renderNav(); closeDrawer(); window.scrollTo(0,0);
+}
+function renderNav(){
+  const sb=document.getElementById("sbnav");
+  if(sb) sb.innerHTML=VIEWS.map(v=>`<button class="sblink${v.id===currentView?" active":""}" data-go="${v.id}">${icon(v.id)}<span>${esc(v.label)}</span></button>`).join("");
+  const bb=document.getElementById("bottombar");
+  if(bb){ const sl=navSlots();
+    bb.innerHTML=
+      `<button class="bb${sl[0]===currentView?" active":""}" data-go="${sl[0]}">${icon(sl[0])}<span>${esc(viewLabel(sl[0]))}</span></button>`+
+      `<button class="bb${sl[1]===currentView?" active":""}" data-go="${sl[1]}">${icon(sl[1])}<span>${esc(viewLabel(sl[1]))}</span></button>`+
+      `<button class="bbcenter${currentView==="dash"?" active":""}" data-go="dash" aria-label="Home">${icon("dash")}</button>`+
+      `<button class="bb${sl[2]===currentView?" active":""}" data-go="${sl[2]}">${icon(sl[2])}<span>${esc(viewLabel(sl[2]))}</span></button>`+
+      `<button class="bb${sl[3]===currentView?" active":""}" data-go="${sl[3]}">${icon(sl[3])}<span>${esc(viewLabel(sl[3]))}</span></button>`;
+  }
+  const f=document.getElementById("sbfoot");
+  if(f) f.innerHTML=`${fmt(totalCash())} on hand · ${fmt(totalDebt())} owed`;
+}
+function openDrawer(){ document.getElementById("sidebar").classList.add("open"); document.getElementById("scrim").classList.add("on"); }
+function closeDrawer(){ const sb=document.getElementById("sidebar"); if(sb)sb.classList.remove("open"); const sc=document.getElementById("scrim"); if(sc)sc.classList.remove("on"); }
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-go]"); if(b){ setView(b.dataset.go); } });
+
+function renderAll(){ captureSnapshot(); renderNav(); renderSlotPicker(); syncTheme(); renderCats();renderDash();renderTrends();renderIncome();renderPaychecks();renderTx();renderBudget();renderGoals();renderForecast();renderHistoryList();renderCash();renderCredit();renderInvest();renderRules(); }
 
 /* ---------- events ---------- */
-document.getElementById("tabs").addEventListener("click",e=>{const b=e.target.closest("button[data-view]");if(!b)return;
-  document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("active",x===b));
-  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+b.dataset.view));});
+document.getElementById("menuBtn").addEventListener("click",openDrawer);
+document.getElementById("scrim").addEventListener("click",closeDrawer);
+document.addEventListener("keydown",e=>{ if(e.key==="Escape")closeDrawer(); });
 document.getElementById("monthSel").addEventListener("change",e=>{curMonth=e.target.value;renderDash();});
 document.getElementById("budgetMonthSel").addEventListener("change",e=>{budgetMonth=e.target.value;renderBudget();});
 document.getElementById("csvFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>handleCSV(r.result);r.readAsText(f);e.target.value="";});
@@ -1824,7 +1987,7 @@ document.getElementById("refreshAllBtn").addEventListener("click",async e=>{
   const st=document.getElementById("quoteStatus"), list=db.holdings.filter(h=>h.ticker);
   if(!list.length){st.textContent="Add a ticker to at least one holding first.";return;}
   e.currentTarget.disabled=true; let ok=0;
-  for(const h of list){ if(await refreshHolding(h,st)) ok++; }
+  for(const h of list){ if(await refreshHolding(h,st)){ recordPrice(h); ok++; } }
   e.currentTarget.disabled=false;
   st.innerHTML=`Updated ${ok} of ${list.length} holding${list.length===1?"":"s"}.`+(ok<list.length?` <span class="muted">Any that failed can be typed in manually.</span>`:"");
   saveAll();});
@@ -2030,6 +2193,15 @@ async function doPull(force){
     persist(); renderAll(); renderSync();
     syncSay(`Pulled ✓ — now showing the copy saved ${stamp(theirs)}${incoming.device?" from your "+esc(incoming.device):""}.`,"pos");
   }catch(e){ syncSay("Couldn't pull — "+esc(e.message),"neg"); }
+}
+function renderSlotPicker(){
+  const el=document.getElementById("slotPick"); if(!el)return;
+  const sl=navSlots(), pos=["Far left","Left of Home","Right of Home","Far right"];
+  const opts=cur=>VIEWS.filter(v=>v.id!=="dash").map(v=>`<option value="${v.id}" ${v.id===cur?"selected":""}>${esc(v.label)}</option>`).join("");
+  el.innerHTML=sl.map((id,i)=>`<div class="field"><label>${pos[i]}</label><select data-slot="${i}">${opts(id)}</select></div>`).join("");
+  el.querySelectorAll("[data-slot]").forEach(sel=>sel.onchange=e=>{
+    const i=+e.currentTarget.dataset.slot, cur=navSlots().slice();
+    cur[i]=e.currentTarget.value; db.settings.navSlots=cur; saveAll(); });
 }
 function renderMarketSettings(){
   const sel=document.getElementById("mdProvider"); if(!sel)return;
@@ -2284,7 +2456,7 @@ try{ syncTheme(); }catch(e){}
 try{ envSetup(); }catch(e){}
 try{ renderAll(); }catch(e){
   const m=document.querySelector("main");
-  if(m) m.insertAdjacentHTML("afterbegin",`<div class="storagewarn"><b>Something went wrong drawing the page.</b> ${esc(e.message)}<br>Your saved data is intact — try reloading, or use Data → Load backup.</div>`);
+  if(m) m.insertAdjacentHTML("afterbegin",`<div class="storagewarn"><b>Something went wrong drawing the page.</b> ${esc(e.message)}<br>Your saved data is intact — try reloading, or use Settings → Load backup.</div>`);
 }
 try{ renderSync(); }catch(e){}
 try{ renderBank(); }catch(e){}
