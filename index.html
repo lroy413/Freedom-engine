@@ -399,6 +399,7 @@
   .filthead[aria-expanded="true"] .filtchev{transform:rotate(180deg)}
   .fcount{background:var(--accent);color:#fff;font-size:12px;font-weight:700;min-width:20px;height:20px;
     border-radius:20px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
+  .fcount[hidden]{display:none}
   html[data-theme="dark"] .fcount{color:#12131a}
   .filtbody{padding:2px 16px 16px;border-top:1px solid var(--line)}
   .filtbody[hidden]{display:none}
@@ -419,6 +420,14 @@
   .sumitem .k{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:660}
   .sumitem .v{font-size:20px;font-weight:730;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums}
   .tacct{font-size:11.5px;color:var(--muted);display:block;margin-top:1px}
+  .txdate,.txdesc,.txamt{border:1px solid transparent;background:transparent;color:inherit;font:inherit;
+    border-radius:8px;padding:5px 6px;margin:-5px -6px;min-height:0;width:100%;max-width:100%}
+  .txdate{font-variant-numeric:tabular-nums;max-width:148px}
+  .txamt{text-align:right;font-weight:inherit;max-width:120px}
+  .txamt.neg{color:var(--neg)} .txamt.pos{color:var(--pos)}
+  .txdate:hover,.txdesc:hover,.txamt:hover{border-color:var(--line2);background:var(--card)}
+  .txdate:focus,.txdesc:focus,.txamt:focus{border-color:var(--accent);background:var(--card);outline:none}
+  @media(max-width:820px){ .txdate{font-size:12px;max-width:none} .txdesc{font-size:15px;font-weight:600} }
   @media(max-width:820px){
     .filtrow{grid-template-columns:1fr 1fr;gap:10px}
     .sumrow2{gap:10px 18px} .sumitem .v{font-size:18px}
@@ -1073,6 +1082,11 @@ const num = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
 /* ---------- seed (Lawrence's numbers, all editable) ---------- */
 /* "Gas" is ambiguous — Auto & Gas is the car, Gas (Utility) is the one that heats the place. */
 const DEFAULT_RULES=[
+      /* first match wins, so money moving between your own accounts is caught
+         before "payment" or "deposit" can file it as spending or income */
+      {m:"transfer",c:"Transfer"},{m:"xfer",c:"Transfer"},{m:"to savings",c:"Transfer"},
+      {m:"from savings",c:"Transfer"},{m:"to checking",c:"Transfer"},{m:"from checking",c:"Transfer"},
+      {m:"internal tra",c:"Transfer"},{m:"acct to acct",c:"Transfer"},{m:"online banking transfer",c:"Transfer"},
       {m:"netflix",c:"Subscriptions"},{m:"spotify",c:"Subscriptions"},{m:"hulu",c:"Subscriptions"},{m:"disney",c:"Subscriptions"},{m:"hbo",c:"Subscriptions"},{m:"adobe",c:"Subscriptions"},{m:"apple.com/bill",c:"Subscriptions"},
       {m:"geico",c:"Insurance"},{m:"progressive",c:"Insurance"},{m:"state farm",c:"Insurance"},{m:"insurance",c:"Insurance"},
       {m:"t-mobile",c:"Phone"},{m:"at&t",c:"Phone"},{m:"verizon",c:"Phone"},{m:"mint mobile",c:"Phone"},
@@ -1093,7 +1107,7 @@ const DEFAULT_RULES=[
     ];
 const DEFAULT_CATS=["Income","Rent/Mortgage","Electric","Gas (Utility)","Water","Trash","Internet","Phone",
   "Car Payment","Auto & Gas","Insurance","Subscriptions","Food","Household","Shopping","Health","Entertainment",
-  "Debt Payment","Savings","Fees","Misc","Uncategorized"];
+  "Debt Payment","Savings","Transfer","Fees","Misc","Uncategorized"];
 function seedAccounts(){
   const bank=uid();
   return [
@@ -1593,8 +1607,13 @@ const totalDebt=()=>db.debts.reduce((s,d)=>s+num(d.balance),0);
 const totalAssets=()=>totalCash()+investTotal();
 const netWorth=()=>totalAssets()-totalDebt()-unlinkedCardDebt();
 function monthsWithData(){ const s=new Set(db.transactions.map(t=>monthKey(t.date))); s.add(monthKey(todayISO())); return [...s].sort().reverse(); }
-function monthTotals(mk){ let inc=0,exp=0; for(const t of db.transactions){ if(monthKey(t.date)!==mk)continue; if(t.amount>0)inc+=t.amount; else exp+=-t.amount; } return {inc,exp,surplus:inc-exp}; }
-function avgMonthlyBurn(){ const bm={}; for(const t of db.transactions){ if(t.amount<0){const k=monthKey(t.date);bm[k]=(bm[k]||0)+(-t.amount);} }
+/* Money you move between your own accounts isn't income and isn't spending —
+   it's the same dollars in a different pocket. Anything filed under Transfer is
+   left out of every income, spending, budget and burn figure. */
+const NEUTRAL_CATS=["Transfer"];
+const isNeutral=t=>NEUTRAL_CATS.includes(t&&t.category);
+function monthTotals(mk){ let inc=0,exp=0; for(const t of db.transactions){ if(monthKey(t.date)!==mk||isNeutral(t))continue; if(t.amount>0)inc+=t.amount; else exp+=-t.amount; } return {inc,exp,surplus:inc-exp}; }
+function avgMonthlyBurn(){ const bm={}; for(const t of db.transactions){ if(t.amount<0&&!isNeutral(t)){const k=monthKey(t.date);bm[k]=(bm[k]||0)+(-t.amount);} }
   const ms=Object.keys(bm).sort().reverse().slice(0,3); if(!ms.length)return null; return ms.reduce((s,m)=>s+bm[m],0)/ms.length; }
 function effectiveBurn(){ if(db.settings.burnOverride!=null&&db.settings.burnOverride!=="")return +db.settings.burnOverride;
   const a=avgMonthlyBurn(); if(a!=null)return Math.round(a);
@@ -1673,7 +1692,7 @@ function yearIncome(){
   const pcs=db.paychecks.filter(p=>p.date>=jan1&&p.date<=today);
   const pcGross=pcs.reduce((s,p)=>s+num(p.gross),0);
   const pcNetTax=pcs.reduce((s,p)=>s+netOf(byName(p.source),num(p.gross)),0);
-  const txInc=db.transactions.filter(t=>t.amount>0&&!t.billRef&&t.date>=jan1&&t.date<=today).reduce((s,t)=>s+t.amount,0);
+  const txInc=db.transactions.filter(t=>t.amount>0&&!t.billRef&&!isNeutral(t)&&t.date>=jan1&&t.date<=today).reduce((s,t)=>s+t.amount,0);
   const logged=pcGross+txInc, loggedNet=pcNetTax+afterTax(txInc);
   // what your streams should have paid out already this year (Jan 1 → today)
   const estEarned=db.income.reduce((s,x)=>s+scheduledPay(x,jan1,today),0);
@@ -1717,7 +1736,7 @@ function divTrailing12(){ const cut=new Date(todayISO()); cut.setFullYear(cut.ge
 const divTotal=()=>db.dividends.reduce((s,d)=>s+num(d.amount),0);
 
 /* ---------- render pieces ---------- */
-const catColor={Income:"#0ca35a","Rent/Mortgage":"#7c3aed",Electric:"#eab308","Gas (Utility)":"#f97316",Water:"#0891b2",Trash:"#78716c",Internet:"#2563eb",Phone:"#db2777","Car Payment":"#d97706","Auto & Gas":"#ea580c",Insurance:"#0e9c98",Subscriptions:"#4f46e5",Food:"#15a34a",Household:"#8b5cf6",Shopping:"#0d9488",Health:"#e11d48",Entertainment:"#a855f7","Debt Payment":"#dc2626",Savings:"#059669",Fees:"#64748b",Misc:"#64748b",Uncategorized:"#94a3b8",Rent:"#7c3aed","Transport/Gas":"#ea580c"};
+const catColor={Income:"#0ca35a","Rent/Mortgage":"#7c3aed",Electric:"#eab308","Gas (Utility)":"#f97316",Water:"#0891b2",Trash:"#78716c",Internet:"#2563eb",Phone:"#db2777","Car Payment":"#d97706","Auto & Gas":"#ea580c",Insurance:"#0e9c98",Subscriptions:"#4f46e5",Food:"#15a34a",Household:"#8b5cf6",Shopping:"#0d9488",Health:"#e11d48",Entertainment:"#a855f7","Debt Payment":"#dc2626",Savings:"#059669",Transfer:"#6b7280",Fees:"#64748b",Misc:"#64748b",Uncategorized:"#94a3b8",Rent:"#7c3aed","Transport/Gas":"#ea580c"};
 function runwayMonths(){ const b=effectiveBurn(); return b>0?totalCash()/b:0; }
 function runwayText(){ const m=runwayMonths(); if(!isFinite(m)||m<=0)return "0 mo"; return m>=1?m.toFixed(1).replace(".0","")+" mo":(m*30).toFixed(0)+" days"; }
 
@@ -1825,13 +1844,13 @@ function renderDash(){
   document.getElementById("monthSel").innerHTML=months.map(m=>`<option value="${m}" ${m===curMonth?"selected":""}>${prettyMonth(m)}</option>`).join("");
   const mt=monthTotals(curMonth), g=db.goal, cash=totalCash();
   document.getElementById("dashMonthLabel").textContent="Showing "+prettyMonth(curMonth);
-  const spendCats={}; for(const t of db.transactions){ if(monthKey(t.date)===curMonth&&t.amount<0)spendCats[t.category]=(spendCats[t.category]||0)+(-t.amount); }
+  const spendCats={}; for(const t of db.transactions){ if(monthKey(t.date)===curMonth&&t.amount<0&&!isNeutral(t))spendCats[t.category]=(spendCats[t.category]||0)+(-t.amount); }
   const entriesCount=Object.keys(spendCats).length;
   const C={pos:cssVar("--pos","#0ca35a"),neg:cssVar("--neg","#e0463e"),acc:cssVar("--accent","#4f46e5"),goal:cssVar("--goal","#0ea5a0"),warn:cssVar("--warn","#e5900f"),inv:cssVar("--invest","#7c5cf0")};
   // The hero already carries net worth / on hand / owed / runway, so these cards
   // cover this month's activity and the things you can act on instead of repeating it.
   const pcNet=db.paychecks.filter(p=>monthKey(p.date)===curMonth).reduce((a,p)=>a+num(p.net),0);
-  const gotIn=pcNet+db.transactions.filter(t=>monthKey(t.date)===curMonth&&t.amount>0&&!t.billRef).reduce((a,t)=>a+t.amount,0);
+  const gotIn=pcNet+db.transactions.filter(t=>monthKey(t.date)===curMonth&&t.amount>0&&!t.billRef&&!isNeutral(t)).reduce((a,t)=>a+t.amount,0);
   const prev=(()=>{const [y,m]=curMonth.split("-").map(Number);const d=new Date(y,m-1,1);d.setMonth(d.getMonth()-1);return d.toISOString().slice(0,7);})();
   const prevSpend=monthTotals(prev).exp;
   const dayOfMonth=curMonth===monthKey(todayISO())?new Date().getDate():31;
@@ -1859,7 +1878,7 @@ function renderDash(){
      sub:goalPct!=null?`${fmt(cash)} of ${fmt(num(g.target))}`:"set a target in Goals"}
   ];
   document.getElementById("kpiRow").innerHTML=kpis.map(k=>`<div class="card kpi tappable" data-go="${k.go}" style="--kpic:${k.c}"><div class="kpitop">${kpiIcon(k.icon,k.c)}<div class="label">${k.label}</div></div><div class="val ${k.cls}">${k.val}</div><div class="sub">${k.sub}</div></div>`).join("");
-  const cats={}; for(const t of db.transactions){ if(monthKey(t.date)===curMonth&&t.amount<0)cats[t.category]=(cats[t.category]||0)+(-t.amount); }
+  const cats={}; for(const t of db.transactions){ if(monthKey(t.date)===curMonth&&t.amount<0&&!isNeutral(t))cats[t.category]=(cats[t.category]||0)+(-t.amount); }
   const entries=Object.entries(cats).sort((a,b)=>b[1]-a[1]); const max=entries.length?entries[0][1]:1;
   document.getElementById("spendHint").textContent=entries.length?`${fmt(mt.exp)} across ${entries.length} categories`:"";
   document.getElementById("spendByCat").innerHTML=entries.length?
@@ -2151,8 +2170,10 @@ function renderTx(){
   renderTxFilters();
   const list=filteredTx();
   const catOpts=c=>db.categories.map(x=>`<option ${x===c?"selected":""}>${x}</option>`).join("");
-  const out=list.filter(t=>t.amount<0).reduce((s,t)=>s+(-t.amount),0);
-  const inc=list.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
+  const out=list.filter(t=>t.amount<0&&!isNeutral(t)).reduce((s,t)=>s+(-t.amount),0);
+  const inc=list.filter(t=>t.amount>0&&!isNeutral(t)).reduce((s,t)=>s+t.amount,0);
+  const xfers=list.filter(isNeutral);
+  const xferAmt=xfers.reduce((s,t)=>s+Math.abs(num(t.amount)),0);
   const anyFilter=list.length!==db.transactions.length;
   const showing=document.getElementById("filtShowing");
   if(showing)showing.textContent=db.transactions.length?
@@ -2163,13 +2184,14 @@ function renderTx(){
       <div class="sumitem"><div class="k">Money out</div><div class="v neg">${fmt2(out)}</div></div>
       <div class="sumitem"><div class="k">Money in</div><div class="v pos">${fmt2(inc)}</div></div>
       <div class="sumitem"><div class="k">Net</div><div class="v ${inc-out>=0?"pos":""}">${inc-out>=0?"+":""}${fmt2(inc-out)}</div></div>
-      ${list.length?`<div class="sumitem"><div class="k">Average</div><div class="v">${fmt2((out+inc)/list.length)}</div></div>`:""}
+      ${xfers.length?`<div class="sumitem"><div class="k">Transfers</div><div class="v muted" title="Moved between your own accounts — not counted as income or spending">${fmt2(xferAmt)}</div></div>`:""}
+      ${list.length-xfers.length>0?`<div class="sumitem"><div class="k">Average</div><div class="v">${fmt2((out+inc)/(list.length-xfers.length))}</div></div>`:""}
       <div class="spacer"></div>
       ${anyFilter?`<div class="muted" style="font-size:12.5px;align-self:center">of ${db.transactions.length} total</div>`:""}
     </div>`:"";
   document.getElementById("txTable").innerHTML=list.length?`<table class="stacktbl tx5"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="amt">Amount</th><th></th></tr></thead><tbody>${list.map(t=>{
     const an=acctName(t.acctId);
-    return `<tr><td>${t.date}${an?`<span class="tacct">${esc(an)}</span>`:""}</td><td>${esc(t.desc)}</td><td><select class="catsel" data-id="${t.id}">${catOpts(t.category)}</select></td><td class="amt ${t.amount<0?'neg':'pos'}">${t.amount<0?'':'+'}${fmt2(t.amount)}</td><td><button class="btn ghost sm" data-del="${t.id}">✕</button></td></tr>`;}).join("")}</tbody></table>`
+    return `<tr><td><input type="date" class="txdate" value="${esc(t.date)}" data-txdate="${t.id}" title="Change the date">${an?`<span class="tacct">${esc(an)}</span>`:""}</td><td><input class="txdesc" value="${esc(t.desc)}" data-txdesc="${t.id}"></td><td><select class="catsel" data-id="${t.id}">${catOpts(t.category)}</select></td><td class="amt ${t.amount<0?'neg':'pos'}"><input type="number" step="0.01" class="txamt ${t.amount<0?'neg':'pos'}" value="${num(t.amount).toFixed(2)}" data-txamt="${t.id}"></td><td><button class="btn ghost sm" data-del="${t.id}">✕</button></td></tr>`;}).join("")}</tbody></table>`
     :`<div class="empty">${db.transactions.length?"Nothing matches those filters — clear one above.":"No transactions yet."}</div>`;
   document.querySelectorAll(".catsel[data-id]").forEach(s=>s.onchange=e=>{const t=db.transactions.find(x=>x.id===e.target.dataset.id);if(!t)return;const cat=e.target.value;t.category=cat;
     const kw=merchantKey(t.desc); const ln=document.getElementById("learnNote");
@@ -2178,6 +2200,16 @@ function renderTx(){
       const u=document.getElementById("undoLearn"); if(u)u.onclick=ev=>{ev.preventDefault();db.rules=db.rules.filter(r=>!(r.m===kw&&r.c===cat));if(ln)ln.innerHTML="";persist();};
     } else if(ln){ln.innerHTML="";}
     persist();renderDash();renderBudget();});
+  document.querySelectorAll("[data-txdate]").forEach(i=>i.onchange=e=>{const t=db.transactions.find(x=>x.id===e.target.dataset.txdate);
+    if(!t)return; const v=e.target.value; if(!v)return; t.date=v;
+    /* a bill checked off carries the month it was paid in its reference, so move
+       that too or the tick mark stays on the wrong month */
+    if(t.billRef){ const p=t.billRef.split("|"); t.billRef=p[0]+"|"+monthKey(v); }
+    saveAll();});
+  document.querySelectorAll("[data-txdesc]").forEach(i=>i.onchange=e=>{const t=db.transactions.find(x=>x.id===e.target.dataset.txdesc);
+    if(t){t.desc=e.target.value;saveAll();}});
+  document.querySelectorAll("[data-txamt]").forEach(i=>i.onchange=e=>{const t=db.transactions.find(x=>x.id===e.target.dataset.txamt);
+    if(t){t.amount=num(e.target.value);saveAll();}});
   document.querySelectorAll("[data-del]").forEach(b=>b.onclick=e=>{db.transactions=db.transactions.filter(x=>x.id!==e.target.dataset.del);saveAll();});
 }
 function merchantKey(desc){ const c=(desc||"").toLowerCase().replace(/[^a-z ]+/g," ").replace(/\s+/g," ").trim();
@@ -2194,7 +2226,7 @@ function budgetedFor(cat,m){
   return num(db.budgets[cat]);
 }
 function spentFor(cat,m){
-  let t=0; for(const x of db.transactions){ if(x.amount<0&&x.category===cat&&monthKey(x.date)===m) t+=-x.amount; }
+  let t=0; for(const x of db.transactions){ if(x.amount<0&&!isNeutral(x)&&x.category===cat&&monthKey(x.date)===m) t+=-x.amount; }
   return t;
 }
 function budgetStartMonth(){
@@ -2230,14 +2262,18 @@ function billRefKey(bill,mk){ return bill.id+"|"+mk; }
 function billPaid(bill,mk){ return db.transactions.some(t=>t.billRef===billRefKey(bill,mk)); }
 function setBillPaid(bill,mk,paid){
   const ref=billRefKey(bill,mk);
-  if(paid){ if(!billPaid(bill,mk)){ const date=(mk===monthKey(todayISO()))?todayISO():mk+"-01"; db.transactions.push({id:uid(),date,desc:bill.name,amount:-num(bill.amount),category:bill.category,billRef:ref}); db.transactions.sort((a,b)=>b.date.localeCompare(a.date)); } }
+  if(paid){ if(!billPaid(bill,mk)){
+      /* Dating it "today" is wrong for a bill you actually paid on the 1st. Use the
+         due date for that month, unless that date hasn't arrived yet. */
+      const due=billDue(bill,mk), t=todayISO();
+      const date=(mk===monthKey(t))?(due<=t?due:t):due; db.transactions.push({id:uid(),date,desc:bill.name,amount:-num(bill.amount),category:bill.category,billRef:ref}); db.transactions.sort((a,b)=>b.date.localeCompare(a.date)); } }
   else { db.transactions=db.transactions.filter(t=>t.billRef!==ref); }
 }
 function renderBudget(){
   const months=monthsWithData(); if(!budgetMonth||!months.includes(budgetMonth))budgetMonth=months[0];
   const mk=budgetMonth;
   document.getElementById("budgetMonthSel").innerHTML=months.map(m=>`<option value="${m}" ${m===mk?"selected":""}>${prettyMonth(m)}</option>`).join("");
-  const spent={}; for(const t of db.transactions){ if(monthKey(t.date)===mk&&t.amount<0)spent[t.category]=(spent[t.category]||0)+(-t.amount); }
+  const spent={}; for(const t of db.transactions){ if(monthKey(t.date)===mk&&t.amount<0&&!isNeutral(t))spent[t.category]=(spent[t.category]||0)+(-t.amount); }
   // bills
   const billsTotal=db.recurring.reduce((s,b)=>s+num(b.amount),0);
   const paidBills=db.recurring.filter(b=>billPaid(b,mk));
@@ -2249,7 +2285,7 @@ function renderBudget(){
   const flexAvail=budCats.reduce((s,c)=>s+availableFor(c,mk),0);
   // income (actual received if any, else estimated)
   const pcNet=db.paychecks.filter(p=>monthKey(p.date)===mk).reduce((s,p)=>s+num(p.net),0);
-  const txInc=db.transactions.filter(t=>monthKey(t.date)===mk&&t.amount>0).reduce((s,t)=>s+t.amount,0);
+  const txInc=db.transactions.filter(t=>monthKey(t.date)===mk&&t.amount>0&&!isNeutral(t)).reduce((s,t)=>s+t.amount,0);
   const actualIncome=pcNet+txInc, estIncome=monthlyIncomeNet();
   const income=actualIncome>0?actualIncome:estIncome;
   const free=income-billsTotal-flexLimit;
@@ -2875,7 +2911,7 @@ function renderCats(){
   renderSetRoot();
   if(!paneOpen("cats"))return;
   const el=document.getElementById("catList");
-  el.innerHTML=`<table><tbody>${db.categories.map(c=>{const u=catUsage(c),lock=c==="Uncategorized"||c==="Income";
+  el.innerHTML=`<table><tbody>${db.categories.map(c=>{const u=catUsage(c),lock=c==="Uncategorized"||c==="Income"||c==="Transfer";
     return `<tr><td><span class="catpill" style="border-left-color:${catColor[c]||'#94a3b8'}">${esc(c)}</span></td>
       <td class="muted" style="font-size:13px">${lock?"built in":u?`used ${u}×`:"unused"}</td>
       <td class="amt">${lock||u?"":`<button class="btn ghost sm" data-catdel="${esc(c)}">✕</button>`}</td></tr>`;}).join("")}</tbody></table>`;
@@ -3417,7 +3453,7 @@ function monthsRange(n){
 }
 function monthIO(m){
   let inc=0,sp=0;
-  for(const t of db.transactions){ if(monthKey(t.date)!==m)continue; if(t.amount>0)inc+=t.amount; else sp+=-t.amount; }
+  for(const t of db.transactions){ if(monthKey(t.date)!==m||isNeutral(t))continue; if(t.amount>0)inc+=t.amount; else sp+=-t.amount; }
   const pc=db.paychecks.filter(p=>monthKey(p.date)===m).reduce((s,p)=>s+num(p.net),0);
   return {income:Math.max(inc,pc),spend:sp};
 }
