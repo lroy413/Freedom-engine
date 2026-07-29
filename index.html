@@ -82,6 +82,15 @@
   .val.pos{color:var(--pos)} .val.neg{color:var(--neg)}
 
   h1.page{font-size:26px;margin-bottom:6px;font-weight:730}
+  .titlerow{display:flex;align-items:center;gap:9px;min-width:0}
+  .titlerow h1.page{margin-bottom:0}
+  .infobtn{width:21px;height:21px;flex:none;border:1.5px solid var(--line2);background:transparent;color:var(--muted);
+    border-radius:50%;font:italic 700 12px/1 Georgia,"Times New Roman",serif;display:flex;align-items:center;
+    justify-content:center;padding:0;cursor:pointer;transition:background .14s,color .14s,border-color .14s;align-self:center}
+  .infobtn:hover{background:var(--raise);color:var(--ink);border-color:var(--muted)}
+  .infobtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  html[data-theme="dark"] .infobtn.on{color:#12131a}
+  p.lead[hidden]{display:none}
   p.lead{color:var(--ink2);font-size:15.5px;margin-top:0;max-width:70ch}
   .sectiontitle{display:flex;align-items:center;gap:10px;margin:32px 0 14px;flex-wrap:wrap}
   .sectiontitle h2{font-size:17.5px;font-weight:690}
@@ -125,6 +134,8 @@
   .stack{display:flex;flex-direction:column;gap:12px}
   .tag{font-size:11.5px;font-weight:690;padding:3px 10px;border-radius:20px;letter-spacing:.02em}
   .tag.ok{background:#e4f6ec;color:#0a9150} .tag.warn{background:#fcf0dd;color:#c07a10} .tag.bad{background:#fbe6e4;color:var(--neg)}
+  .tag.notax{background:var(--raise);color:var(--muted);border:1px solid var(--line2)}
+  @media(max-width:820px){ .between>.flex{flex-wrap:wrap;min-width:0} .iname{width:auto!important;flex:1 1 90px;min-width:0} }
   .empty{padding:36px;text-align:center;color:var(--muted);font-size:15px}
   .note{font-size:14px;color:var(--ink2);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:13px 15px}
   .thermo{height:200px;width:46px;border-radius:24px;background:var(--track);position:relative;overflow:hidden;flex:none}
@@ -163,7 +174,7 @@
   .ameta{font-size:13px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .abal{font-size:17.5px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;flex:none;letter-spacing:-.02em}
   .abal.owed{color:var(--neg)}
-  .abal.roll{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+  .abal.roll,.abal.owed{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
   .abal em{font-style:normal;font-size:10.5px;font-weight:660;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:2px}
   .aedit{width:32px;height:32px;flex:none;border:0;background:transparent;color:var(--muted);border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0}
   .aedit svg{width:19px;height:19px}
@@ -208,7 +219,9 @@
 
   @media(max-width:820px){
     /* backdrop-filter on an ancestor traps position:fixed children — drop it so the bottom nav anchors to the viewport */
-    header.topbar{backdrop-filter:none;background:var(--barbg2)}
+    /* no blur here (it would trap position:fixed children), so the bar must be
+       fully opaque or page content ghosts through it as you scroll */
+    header.topbar{backdrop-filter:none;background:var(--card)}
     .topinner{padding:12px 16px}
     main{max-width:100%;padding:20px 16px 108px}
     nav.tabs{position:fixed;bottom:0;left:0;right:0;margin:0;z-index:40;background:var(--barbg2);backdrop-filter:saturate(180%) blur(14px);border-top:1px solid var(--line2);padding:7px 8px calc(7px + env(safe-area-inset-bottom));gap:2px;justify-content:flex-start;box-shadow:0 -2px 16px -6px rgba(20,22,31,.12)}
@@ -220,7 +233,9 @@
     .kpi .val{font-size:25px}
     .kpi .label{font-size:11px}
     .kpi .sub{font-size:12.5px}
-    h1.page{font-size:23px}
+    h1.page{font-size:23px;margin-bottom:4px}
+    p.lead{font-size:14.5px;line-height:1.45;margin-bottom:14px}
+    .toolbar>input[type=text],.toolbar>input:not([type]){flex:1 1 100%}
     .hero{padding:22px 20px;border-radius:18px}
     .hero .hval{font-size:40px}
     .formgrid{grid-template-columns:1fr;gap:13px}
@@ -242,6 +257,13 @@
     .arow.sub::before,.arow.sub::after{left:20px}
     .aname{font-size:15px}
     .abal{font-size:16.5px}
+    /* the red minus already says it's owed — the word just steals name width */
+    .abal.owed em{display:none}
+    /* tapping the row opens its editor, so the ⋯ is dead weight on a phone */
+    .arow{cursor:pointer}
+    .arow>.aedit{display:none}
+    .twist.ghosted{display:none}
+    .glyph{width:32px;height:32px;font-size:12px}
     .aedit-panel{padding:15px 13px}
     .aedit-panel.sub{padding-left:34px}
   }
@@ -303,13 +325,16 @@
   @media(max-width:1023px){
     .sidebar{transform:translateX(-105%);box-shadow:0 0 40px rgba(0,0,0,.25)}
     .sidebar.open{transform:none}
-    main{margin-left:0}
+    /* the desktop rule sets 40px side padding for the sidebar layout; on a phone
+       that ate a fifth of the screen, so reset it along with the margin */
+    main{margin-left:0;padding:20px 16px 72px}
     .iconbtn{display:flex}
   }
   @media(max-width:820px){
     .bottombar{display:flex}
-    main{padding-bottom:120px}
+    main{padding:18px 14px 124px}
   }
+  @media(max-width:400px){ main{padding-left:12px;padding-right:12px} }
   /* The nav must not scroll away with the page. Fixed works in a normal window and
      inside a hosted iframe alike; it gets its own scrollbar in case the list grows. */
   html.in-frame .sidebar{position:fixed}
@@ -353,17 +378,73 @@
     .stacktbl td:nth-child(4){grid-area:amt;text-align:right;align-self:center;
       font-size:16px;font-weight:680;font-variant-numeric:tabular-nums}
     .tx5 td:nth-child(5){grid-area:del;text-align:right;margin-top:7px}
-    .bills6 tr{grid-template-columns:auto 1fr auto;grid-template-areas:"chk name amt" "chk due amt" "chk cat del"}
-    .bills6 td:nth-child(1){grid-area:chk;align-self:center}
-    .bills6 td:nth-child(2){grid-area:name;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .bills6 td:nth-child(3){grid-area:due;margin-top:5px}
-    .bills6 td:nth-child(4){grid-area:cat;margin-top:6px}
-    .bills6 td:nth-child(5){grid-area:amt;text-align:right;align-self:center;font-size:16px;font-weight:680;font-variant-numeric:tabular-nums}
-    .bills6 td:nth-child(6){grid-area:del;text-align:right;margin-top:6px;align-self:end}
+    .div5 tr{grid-template-columns:1fr auto;grid-template-areas:"name yr" "freq yr" "each next"}
+    .div5 td:nth-child(1){grid-area:name;font-size:15px}
+    .div5 td:nth-child(2){grid-area:freq;margin-top:5px}
+    .div5 td:nth-child(3){grid-area:each;margin-top:6px;text-align:left;font-size:13px;color:var(--muted)}
+    .div5 td:nth-child(3)::before{content:"each "}
+    .div5 td:nth-child(4){grid-area:yr;text-align:right;align-self:center;font-size:16px;font-weight:680}
+    .div5 td:nth-child(5){grid-area:next;margin-top:6px;text-align:right;font-size:13px}
     .stacktbl tr.sumrow{display:flex;justify-content:space-between;align-items:center;background:var(--raise)}
     .stacktbl tr.sumrow td{width:auto}
     .stacktbl tr.sumrow td:empty{display:none}
   }
+
+  /* ---------- transaction filters ---------- */
+  .filthead{display:flex;align-items:center;gap:9px;width:100%;padding:14px 16px;background:transparent;
+    border:0;color:var(--ink);font:inherit;font-size:15.5px;font-weight:640;cursor:pointer;text-align:left}
+  .filthead:hover{background:var(--raise)}
+  .filthead>svg:first-child{width:18px;height:18px;flex:none;color:var(--muted)}
+  .filtchev{width:17px;height:17px;flex:none;color:var(--muted);transition:transform .2s}
+  .filthead[aria-expanded="true"] .filtchev{transform:rotate(180deg)}
+  .fcount{background:var(--accent);color:#fff;font-size:12px;font-weight:700;min-width:20px;height:20px;
+    border-radius:20px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
+  html[data-theme="dark"] .fcount{color:#12131a}
+  .filtbody{padding:2px 16px 16px;border-top:1px solid var(--line)}
+  .filtbody[hidden]{display:none}
+  .filtbody .filtrow{margin-top:14px}
+  #txChips:not(:empty){padding:0 16px 14px}
+  .filtrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+  .filtrow .field select,.filtrow .field input{min-width:0;width:100%}
+  .chiprow{display:flex;flex-wrap:wrap;gap:8px}
+  .fchip{display:inline-flex;align-items:center;gap:7px;background:var(--accent-soft);color:var(--accent-ink);
+    border:0;border-radius:20px;padding:6px 10px 6px 12px;font-size:13px;font-weight:600}
+  .fchip b{font-weight:700}
+  .fchip .x{display:flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;
+    background:rgba(0,0,0,.10);font-size:11px;line-height:1}
+  .fchip:hover .x{background:rgba(0,0,0,.2)}
+  html[data-theme="dark"] .fchip .x,html[data-theme="bushido"] .fchip .x{background:rgba(255,255,255,.16)}
+  .fclear{background:transparent;border:0;color:var(--muted);font-size:13px;font-weight:600;padding:6px 4px;text-decoration:underline}
+  .sumrow2{display:flex;flex-wrap:wrap;gap:10px 26px;align-items:flex-end}
+  .sumitem .k{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:660}
+  .sumitem .v{font-size:20px;font-weight:730;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums}
+  .tacct{font-size:11.5px;color:var(--muted);display:block;margin-top:1px}
+  @media(max-width:820px){
+    .filtrow{grid-template-columns:1fr 1fr;gap:10px}
+    .sumrow2{gap:10px 18px} .sumitem .v{font-size:18px}
+  }
+
+  /* ---------- bill rows ---------- */
+  .brow{border-bottom:1px solid var(--line)}
+  .brow:last-child{border-bottom:0}
+  .brow.editing{background:var(--raise)}
+  .bmain{display:flex;align-items:center;gap:12px;padding:11px 15px;cursor:pointer}
+  .bmain:hover{background:var(--raise)}
+  .brow.sum .bmain{cursor:default;background:var(--raise)}
+  .binfo{flex:1;min-width:0}
+  .bname{font-size:15.5px;font-weight:620;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bmeta{font-size:12.5px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:5px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bdot{width:7px;height:7px;border-radius:50%;flex:none}
+  .bmeta .bneg{color:var(--neg);font-weight:620} .bmeta .bwarn{color:var(--warn);font-weight:620}
+  .bamt{font-size:16.5px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;flex:none}
+  .brow.paid .bamt{color:var(--muted);text-decoration:line-through}
+  .brow.paid .bname{color:var(--ink2)}
+  .chk.ghosted{opacity:0;pointer-events:none}
+  .bpanel{border-top:1px solid var(--line);padding:14px 15px 15px}
+  @media(max-width:820px){ .bmain{gap:10px;padding:11px 13px} .bname{font-size:15px} .bamt{font-size:16px} .bpanel{padding:13px}
+    /* the coloured dot already says which category it is — tapping the row edits it */
+    .bcat{display:none} .bmain>.aedit{display:none} }
 
   /* ---------- debt cards ---------- */
   .dcard{background:var(--card);border:1px solid var(--line);border-radius:15px;overflow:hidden;
@@ -601,9 +682,9 @@
     <h1 class="page">Accounts</h1>
     <p class="lead">Every place your money sits — banks, wallets, and cash in your pocket. This is your real picture.</p>
     <div id="onHandHero" style="margin:18px 0 22px"></div>
-    <div class="sectiontitle"><h2>Your accounts</h2><span class="hint">⋯ to edit</span><span class="spacer"></span>
-      <button class="btn sm" id="addInstBtn">+ Bank</button>
-      <button class="btn sm primary" id="addAcctBtn">+ Account</button></div>
+    <div class="sectiontitle"><h2>Your accounts</h2><span class="hint">tap one to edit</span><span class="spacer"></span>
+      <span class="flex" style="gap:8px"><button class="btn sm" id="addInstBtn">+ Bank</button>
+      <button class="btn sm primary" id="addAcctBtn">+ Account</button></span></div>
     <div class="card pad" id="addPanel" style="display:none;margin-bottom:12px"></div>
     <div class="card" id="acctList"></div>
   </section>
@@ -626,6 +707,7 @@
           <button class="seg" data-h="goal">Through goal date</button>
         </div>
         <label class="flex" style="font-size:13px;gap:6px;white-space:nowrap"><input type="checkbox" id="taxToggle"> Show after taxes <input id="taxRate" class="miniedit" style="width:52px;text-align:center"> %</label>
+        <div class="muted" id="taxExemptNote" style="font-size:12.5px;flex:1 1 100%;margin-top:2px"></div>
       </div>
       <div id="projBox"></div>
     </div>
@@ -649,7 +731,7 @@
         <button class="btn" id="addTxBtn">Add manually</button>
         <div class="spacer"></div>
         <input id="txSearch" class="btn" style="min-width:180px" placeholder="Search…">
-        <button class="btn ghost sm" id="clearTxBtn">Clear all</button>
+        <button class="btn danger sm" id="clearTxBtn">Delete all transactions</button>
       </div>
       <div id="mapPanel"></div>
       <div id="manualTxPanel" style="display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
@@ -663,6 +745,45 @@
       </div>
     </div>
     <div id="learnNote" style="margin-bottom:12px"></div>
+
+    <div class="card" style="margin-bottom:12px" id="txFilterCard">
+      <button class="filthead" id="filtToggle" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M7 12h10M10 19h4"/></svg>
+        <span>Filters</span><span class="fcount" id="filtCount" hidden>0</span>
+        <span class="spacer"></span>
+        <span class="muted" id="filtShowing" style="font-size:13px;font-weight:500"></span>
+        <svg class="filtchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div id="txChips" class="chiprow"></div>
+      <div class="filtbody" id="filtBody" hidden>
+      <div class="filtrow">
+        <div class="field"><label>Account</label><select id="f-acct"></select></div>
+        <div class="field"><label>Category</label><select id="f-cat"></select></div>
+        <div class="field"><label>When</label><select id="f-when">
+          <option value="all">All time</option>
+          <option value="30">Last 30 days</option>
+          <option value="tm">This month</option>
+          <option value="lm">Last month</option>
+          <option value="90">Last 3 months</option>
+          <option value="ytd">This year</option>
+        </select></div>
+        <div class="field"><label>Type</label><select id="f-dir">
+          <option value="all">Everything</option>
+          <option value="out">Money out</option>
+          <option value="in">Money in</option>
+        </select></div>
+        <div class="field"><label>Min $</label><input id="f-min" type="number" placeholder="any"></div>
+        <div class="field"><label>Max $</label><input id="f-max" type="number" placeholder="any"></div>
+        <div class="field"><label>Sort</label><select id="f-sort">
+          <option value="new">Newest first</option>
+          <option value="old">Oldest first</option>
+          <option value="big">Biggest amount</option>
+          <option value="small">Smallest amount</option>
+        </select></div>
+      </div>
+      </div>
+    </div>
+    <div id="txSummary" class="card pad" style="margin-bottom:10px"></div>
     <div class="card" id="txTable"></div>
   </section>
 
@@ -797,8 +918,11 @@
     <div class="card" id="holdingTable"></div>
     <div class="note" style="margin-top:12px">Add a <b>ticker</b> and hit refresh to pull the current price. Browsers block most free sources when this runs as a downloaded file, so for reliable quotes add a free API key under <b>Settings → Market data</b> (about a minute; Alpha Vantage also returns dividend-per-share). Your browser calls the source directly — only the ticker symbol leaves your device.</div>
 
-    <div class="sectiontitle"><h2>Projected dividend income</h2><span class="hint">pulled from your tickers</span></div>
+    <div class="sectiontitle"><h2>Projected dividend income</h2><span class="hint">amount and cadence per holding</span></div>
     <div class="card" id="divProjected" style="margin-bottom:8px"></div>
+
+    <div class="sectiontitle"><h2>Dividends coming up</h2><span class="hint">next 4 months</span></div>
+    <div class="card" id="divUpcoming" style="margin-bottom:8px"></div>
 
     <div class="sectiontitle"><h2>Dividends received</h2><span class="hint">what actually landed</span></div>
     <div class="card pad">
@@ -928,6 +1052,8 @@ const todayISO = () => new Date().toISOString().slice(0,10);
 /* "2026-08-05" is too wide for a stat tile and reads like a serial number. */
 const shortDate = iso => { if(!iso)return "—"; const [y,m,d]=iso.split("-").map(Number);
   return new Date(y,m-1,d).toLocaleDateString(undefined,{month:"short",day:"numeric"}); };
+const monthYear = iso => { if(!iso)return "—"; const [y,m]=iso.split("-").map(Number);
+  return new Date(y,m-1,1).toLocaleDateString(undefined,{month:"long",year:"numeric"}); };
 /* IDs must never collide. performance.now() is clamped to 1ms in Safari, so the old
    time-based generator handed identical IDs to records created in the same tick —
    which made the app edit and delete the wrong rows. This uses real randomness. */
@@ -1067,7 +1193,14 @@ function normalize(){
   db.settings=db.settings||{}; if(db.settings.taxEnabled===undefined)db.settings.taxEnabled=false; if(db.settings.taxRate===undefined)db.settings.taxRate=20; if(db.settings.rollover===undefined)db.settings.rollover=true;
   // holdings: total cost -> average cost per share
   (db.holdings||[]).forEach(h=>{ if(h.avgCost===undefined){ const sh=num(h.shares); h.avgCost=sh>0?num(h.cost)/sh:num(h.price); } delete h.cost;
-    if(h.ticker===undefined)h.ticker=""; if(h.divPerShare===undefined)h.divPerShare=0; });
+    if(h.ticker===undefined)h.ticker=""; if(h.divPerShare===undefined)h.divPerShare=0;
+    if(h.divFreq===undefined)h.divFreq="quarterly"; });
+  /* bank-signed liability balances (negative = owed) become plain "amount owed" */
+  (db.accounts||[]).forEach(a=>{ const k=ACCT_KINDS[a.kind]; if(k&&k.liability&&num(a.value)<0)a.value=Math.abs(num(a.value)); });
+  /* Early bank syncs glued the org name onto a name that already contained it,
+     giving "USAA USAA Classic Checking". Collapse a repeated leading run of words. */
+  (db.accounts||[]).forEach(a=>{ a.name=dedupeName(a.name); });
+  (db.debts||[]).forEach(x=>{ x.name=dedupeName(x.name); });
   (db.income||[]).forEach(s=>{ if(!Array.isArray(s.extras)) s.extras=[];
     if(!s.payFreq) s.payFreq=(s.model==="daily"||s.model==="hourly")?"weekly":"monthly";
     if(s.model==="daily" && !s.dwk){ if(num(s.units)>7) s.units=Math.max(1,Math.round(num(s.units)/4.333)); s.dwk=true; } });
@@ -1294,13 +1427,40 @@ async function fetchDividend(ticker){
     return {divPerShare:isNaN(dps)?0:dps,divYield:isNaN(dy)?0:dy,name:j.Name||""};
   }catch(e){ return null; }
 }
+/* Alpha Vantage's OVERVIEW gives an annual figure but never says how it's split up.
+   The DIVIDENDS endpoint lists the actual payments, so counting the ones in the last
+   year tells us the real cadence — 12 for a monthly REIT, 4 for a typical fund. */
+async function fetchDivSchedule(ticker){
+  const key=(db.settings.mdKey||"").trim();
+  if(!key||(db.settings.mdProvider||"alphavantage")!=="alphavantage") return null;
+  try{
+    const j=await jget(`https://www.alphavantage.co/query?function=DIVIDENDS&symbol=${encodeURIComponent((ticker||"").trim().toUpperCase())}&apikey=${encodeURIComponent(key)}`);
+    const raw=(j&&(j.data||j.dividends))||null;
+    if(!Array.isArray(raw)||!raw.length) return null;
+    const rows=raw.map(r=>({d:String(r.ex_dividend_date||r.payment_date||r.date||"").slice(0,10),a:parseFloat(r.amount)}))
+      .filter(r=>/^\d{4}-\d{2}-\d{2}$/.test(r.d)).sort((a,b)=>b.d.localeCompare(a.d));
+    if(!rows.length) return null;
+    const cut=new Date(); cut.setFullYear(cut.getFullYear()-1);
+    const cutISO=cut.toISOString().slice(0,10);
+    const yr=rows.filter(r=>r.d>=cutISO);
+    const n=yr.length;
+    const freq=n>=10?"monthly":n>=3?"quarterly":n===2?"semiannual":n===1?"annual":"irregular";
+    const trailing=yr.reduce((t,r)=>t+(isNaN(r.a)?0:r.a),0);
+    return {freq,count:n,last:rows[0].d,trailingPerShare:trailing};
+  }catch(e){ return null; }
+}
 async function refreshHolding(h,statusEl){
   if(!h.ticker){ if(statusEl)statusEl.textContent="Add a ticker first."; return false; }
   if(statusEl)statusEl.textContent=`Fetching ${h.ticker.toUpperCase()}…`;
   try{
     const q=await fetchQuote(h.ticker); h.price=q.price; h.lastQuote=todayISO(); recordPrice(h);
     const d=await fetchDividend(h.ticker); if(d){ h.divPerShare=d.divPerShare; h.divYield=d.divYield; }
-    if(statusEl)statusEl.innerHTML=`✓ ${esc(h.ticker.toUpperCase())} @ ${fmt2(q.price)} <span class="muted">via ${q.source}${d?" · dividend data included":""}</span>`;
+    let sched=null;
+    try{ sched=await fetchDivSchedule(h.ticker); }catch(e){}
+    if(sched){ h.divFreq=sched.freq; h.divFreqAuto=true; h.lastDiv=sched.last; h.divChecked=todayISO();
+      if(sched.trailingPerShare>0) h.divPerShare=sched.trailingPerShare; }
+    const extra=sched?` · pays ${DIV_FREQ[sched.freq].label.toLowerCase()} (${sched.count} in the last year)`:(d?" · dividend data included":"");
+    if(statusEl)statusEl.innerHTML=`✓ ${esc(h.ticker.toUpperCase())} @ ${fmt2(q.price)} <span class="muted">via ${q.source}${extra}</span>`;
     return true;
   }catch(e){ if(statusEl)statusEl.innerHTML=`<span class="neg">Couldn't fetch ${esc(h.ticker.toUpperCase())} — ${esc(e.message)}. Enter the price manually.</span>`; return false; }
 }
@@ -1319,13 +1479,17 @@ const ACCT_KINDS={
   cd:{label:"CD / term deposit",group:"Bank accounts",color:"#0891b2"},
   digital:{label:"Digital wallet",group:"Digital wallets",color:"#7c5cf0"},
   cash:{label:"Physical cash",group:"Cash",color:"#0ca35a"},
-  credit:{label:"Credit card",group:"Cards & credit",color:"#dc2626",liability:true},
-  lineofcredit:{label:"Line of credit",group:"Cards & credit",color:"#b91c1c",liability:true},
+  credit:{label:"Credit card",group:"Cards & credit",color:"#dc2626",liability:true,revolving:true},
+  lineofcredit:{label:"Line of credit",group:"Cards & credit",color:"#b91c1c",liability:true,revolving:true},
+  autoloan:{label:"Auto loan",group:"Loans",color:"#ea580c",liability:true,installment:true,debtKind:"auto"},
+  studentloan:{label:"Student loan",group:"Loans",color:"#d97706",liability:true,installment:true,debtKind:"loan"},
+  personalloan:{label:"Personal loan",group:"Loans",color:"#b45309",liability:true,installment:true,debtKind:"loan"},
+  mortgage:{label:"Mortgage",group:"Loans",color:"#9a3412",liability:true,installment:true,debtKind:"loan"},
   other:{label:"Other account",group:"Other",color:"#565a66"}
 };
 const HOLDER_KINDS=Object.entries(ACCT_KINDS).filter(([,o])=>o.holder);
 const LEAF_KINDS=Object.entries(ACCT_KINDS).filter(([,o])=>!o.holder);
-const ACCT_GROUPS=["Bank accounts","Digital wallets","Cash","Cards & credit","Other"];
+const ACCT_GROUPS=["Bank accounts","Digital wallets","Cash","Cards & credit","Loans","Other"];
 const kindOf=a=>ACCT_KINDS[a.kind]||ACCT_KINDS.other;
 const topAccounts=()=>db.accounts.filter(a=>!a.parentId||!db.accounts.some(p=>p.id===a.parentId));
 const kidsOf=id=>db.accounts.filter(a=>a.parentId===id);
@@ -1336,29 +1500,95 @@ const acctBalance=a=>hasKids(a.id)?kidsOf(a.id).reduce((s,k)=>s+num(k.value),0):
    It must never land in "money on hand", and it must not be counted twice
    against net worth when it is also listed as a debt. */
 const isLiab=a=>!!kindOf(a).liability;
+const isInstallment=a=>!!kindOf(a).installment;
+/* Banks report what you owe as a negative number. Storing it that way makes every
+   downstream sum flip sign, so a liability always holds a positive "amount owed". */
+const owed=a=>Math.abs(num(a.value));
+const debtKindFor=a=>kindOf(a).debtKind||"card";
 const assetBalance=a=>hasKids(a.id)?kidsOf(a.id).filter(k=>!isLiab(k)).reduce((s,k)=>s+num(k.value),0):(isLiab(a)?0:num(a.value));
-const liabBalance=a=>hasKids(a.id)?kidsOf(a.id).filter(isLiab).reduce((s,k)=>s+num(k.value),0):(isLiab(a)?num(a.value):0);
+const liabBalance=a=>hasKids(a.id)?kidsOf(a.id).filter(isLiab).reduce((s,k)=>s+owed(k),0):(isLiab(a)?owed(a):0);
 const totalCash=()=>topAccounts().reduce((s,a)=>s+assetBalance(a),0);
 const cardAccounts=()=>db.accounts.filter(isLiab);
 const linkedDebt=a=>a.debtId?db.debts.find(d=>d.id===a.debtId):null;
 /* balances on cards that aren't mirrored into Debt payoff — added so they still
    count against net worth instead of quietly vanishing */
-const unlinkedCardDebt=()=>cardAccounts().filter(a=>!linkedDebt(a)).reduce((s,a)=>s+num(a.value),0);
+const unlinkedCardDebt=()=>cardAccounts().filter(a=>!linkedDebt(a)).reduce((s,a)=>s+owed(a),0);
 function syncLinkedDebts(){
   let changed=false;
-  cardAccounts().forEach(a=>{ const d=linkedDebt(a); if(!d)return;
-    const v=num(a.value); if(num(d.balance)!==v){ d.balance=v; changed=true; }
+  cardAccounts().forEach(a=>{
+    if(num(a.value)<0){ a.value=Math.abs(num(a.value)); changed=true; }   // heal bank-signed balances
+    const d=linkedDebt(a); if(!d)return;
+    const v=owed(a); if(num(d.balance)!==v){ d.balance=v; changed=true; }
     if(num(a.limit)&&num(d.limit)!==num(a.limit)){ d.limit=num(a.limit); changed=true; }
-    if(num(d.start)<v){ d.start=v; changed=true; } });
+    if(num(a.apr)&&num(d.apr)!==num(a.apr)){ d.apr=num(a.apr); changed=true; }
+    if(num(a.payment)&&num(d.payment)!==num(a.payment)){ d.payment=num(a.payment); changed=true; }
+    if(num(a.orig)&&num(d.start)!==num(a.orig)){ d.start=num(a.orig); changed=true; }
+    else if(num(d.start)<v){ d.start=v; changed=true; } });
   return changed;
 }
+/* Creates the matching Debt payoff entry for a liability account, typed to match. */
+function makeDebtFor(a){
+  const d={id:uid(),name:a.name,balance:owed(a),start:num(a.orig)||owed(a),kind:debtKindFor(a),
+    limit:num(a.limit)||0,apr:num(a.apr)||0,payment:num(a.payment)||0,payments:[]};
+  db.debts.push(d); a.debtId=d.id; return d;
+}
+/* Months to clear a balance at a fixed payment and rate. Null when the payment
+   never covers the interest, which is worth saying out loud rather than hiding. */
+function payoffMonths(bal,apr,pmt){
+  bal=num(bal); pmt=num(pmt); const r=num(apr)/100/12;
+  if(bal<=0||pmt<=0)return null;
+  if(r<=0)return Math.ceil(bal/pmt);
+  if(pmt<=bal*r)return Infinity;
+  return Math.ceil(Math.log(pmt/(pmt-bal*r))/Math.log(1+r));
+}
+function payoffDateISO(bal,apr,pmt){ const m=payoffMonths(bal,apr,pmt);
+  if(m==null||!isFinite(m))return null;
+  const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+m); return d.toISOString().slice(0,10); }
+const LIAB_GROUPS=["Cards & credit","Loans"];
 const groupTotal=g=>topAccounts().filter(a=>kindOf(a).group===g)
-  .reduce((s,a)=>s+(g==="Cards & credit"?liabBalance(a):assetBalance(a)),0);
+  .reduce((s,a)=>s+(LIAB_GROUPS.includes(g)?liabBalance(a):assetBalance(a)),0);
+function dedupeName(n){
+  const w=String(n||"").trim().split(/\s+/);
+  for(let k=Math.floor(w.length/2);k>=1;k--){
+    const a=w.slice(0,k).join(" ").toLowerCase(), b=w.slice(k,k*2).join(" ").toLowerCase();
+    if(a&&a===b) return w.slice(k).join(" ");
+  }
+  return String(n||"").trim();
+}
 function acctInitials(n){ const w=(n||"?").trim().split(/\s+/).filter(Boolean); return ((w[0]||"?")[0]+(w[1]?w[1][0]:"")).toUpperCase(); }
 const investTotal=()=>db.holdings.reduce((s,h)=>s+num(h.shares)*num(h.price),0);
 const holdingCost=h=>num(h.shares)*num(h.avgCost);
 const investCost=()=>db.holdings.reduce((s,h)=>s+holdingCost(h),0);
 const estAnnualDiv=()=>db.holdings.reduce((s,h)=>s+num(h.shares)*num(h.divPerShare),0);
+/* How often a holding actually pays. A REIT on a monthly schedule and a fund on a
+   quarterly one throw off the same annual figure in very different lumps, which is
+   what matters when you're planning around a payday. */
+const DIV_FREQ={monthly:{n:12,label:"Monthly",every:"month"},quarterly:{n:4,label:"Quarterly",every:"3 months"},
+  semiannual:{n:2,label:"Twice a year",every:"6 months"},annual:{n:1,label:"Once a year",every:"year"},
+  irregular:{n:0,label:"Irregular / none",every:""}};
+const divFreqOf=h=>DIV_FREQ[h&&h.divFreq]||DIV_FREQ.quarterly;
+const divPerPayment=h=>{ const f=divFreqOf(h).n; return f?num(h.divPerShare)*num(h.shares)/f:0; };
+/* the next date a holding is expected to pay, stepped forward from the last one we know of */
+function nextDivDate(h){
+  const f=divFreqOf(h).n; if(!f)return null;
+  const step=Math.round(12/f);
+  let base=h.lastDiv||h.nextDivHint; if(!base)return null;
+  const d=new Date(base+"T12:00:00"), today=todayISO();
+  let guard=0;
+  while(d.toISOString().slice(0,10)<=today&&guard++<200) d.setMonth(d.getMonth()+step);
+  return d.toISOString().slice(0,10);
+}
+function upcomingDividends(days){
+  const to=new Date(); to.setDate(to.getDate()+(days||120)); const toISO=to.toISOString().slice(0,10);
+  const out=[];
+  db.holdings.forEach(h=>{ if(!(num(h.divPerShare)>0&&num(h.shares)>0))return;
+    const f=divFreqOf(h).n; if(!f)return;
+    let d=nextDivDate(h); if(!d)return;
+    const step=Math.round(12/f); let guard=0;
+    while(d<=toISO&&guard++<24){ out.push({date:d,name:h.ticker||h.name||"—",amount:divPerPayment(h)});
+      const nd=new Date(d+"T12:00:00"); nd.setMonth(nd.getMonth()+step); d=nd.toISOString().slice(0,10); } });
+  return out.sort((a,b)=>a.date.localeCompare(b.date));
+}
 const totalDebt=()=>db.debts.reduce((s,d)=>s+num(d.balance),0);
 const totalAssets=()=>totalCash()+investTotal();
 const netWorth=()=>totalAssets()-totalDebt()-unlinkedCardDebt();
@@ -1426,18 +1656,35 @@ function gigEstimate(s){ if(!s.start||!s.end)return null; const days=daysBetween
   return {weeks,dpw,gigDays:Math.round(weeks*dpw),total:streamMonthly(s)*months+onetimeExtras(s,s.start,s.end)}; }
 function taxFactor(){ return db.settings&&db.settings.taxEnabled?(1-num(db.settings.taxRate)/100):1; }
 function afterTax(x){ return x*taxFactor(); }
-function taxNote(){ return db.settings&&db.settings.taxEnabled?` · after ~${num(db.settings.taxRate)}% tax`:""; }
+/* Some money isn't income the IRS cares about — a roommate's share of rent, a
+   reimbursement, a gift. Those streams opt out of the tax estimate entirely. */
+const streamNoTax=s=>!!(s&&s.notax);
+function netOf(s,x){ return streamNoTax(s)?x:afterTax(x); }
+function taxOn(){ return !!(db.settings&&db.settings.taxEnabled); }
+function taxNote(s){ if(s!==undefined&&streamNoTax(s)) return taxOn()?" · not taxed":"";
+  return taxOn()?` · after ~${num(db.settings.taxRate)}% tax`:""; }
+function monthlyIncomeNet(){ return db.income.reduce((a,x)=>a+netOf(x,streamMonthly(x)),0); }
+function nonTaxableMonthly(){ return db.income.filter(streamNoTax).reduce((a,x)=>a+streamMonthly(x),0); }
 function yearIncome(){
   const y=todayISO().slice(0,4), jan1=y+"-01-01", dec31=y+"-12-31", today=todayISO();
-  const pcGross=db.paychecks.filter(p=>p.date>=jan1&&p.date<=today).reduce((s,p)=>s+num(p.gross),0);
+  /* a logged paycheck belongs to the stream whose name it was filed under, so a
+     non-taxable stream's money is left alone here too */
+  const byName=n=>db.income.find(x=>x.name&&n&&String(x.name).toLowerCase()===String(n).toLowerCase());
+  const pcs=db.paychecks.filter(p=>p.date>=jan1&&p.date<=today);
+  const pcGross=pcs.reduce((s,p)=>s+num(p.gross),0);
+  const pcNetTax=pcs.reduce((s,p)=>s+netOf(byName(p.source),num(p.gross)),0);
   const txInc=db.transactions.filter(t=>t.amount>0&&!t.billRef&&t.date>=jan1&&t.date<=today).reduce((s,t)=>s+t.amount,0);
-  const logged=pcGross+txInc;
+  const logged=pcGross+txInc, loggedNet=pcNetTax+afterTax(txInc);
   // what your streams should have paid out already this year (Jan 1 → today)
   const estEarned=db.income.reduce((s,x)=>s+scheduledPay(x,jan1,today),0);
-  const earned=logged>0?logged:estEarned;
+  const estEarnedNet=db.income.reduce((s,x)=>s+netOf(x,scheduledPay(x,jan1,today)),0);
+  const earned=logged>0?logged:estEarned, earnedNet=logged>0?loggedNet:estEarnedNet;
   const tomorrow=new Date(today+"T12:00:00"); tomorrow.setDate(tomorrow.getDate()+1);
-  const projected=db.income.reduce((s,x)=>s+scheduledPay(x,tomorrow.toISOString().slice(0,10),dec31),0);
-  return {year:y,earned,projected,logged,estEarned,basis:logged>0?"logged":"estimated",total:earned+projected};
+  const from=tomorrow.toISOString().slice(0,10);
+  const projected=db.income.reduce((s,x)=>s+scheduledPay(x,from,dec31),0);
+  const projectedNet=db.income.reduce((s,x)=>s+netOf(x,scheduledPay(x,from,dec31)),0);
+  return {year:y,earned,earnedNet,projected,projectedNet,logged,estEarned,
+    basis:logged>0?"logged":"estimated",total:earned+projected,totalNet:earnedNet+projectedNet};
 }
 const MODELFIELDS={
   daily:{rateLabel:"Flat day rate ($/day)",unitLabel:"Days per week",showUnits:true,showFreq:true,amountField:false},
@@ -1454,9 +1701,10 @@ function onetimeExtras(s,fromISO,toISO){ let sum=0;
   for(const e of (s.extras||[])){ if(e.cadence==="onetime"){ const d=e.date||s.start||fromISO; if(d>=fromISO&&d<=toISO)sum+=num(e.amount); } } return sum; }
 function monthlyIncomeEstimate(){ return db.income.reduce((s,x)=>s+streamMonthly(x),0); }
 function projectIncome(fromISO,toISO){
-  let total=0; const parts=[];
-  for(const s of db.income){ const amt=scheduledPay(s,fromISO,toISO); total+=amt; parts.push({name:s.name,amt}); }
-  return {total,parts};
+  let total=0,totalNet=0; const parts=[];
+  for(const s of db.income){ const amt=scheduledPay(s,fromISO,toISO), net=netOf(s,amt);
+    total+=amt; totalNet+=net; parts.push({name:s.name,amt,net,notax:streamNoTax(s)}); }
+  return {total,totalNet,parts};
 }
 
 /* credit */
@@ -1511,7 +1759,7 @@ function renderComingUp(){
     const due=billDue(b,mk);
     if(due>=today&&due<=to&&!billPaid(b,mk)) items.push({d:due,t:"bill",name:b.name,amt:-num(b.amount)});
   }));
-  db.income.forEach(st=>{ const ds=payDates(st,today,to); if(ds)ds.forEach(d=>items.push({d,t:"pay",name:st.name,amt:afterTax(perPaycheck(st))})); });
+  db.income.forEach(st=>{ const ds=payDates(st,today,to); if(ds)ds.forEach(d=>items.push({d,t:"pay",name:st.name,amt:netOf(st,perPaycheck(st))})); });
   items.sort((a,b)=>a.d.localeCompare(b.d));
   if(!items.length){ el.innerHTML=`<div class="empty" style="padding:26px">Nothing scheduled in the next two weeks. Add bills with due dates in Budget, or a first paycheck date in Income, and they'll appear here.</div>`; return; }
   const net=items.reduce((s,x)=>s+x.amt,0);
@@ -1597,7 +1845,7 @@ function renderDash(){
   const dStart=db.debts.reduce((a,d)=>a+debtOrig(d),0), dNow=totalDebt(), dPaid=debtPaidLogged(), dN=debtPayCount();
   const goalPct=num(g.target)?Math.min(100,Math.round(cash/num(g.target)*100)):null;
   const kpis=[
-    {go:"income",label:"Income this month",val:fmt(gotIn||afterTax(monthlyIncomeEstimate())),cls:"pos",icon:"income",c:C.pos,
+    {go:"income",label:"Income this month",val:fmt(gotIn||monthlyIncomeNet()),cls:"pos",icon:"income",c:C.pos,
      sub:gotIn?`${db.paychecks.filter(p=>monthKey(p.date)===curMonth).length} paycheck(s) logged`:"estimated — none logged yet"},
     {go:"expenses",label:"Spending this month",val:fmt(mt.exp),cls:"",icon:"spend",c:C.warn,
      sub:pace==null?`${entriesCount} categories`:`${Math.abs(pace)}% ${pace>=0?"ahead of":"behind"} last month's pace`},
@@ -1634,13 +1882,13 @@ function renderDash(){
 let horizon="3";
 function renderIncome(){
   const from=todayISO();
-  const est=afterTax(monthlyIncomeEstimate());
+  const est=monthlyIncomeNet();
   const yr=yearIncome(); const np=nextPaydayAll();
   const taxed=db.settings.taxEnabled;
   document.getElementById("incomeKpis").innerHTML=`
     <div class="card kpi"><div class="label">Est. monthly income</div><div class="val pos">${fmt(est)}</div><div class="sub">${taxed?`after ~${num(db.settings.taxRate)}% tax`:"recurring streams combined"}</div></div>
     <div class="card kpi"><div class="label">Next payday</div><div class="val">${np?esc(shortDate(np)):"—"}</div><div class="sub">${np?(daysUntil(np)<=0?"today":daysUntil(np)+" days away"):"add a first paycheck date"}</div></div>
-    <div class="card kpi"><div class="label">Income in ${yr.year}</div><div class="val">${fmt(afterTax(yr.total))}</div><div class="sub">${fmt(afterTax(yr.earned))} earned${yr.basis==="estimated"?" (est.)":""} + ${fmt(afterTax(yr.projected))} projected</div></div>`;
+    <div class="card kpi"><div class="label">Income in ${yr.year}</div><div class="val">${fmt(yr.totalNet)}</div><div class="sub">${fmt(yr.earnedNet)} earned${yr.basis==="estimated"?" (est.)":""} + ${fmt(yr.projectedNet)} projected</div></div>`;
   // projection
   let to;
   if(horizon==="goal"){ to=db.goal.deadline||from; } else { const d=new Date(from); d.setMonth(d.getMonth()+ +horizon); to=d.toISOString().slice(0,10); }
@@ -1648,13 +1896,16 @@ function renderIncome(){
   const label = horizon==="goal"?`through ${db.goal.deadline}`:`over the next ${horizon} month${horizon==="1"?"":"s"}`;
   document.getElementById("projBox").innerHTML=`
     <div class="between" style="align-items:flex-end;margin-bottom:14px">
-      <div><div class="muted" style="font-size:13px">Projected income ${label}${taxNote()}</div><div class="big pos">${fmt(afterTax(pr.total))}</div>
+      <div><div class="muted" style="font-size:13px">Projected income ${label}${taxNote()}</div><div class="big pos">${fmt(pr.totalNet)}</div>
       <div class="muted" style="font-size:12.5px">${from} → ${to<from?from:to}</div></div></div>
     ${pr.parts.filter(p=>p.amt>0).length?`<table><thead><tr><th>Stream</th><th class="amt">Projected</th></tr></thead><tbody>
-      ${pr.parts.map(p=>`<tr><td>${esc(p.name)}</td><td class="amt ${p.amt>0?'pos':'muted'}">${fmt(afterTax(p.amt))}</td></tr>`).join("")}</tbody></table>`
+      ${pr.parts.map(p=>`<tr><td>${esc(p.name)}${p.notax?` <span class="muted" style="font-size:12px">· not taxed</span>`:""}</td><td class="amt ${p.amt>0?'pos':'muted'}">${fmt(p.net)}</td></tr>`).join("")}</tbody></table>`
       :`<div class="empty">Add an income stream to see a projection.</div>`}`;
   const tt=document.getElementById("taxToggle"); if(tt)tt.checked=!!db.settings.taxEnabled;
   const trI=document.getElementById("taxRate"); if(trI)trI.value=num(db.settings.taxRate);
+  const exN=document.getElementById("taxExemptNote");
+  if(exN){ const ex=db.income.filter(streamNoTax);
+    exN.textContent=!taxOn()?"":ex.length?`${ex.map(x=>x.name).join(", ")} excluded (${fmt(nonTaxableMonthly())}/mo)`:"applies to every stream — mark any as non-taxable in its editor"; }
   // list
   const modelName={monthly:"Salary / flat pay",hourly:"Hourly",daily:"Day rate",onetime:"One-time gig"};
   document.getElementById("incomeList").innerHTML=db.income.length?db.income.map(s=>{
@@ -1666,7 +1917,8 @@ function renderIncome(){
     return `<div class="card pad">
       <div class="between" style="margin-bottom:6px">
         <div class="flex"><span class="tag ${s.active===false?'bad':'ok'}">${s.active===false?'PAUSED':(s.type||'Income')}</span>
-          <input class="miniedit" style="width:210px;text-align:left" value="${esc(s.name)}" data-iname="${s.id}"></div>
+          <input class="miniedit iname" style="width:210px;text-align:left" value="${esc(s.name)}" data-iname="${s.id}">
+          ${streamNoTax(s)?`<span class="tag notax" title="Excluded from the tax estimate">NO TAX</span>`:""}</div>
         <div class="flex"><b>${fmt(streamMonthly(s))}/mo</b><button class="btn ghost sm" data-iedit="${s.id}">edit</button><button class="btn ghost sm" data-idel="${s.id}">✕</button></div>
       </div>
       <div class="muted" style="font-size:13px">${modelName[s.model]||s.model} · ${per} · ${win}</div>
@@ -1688,7 +1940,8 @@ function readEditorInto(s){ const g=id=>document.getElementById(id);
   if(g("e-start"))s.start=g("e-start").value;
   if(g("e-end"))s.end=g("e-end").value;
   if(g("e-date"))s.date=g("e-date").value;
-  if(g("e-active"))s.active=g("e-active").value==="yes"; }
+  if(g("e-active"))s.active=g("e-active").value==="yes";
+  if(g("e-notax"))s.notax=g("e-notax").checked; }
 function openIncomeEditor(id){ const box=document.getElementById("iedit-"+id); if(!box)return;
   if(box.dataset.open==="1"){box.dataset.open="";box.innerHTML="";return;} box.dataset.open="1"; renderIncomeEditor(id); }
 function renderIncomeEditor(id){
@@ -1707,12 +1960,15 @@ function renderIncomeEditor(id){
     <div class="field"><label>Active?</label><select id="e-active"><option value="yes" ${s.active!==false?"selected":""}>Yes</option><option value="no" ${s.active===false?"selected":""}>Paused</option></select></div>
     <button class="btn primary" id="e-save">Save stream</button>
   </div>
+  <label class="flex" style="font-size:14px;margin-top:12px;gap:9px;align-items:flex-start">
+    <input type="checkbox" id="e-notax" ${s.notax?"checked":""} style="margin-top:3px">
+    <span>Not taxable income<br><span class="muted" style="font-size:12.5px">A roommate's share of rent, a reimbursement, a gift — money the tax estimate should skip. Leave off for wages and 1099 work.</span></span></label>
   ${s.model!=="onetime"?(()=>{ const y=todayISO().slice(0,4);
       const paidSoFar=s.firstPay?payDates(s,y+"-01-01",todayISO()):null; const np=nextPayday(s);
-      return `<div class="note" style="margin-top:12px">≈ <b>${fmt(afterTax(perPaycheck(s)))}</b> per paycheck · <b>${fmt(afterTax(streamMonthly(s)))}</b>/mo estimated${taxNote()}
-        ${paidSoFar?`<br><b>${paidSoFar.length}</b> paycheck${paidSoFar.length===1?"":"s"} so far in ${y} ≈ <b>${fmt(afterTax(paidSoFar.length*perPaycheck(s)))}</b>${np?` · next payday <b>${np}</b> (${daysUntil(np)} days)`:""}`
+      return `<div class="note" style="margin-top:12px">≈ <b>${fmt(netOf(s,perPaycheck(s)))}</b> per paycheck · <b>${fmt(netOf(s,streamMonthly(s)))}</b>/mo estimated${taxNote(s)}
+        ${paidSoFar?`<br><b>${paidSoFar.length}</b> paycheck${paidSoFar.length===1?"":"s"} so far in ${y} ≈ <b>${fmt(netOf(s,paidSoFar.length*perPaycheck(s)))}</b>${np?` · next payday <b>${esc(shortDate(np))}</b> (${daysUntil(np)} days)`:""}`
           :`<br><span class="muted">Set a <b>first paycheck date</b> above and it'll count your paychecks and predict paydays.</span>`}</div>`;})():""}
-  ${gig?`<div class="note" style="margin-top:10px;border-color:#bfe3d9;background:#f0faf7">📅 <b>Gig estimate:</b> ~${gig.weeks.toFixed(1)} weeks × ${gig.dpw} days/wk ≈ <b>${gig.gigDays} work days</b> → <b>${fmt(afterTax(gig.total))}</b> total for this gig${taxNote()} (base + extras, ${s.start} → ${s.end})</div>`:""}
+  ${gig?`<div class="note" style="margin-top:10px;border-color:#bfe3d9;background:#f0faf7">📅 <b>Gig estimate:</b> ~${gig.weeks.toFixed(1)} weeks × ${gig.dpw} days/wk ≈ <b>${gig.gigDays} work days</b> → <b>${fmt(netOf(s,gig.total))}</b> total for this gig${taxNote(s)} (base + extras, ${s.start} → ${s.end})</div>`:""}
   <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
     <b style="font-size:13.5px">Extras — per diem, reimbursements, bonuses</b>
     <div class="muted" style="font-size:12px;margin:2px 0 10px">Anything on top of base pay. Per diem is usually per day or per week; a gas reimbursement might be per week; a kit fee might be per day.</div>
@@ -1798,11 +2054,123 @@ function applyStub(text){
 }
 
 /* EXPENSES */
+/* Filters, the way Monarch and Copilot do it: every control narrows the same list,
+   the active ones show as removable chips, and a running total tells you what the
+   filtered slice actually cost. With several accounts synced, "what did I spend on
+   food with the Chase card last month" has to be one question, not four. */
+const txFilter={acct:"all",cat:"all",when:"all",dir:"all",min:"",max:"",sort:"new"};
+let filtOpen=false;
+function activeFilterCount(){
+  const q=((document.getElementById("txSearch")||{}).value||"").trim();
+  let n=q?1:0;
+  ["acct","cat","when","dir"].forEach(k=>{ if(txFilter[k]!=="all")n++; });
+  if(txFilter.min!=="")n++; if(txFilter.max!=="")n++;
+  return n;
+}
+function setFiltOpen(v){
+  filtOpen=v;
+  const t=document.getElementById("filtToggle"), b=document.getElementById("filtBody");
+  if(t)t.setAttribute("aria-expanded",v?"true":"false");
+  if(b)b.hidden=!v;
+}
+function acctName(id){ const a=db.accounts.find(x=>x.id===id); return a?a.name:null; }
+function txWindow(k){
+  const t=todayISO();
+  if(k==="30"||k==="90"){ const d=new Date(); d.setDate(d.getDate()-(+k)); return [d.toISOString().slice(0,10),t]; }
+  if(k==="tm") return [t.slice(0,7)+"-01",t];
+  if(k==="lm"){ const d=new Date(t+"T12:00:00"); d.setDate(1); d.setMonth(d.getMonth()-1);
+    const from=d.toISOString().slice(0,7)+"-01"; const e=new Date(d.getFullYear(),d.getMonth()+1,0);
+    return [from,e.toISOString().slice(0,10)]; }
+  if(k==="ytd") return [t.slice(0,4)+"-01-01",t];
+  return null;
+}
+function filteredTx(){
+  const q=((document.getElementById("txSearch")||{}).value||"").toLowerCase();
+  const f=txFilter, win=txWindow(f.when);
+  const mn=f.min===""?null:Math.abs(num(f.min)), mx=f.max===""?null:Math.abs(num(f.max));
+  let list=db.transactions.filter(t=>{
+    if(q&&!(String(t.desc).toLowerCase().includes(q)||String(t.category).toLowerCase().includes(q)))return false;
+    if(f.acct==="none"){ if(t.acctId)return false; } else if(f.acct!=="all"&&t.acctId!==f.acct)return false;
+    if(f.cat==="uncat"){ if(t.category!=="Uncategorized")return false; } else if(f.cat!=="all"&&t.category!==f.cat)return false;
+    if(win&&(t.date<win[0]||t.date>win[1]))return false;
+    if(f.dir==="out"&&t.amount>=0)return false;
+    if(f.dir==="in"&&t.amount<=0)return false;
+    const abs=Math.abs(num(t.amount));
+    if(mn!=null&&abs<mn)return false;
+    if(mx!=null&&abs>mx)return false;
+    return true;});
+  const s=f.sort;
+  list.sort(s==="old"?(a,b)=>a.date.localeCompare(b.date)
+    :s==="big"?(a,b)=>Math.abs(b.amount)-Math.abs(a.amount)
+    :s==="small"?(a,b)=>Math.abs(a.amount)-Math.abs(b.amount)
+    :(a,b)=>b.date.localeCompare(a.date));
+  return list;
+}
+function renderTxFilters(){
+  const q=((document.getElementById("txSearch")||{}).value||"").trim();
+  const used=db.accounts.filter(a=>db.transactions.some(t=>t.acctId===a.id));
+  const unassigned=db.transactions.some(t=>!t.acctId);
+  const av=document.getElementById("f-acct");
+  if(av) av.innerHTML=`<option value="all">All accounts</option>`+
+    used.map(a=>`<option value="${a.id}" ${txFilter.acct===a.id?"selected":""}>${esc(a.name)}</option>`).join("")+
+    (unassigned?`<option value="none" ${txFilter.acct==="none"?"selected":""}>Not linked to an account</option>`:"");
+  const cv=document.getElementById("f-cat");
+  const inUse=[...new Set(db.transactions.map(t=>t.category))].sort();
+  if(cv) cv.innerHTML=`<option value="all">All categories</option><option value="uncat" ${txFilter.cat==="uncat"?"selected":""}>Uncategorized only</option>`+
+    inUse.map(c=>`<option value="${esc(c)}" ${txFilter.cat===c?"selected":""}>${esc(c)}</option>`).join("");
+  ["when","dir","sort"].forEach(k=>{const el=document.getElementById("f-"+k); if(el)el.value=txFilter[k];});
+  ["min","max"].forEach(k=>{const el=document.getElementById("f-"+k); if(el&&el.value!==txFilter[k])el.value=txFilter[k];});
+  const WHEN={"30":"Last 30 days",tm:"This month",lm:"Last month","90":"Last 3 months",ytd:"This year"};
+  const DIR={out:"Money out",in:"Money in"};
+  const chips=[];
+  if(q)chips.push(["search",`Search <b>${esc(q)}</b>`]);
+  if(txFilter.acct!=="all")chips.push(["acct",txFilter.acct==="none"?"No account":`<b>${esc(acctName(txFilter.acct)||"Account")}</b>`]);
+  if(txFilter.cat!=="all")chips.push(["cat",txFilter.cat==="uncat"?"Uncategorized":`<b>${esc(txFilter.cat)}</b>`]);
+  if(txFilter.when!=="all")chips.push(["when",WHEN[txFilter.when]||txFilter.when]);
+  if(txFilter.dir!=="all")chips.push(["dir",DIR[txFilter.dir]]);
+  if(txFilter.min!=="")chips.push(["min",`Over ${fmt(num(txFilter.min))}`]);
+  if(txFilter.max!=="")chips.push(["max",`Under ${fmt(num(txFilter.max))}`]);
+  const n=activeFilterCount();
+  const cnt=document.getElementById("filtCount");
+  if(cnt){ cnt.textContent=n; cnt.hidden=n===0; }
+  const cr=document.getElementById("txChips");
+  if(cr){ cr.innerHTML=chips.length?chips.map(([k,label])=>`<button class="fchip" data-fdrop="${k}">${label}<span class="x">✕</span></button>`).join("")+
+      `<button class="fclear" id="fClearAll">Clear all</button>`:"";
+    cr.querySelectorAll("[data-fdrop]").forEach(b=>b.onclick=()=>{
+      const k=b.dataset.fdrop;
+      if(k==="search"){const el=document.getElementById("txSearch"); if(el)el.value="";}
+      else if(k==="min"||k==="max")txFilter[k]="";
+      else txFilter[k]="all";
+      renderTx();});
+    const ca=document.getElementById("fClearAll");
+    if(ca)ca.onclick=()=>{ Object.assign(txFilter,{acct:"all",cat:"all",when:"all",dir:"all",min:"",max:"",sort:txFilter.sort});
+      const el=document.getElementById("txSearch"); if(el)el.value=""; renderTx(); };
+  }
+}
 function renderTx(){
-  const q=(document.getElementById("txSearch").value||"").toLowerCase();
-  const list=db.transactions.filter(t=>!q||t.desc.toLowerCase().includes(q)||t.category.toLowerCase().includes(q));
+  renderTxFilters();
+  const list=filteredTx();
   const catOpts=c=>db.categories.map(x=>`<option ${x===c?"selected":""}>${x}</option>`).join("");
-  document.getElementById("txTable").innerHTML=list.length?`<table class="stacktbl tx5"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="amt">Amount</th><th></th></tr></thead><tbody>${list.map(t=>`<tr><td>${t.date}</td><td>${esc(t.desc)}</td><td><select class="catsel" data-id="${t.id}">${catOpts(t.category)}</select></td><td class="amt ${t.amount<0?'neg':'pos'}">${t.amount<0?'':'+'}${fmt2(t.amount)}</td><td><button class="btn ghost sm" data-del="${t.id}">✕</button></td></tr>`).join("")}</tbody></table>`:`<div class="empty">No transactions${q?" match your search":" yet"}.</div>`;
+  const out=list.filter(t=>t.amount<0).reduce((s,t)=>s+(-t.amount),0);
+  const inc=list.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
+  const anyFilter=list.length!==db.transactions.length;
+  const showing=document.getElementById("filtShowing");
+  if(showing)showing.textContent=db.transactions.length?
+    (anyFilter?`${list.length} of ${db.transactions.length}`:`${db.transactions.length} transactions`):"";
+  const sum=document.getElementById("txSummary");
+  if(sum) sum.innerHTML=db.transactions.length?`<div class="sumrow2">
+      <div class="sumitem"><div class="k">${anyFilter?"Matching":"All"} transactions</div><div class="v">${list.length}</div></div>
+      <div class="sumitem"><div class="k">Money out</div><div class="v neg">${fmt2(out)}</div></div>
+      <div class="sumitem"><div class="k">Money in</div><div class="v pos">${fmt2(inc)}</div></div>
+      <div class="sumitem"><div class="k">Net</div><div class="v ${inc-out>=0?"pos":""}">${inc-out>=0?"+":""}${fmt2(inc-out)}</div></div>
+      ${list.length?`<div class="sumitem"><div class="k">Average</div><div class="v">${fmt2((out+inc)/list.length)}</div></div>`:""}
+      <div class="spacer"></div>
+      ${anyFilter?`<div class="muted" style="font-size:12.5px;align-self:center">of ${db.transactions.length} total</div>`:""}
+    </div>`:"";
+  document.getElementById("txTable").innerHTML=list.length?`<table class="stacktbl tx5"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="amt">Amount</th><th></th></tr></thead><tbody>${list.map(t=>{
+    const an=acctName(t.acctId);
+    return `<tr><td>${t.date}${an?`<span class="tacct">${esc(an)}</span>`:""}</td><td>${esc(t.desc)}</td><td><select class="catsel" data-id="${t.id}">${catOpts(t.category)}</select></td><td class="amt ${t.amount<0?'neg':'pos'}">${t.amount<0?'':'+'}${fmt2(t.amount)}</td><td><button class="btn ghost sm" data-del="${t.id}">✕</button></td></tr>`;}).join("")}</tbody></table>`
+    :`<div class="empty">${db.transactions.length?"Nothing matches those filters — clear one above.":"No transactions yet."}</div>`;
   document.querySelectorAll(".catsel[data-id]").forEach(s=>s.onchange=e=>{const t=db.transactions.find(x=>x.id===e.target.dataset.id);if(!t)return;const cat=e.target.value;t.category=cat;
     const kw=merchantKey(t.desc); const ln=document.getElementById("learnNote");
     if(kw && !db.rules.some(r=>r.m===kw)){ db.rules.push({m:kw,c:cat});
@@ -1819,7 +2187,7 @@ function merchantKey(desc){ const c=(desc||"").toLowerCase().replace(/[^a-z ]+/g
 /* BUDGET — bills (fixed obligations) vs flexible budgets (spending targets)
    With rollover on, a category behaves like an envelope: what you don't spend stays
    in it, and overspending eats into next month. Available = carried in + budgeted - spent. */
-let budgetMonth=null;
+let budgetMonth=null,editBill=null;
 function budgetedFor(cat,m){
   const o=db.monthBudgets&&db.monthBudgets[m];
   if(o&&o[cat]!=null) return num(o[cat]);
@@ -1882,7 +2250,7 @@ function renderBudget(){
   // income (actual received if any, else estimated)
   const pcNet=db.paychecks.filter(p=>monthKey(p.date)===mk).reduce((s,p)=>s+num(p.net),0);
   const txInc=db.transactions.filter(t=>monthKey(t.date)===mk&&t.amount>0).reduce((s,t)=>s+t.amount,0);
-  const actualIncome=pcNet+txInc, estIncome=afterTax(monthlyIncomeEstimate());
+  const actualIncome=pcNet+txInc, estIncome=monthlyIncomeNet();
   const income=actualIncome>0?actualIncome:estIncome;
   const free=income-billsTotal-flexLimit;
   document.getElementById("budgetKpis").innerHTML=`
@@ -1892,16 +2260,58 @@ function renderBudget(){
     <div class="card kpi"><div class="label">Free to save / attack debt</div><div class="val ${free<0?'neg':'pos'}">${fmt(free)}</div><div class="sub">income − bills − budgets</div></div>`;
   // bills list
   const billsSorted=[...db.recurring].sort((a,b)=>(num(a.dueDay)||1)-(num(b.dueDay)||1));
-  document.getElementById("billsList").innerHTML=db.recurring.length?`<table class="stacktbl bills6"><thead><tr><th style="width:44px">Paid</th><th>Bill</th><th>Due</th><th>Category</th><th class="amt">Amount</th><th></th></tr></thead><tbody>${billsSorted.map(b=>{const paid=billPaid(b,mk),st=billStatus(b,mk);return `<tr><td><button class="chk ${paid?'on':''}" data-billtog="${b.id}" title="${paid?'Paid — tap to undo':'Mark paid'}">${paid?'✓':''}</button></td>
-    <td>${esc(b.name)}</td>
-    <td><span class="flex" style="gap:7px"><input class="miniedit" style="width:52px;text-align:center" value="${num(b.dueDay)||1}" data-billday="${b.id}" title="Day of the month it's due">${st.cls?`<span class="tag ${st.cls}">${st.label}</span>`:`<span class="muted" style="font-size:12.5px">${st.label}</span>`}</span></td>
-    <td><span class="catpill" style="border-left-color:${catColor[b.category]||'#ccc'}">${esc(b.category)}</span></td>
-    <td class="amt ${paid?'muted':''}" style="${paid?'text-decoration:line-through':''}">${fmt(num(b.amount))}</td>
-    <td><button class="btn ghost sm" data-billdel="${b.id}">✕</button></td></tr>`;}).join("")}<tr class="sumrow"><td></td><td colspan="3"><b>${paidBills.length} of ${db.recurring.length} paid this month</b></td><td class="amt"><b>${fmt(billsTotal)}</b></td><td></td></tr></tbody></table>`:`<div class="empty" style="padding:22px">No bills yet — add rent, car, insurance, phone below.</div>`;
-  document.querySelectorAll("[data-billday]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billday);
+  const ord=n=>{const d=n%10,t=n%100; return n+(t>=11&&t<=13?"th":d===1?"st":d===2?"nd":d===3?"rd":"th");};
+  document.getElementById("billsList").innerHTML=db.recurring.length?
+    billsSorted.map(b=>{ const paid=billPaid(b,mk), st=billStatus(b,mk), editing=editBill===b.id;
+      return `<div class="brow${paid?" paid":""}${editing?" editing":""}">
+        <div class="bmain" data-billopen="${b.id}">
+          <button class="chk ${paid?'on':''}" data-billtog="${b.id}" title="${paid?'Paid — tap to undo':'Mark paid'}">${paid?'✓':''}</button>
+          <div class="binfo">
+            <div class="bname">${esc(b.name)}</div>
+            <div class="bmeta"><span class="bdot" style="background:${catColor[b.category]||'#94a3b8'}" title="${esc(b.category)}"></span><span class="bcat">${esc(b.category)} · </span>due the ${ord(num(b.dueDay)||1)}${st.cls&&st.k!=="paid"?` · <span class="${st.cls==='bad'?'bneg':'bwarn'}">${esc(st.label)}</span>`:""}</div>
+          </div>
+          <div class="bamt">${fmt(num(b.amount))}</div>
+          <button class="aedit${editing?" on":""}" data-billedit="${b.id}" aria-label="Edit ${esc(b.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+        </div>
+        ${editing?`<div class="bpanel">
+          <div class="formgrid">
+            <div class="field"><label>Name</label><input value="${esc(b.name)}" data-billname="${b.id}"></div>
+            <div class="field"><label>Category</label><select data-billcat="${b.id}">${db.categories.map(c=>`<option ${c===b.category?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
+            <div class="field"><label>Amount / mo</label><input type="number" value="${num(b.amount)}" data-billamt="${b.id}"></div>
+            <div class="field"><label>Due day of month</label><input type="number" min="1" max="28" value="${num(b.dueDay)||1}" data-billday="${b.id}"></div>
+          </div>
+          <div class="toolbar" style="margin:12px 0 0">
+            <div class="spacer"></div>
+            <button class="btn sm danger" data-billdel="${b.id}">Delete bill</button>
+            <button class="btn sm primary" data-billdone="1">Done</button>
+          </div>
+        </div>`:""}
+      </div>`;}).join("")+
+      `<div class="brow sum"><div class="bmain"><span class="chk ghosted"></span>
+        <div class="binfo"><div class="bname">${paidBills.length} of ${db.recurring.length} paid</div>
+        <div class="bmeta">${billsTotal-paidBills.reduce((t,x)=>t+num(x.amount),0)>0?fmt(billsTotal-paidBills.reduce((t,x)=>t+num(x.amount),0))+" still to cover this month":"all covered this month"}</div></div>
+        <div class="bamt">${fmt(billsTotal)}</div><span style="width:32px;flex:none"></span></div></div>`
+    :`<div class="empty" style="padding:22px">No bills yet — add rent, car, insurance, phone below.</div>`;
+  const bl=document.getElementById("billsList");
+  bl.querySelectorAll("[data-billopen]").forEach(el=>el.onclick=e=>{
+    if(e.target.closest("[data-billtog],[data-billedit]"))return;
+    const id=el.dataset.billopen; editBill=editBill===id?null:id; renderBudget();});
+  bl.querySelectorAll("[data-billedit]").forEach(btn=>btn.onclick=e=>{e.stopPropagation();
+    const id=btn.dataset.billedit; editBill=editBill===id?null:id; renderBudget();});
+  bl.querySelectorAll("[data-billdone]").forEach(btn=>btn.onclick=()=>{editBill=null;renderBudget();});
+  bl.querySelectorAll("[data-billday]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billday);
     if(b){b.dueDay=Math.min(28,Math.max(1,num(e.currentTarget.value)||1));saveAll();}});
-  document.querySelectorAll("[data-billtog]").forEach(btn=>btn.onclick=e=>{const bill=db.recurring.find(x=>x.id===e.currentTarget.dataset.billtog);if(bill){setBillPaid(bill,mk,!billPaid(bill,mk));saveAll();}});
-  document.querySelectorAll("[data-billdel]").forEach(btn=>btn.onclick=e=>{const id=e.currentTarget.dataset.billdel;db.transactions=db.transactions.filter(t=>!(t.billRef&&t.billRef.split("|")[0]===id));db.recurring=db.recurring.filter(x=>x.id!==id);saveAll();});
+  bl.querySelectorAll("[data-billname]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billname);
+    if(b){b.name=e.currentTarget.value;saveAll();}});
+  bl.querySelectorAll("[data-billcat]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billcat);
+    if(b){b.category=e.currentTarget.value;saveAll();}});
+  bl.querySelectorAll("[data-billamt]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billamt);
+    if(b){b.amount=num(e.currentTarget.value);saveAll();}});
+  bl.querySelectorAll("[data-billtog]").forEach(btn=>btn.onclick=e=>{e.stopPropagation();
+    const bill=db.recurring.find(x=>x.id===e.currentTarget.dataset.billtog);if(bill){setBillPaid(bill,mk,!billPaid(bill,mk));saveAll();}});
+  bl.querySelectorAll("[data-billdel]").forEach(btn=>btn.onclick=e=>{const id=e.currentTarget.dataset.billdel;
+    db.transactions=db.transactions.filter(t=>!(t.billRef&&t.billRef.split("|")[0]===id));
+    db.recurring=db.recurring.filter(x=>x.id!==id); editBill=null; saveAll();});
   // flexible budgets — envelope style
   const roll=!!db.settings.rollover;
   const rows=budCats.sort((a,b)=>(spent[b]||0)-(spent[a]||0));
@@ -1983,7 +2393,11 @@ function renderCredit(){
     const state=done?"ok":d.id===nextId?"warn":"bad";
     const label=done?"PAID":d.id===nextId?`<span class="tlong">ATTACK NEXT</span><span class="tshort">NEXT</span>`:"OPEN";
     const kindLabel=({card:"Credit card",collection:"Collection",auto:"Auto loan",loan:"Loan"})[d.kind]||"Debt";
-    const meta=[kindLabel, orig>bal?`${pct.toFixed(0)}% paid off`:null, acct?"linked to "+acct.name:null,
+    const pmo=payoffMonths(bal,d.apr,d.payment);
+    const meta=[kindLabel, orig>bal?`${pct.toFixed(0)}% paid off`:null,
+                num(d.apr)?`${num(d.apr)}% APR`:null,
+                (pmo&&isFinite(pmo))?`${pmo} mo to clear`:null,
+                acct?"synced from your bank":null,
                 pays.length?`${pays.length} payment${pays.length===1?"":"s"}`:null].filter(Boolean).join(" · ");
     return `<div class="dcard${editing?" editing":""}${done?" done":""}">
       <div class="dtop" data-dopen="${d.id}">
@@ -2014,7 +2428,13 @@ function renderCredit(){
           <div class="field"><label>Balance owed</label><input type="number" value="${bal}" data-dbal="${d.id}" ${acct?'title="This mirrors the linked account"':""}></div>
           <div class="field"><label title="${isCard?'What you owed when you first entered this card':'What the loan was written for'}">${isCard?"Balance when tracking started":"Original loan amount"}</label><input type="number" value="${orig}" data-dstart="${d.id}"></div>
           ${isCard?`<div class="field"><label>Credit limit</label><input type="number" value="${num(d.limit)||""}" data-dlim="${d.id}"></div>`:""}
+          <div class="field"><label>APR %</label><input type="number" step="any" value="${num(d.apr)||""}" placeholder="7.9" data-dapr="${d.id}"></div>
+          <div class="field"><label>Payment / mo</label><input type="number" value="${num(d.payment)||""}" placeholder="173" data-dpayamt="${d.id}"></div>
         </div>
+        ${(()=>{ const mo=payoffMonths(bal,d.apr,d.payment), po=payoffDateISO(bal,d.apr,d.payment);
+          if(po)return `<div class="note" style="margin-top:12px;font-size:13px">Paying ${fmt(num(d.payment))}/mo${num(d.apr)?` at ${num(d.apr)}% APR`:""} clears this in about <b>${mo} month${mo===1?"":"s"}</b> — around <b>${esc(monthYear(po))}</b>.</div>`;
+          if(mo===Infinity)return `<div class="note" style="margin-top:12px;font-size:13px;border-left-color:var(--warn)">At ${fmt(num(d.payment))}/mo the interest outruns the payment — this never clears. It needs more than ${fmt(bal*num(d.apr)/100/12)}/mo just to hold steady.</div>`;
+          return ""; })()}
         ${orig&&orig<bal?`<div class="note" style="margin-top:12px;font-size:13px;border-left-color:var(--warn)">The original is below the current balance, so progress shows as zero. Raise it to what the debt started at.</div>`:""}
         ${acct?`<div class="note" style="margin-top:12px;font-size:13px">Linked to the <b>${esc(acct.name)}</b> account. Editing the balance here updates it there too, and a bank sync will overwrite both.</div>`:""}
         <div class="toolbar" style="margin:12px 0 0">
@@ -2043,7 +2463,11 @@ function renderCredit(){
   dl.querySelectorAll("[data-dstart]").forEach(i=>i.onchange=e=>{const d=findDebt(e.currentTarget.dataset.dstart);if(d){d.start=num(e.currentTarget.value);saveAll();}});
   dl.querySelectorAll("[data-dlim]").forEach(i=>i.onchange=e=>{const d=findDebt(e.currentTarget.dataset.dlim);if(d){d.limit=num(e.currentTarget.value);
     const a=db.accounts.find(x=>x.debtId===d.id); if(a)a.limit=num(d.limit); saveAll();}});
-  dl.querySelectorAll("[data-dname]").forEach(i=>i.onchange=e=>{const d=findDebt(e.currentTarget.dataset.dname);if(d){d.name=e.currentTarget.value;saveAll();}});
+  dl.querySelectorAll("[data-dname]").forEach(i=>i.onchange=e=>{const d=findDebt(e.currentTarget.dataset.dname);if(d){d.name=e.currentTarget.value;d.renamed=true;saveAll();}});
+  dl.querySelectorAll("[data-dapr]").forEach(i=>i.onchange=e=>{const d=findDebt(e.currentTarget.dataset.dapr);if(d){d.apr=num(e.currentTarget.value);
+    const a=db.accounts.find(x=>x.debtId===d.id); if(a)a.apr=d.apr; saveAll();}});
+  dl.querySelectorAll("[data-dpayamt]").forEach(i=>i.onchange=e=>{const d=findDebt(e.currentTarget.dataset.dpayamt);if(d){d.payment=num(e.currentTarget.value);
+    const a=db.accounts.find(x=>x.debtId===d.id); if(a)a.payment=d.payment; saveAll();}});
   dl.querySelectorAll("[data-dkind]").forEach(i=>i.onchange=e=>{const d=findDebt(e.currentTarget.dataset.dkind);if(d){d.kind=e.currentTarget.value;saveAll();}});
   dl.querySelectorAll("[data-ddel]").forEach(b=>b.onclick=e=>{const id=b.dataset.ddel; if(!id)return;
     const i=db.debts.findIndex(x=>x.id===id); if(i<0)return; db.debts.splice(i,1);
@@ -2138,8 +2562,15 @@ function renderInvest(){
           <div class="field"><label>Avg cost / share</label><input type="number" step="any" value="${num(h.avgCost)}" data-hac="${h.id}"></div>
           <div class="field"><label>Current price</label><input type="number" step="any" value="${num(h.price)}" data-hpr="${h.id}"></div>
           <div class="field"><label>Dividend / share (per yr)</label><input type="number" step="any" value="${num(h.divPerShare)}" data-hdiv="${h.id}"></div>
+          <div class="field"><label>Pays${h.divFreqAuto?` <span class="muted" style="font-weight:400">· detected</span>`:""}</label>
+            <select data-hfreq="${h.id}">${Object.entries(DIV_FREQ).map(([v,o2])=>`<option value="${v}" ${(h.divFreq||"quarterly")===v?"selected":""}>${o2.label}</option>`).join("")}</select></div>
+          <div class="field"><label>Last payment${h.divFreqAuto?" (from data)":""}</label><input type="date" value="${esc(h.lastDiv||"")}" data-hlastdiv="${h.id}"></div>
         </div>
-        ${num(h.divPerShare)?`<div class="note" style="margin-top:12px">Pays about <b>${fmt2(num(h.divPerShare))}</b> per share a year — on ${shares} share${shares===1?"":"s"} that is <b>${fmt2(num(h.divPerShare)*shares)}</b>/yr, about <b>${fmt2(num(h.divPerShare)*shares/12)}</b>/mo${num(h.divYield)?` · ${(num(h.divYield)*100).toFixed(2)}% yield`:""}.</div>`:""}
+        ${(()=>{ if(!num(h.divPerShare))return "";
+          const f=divFreqOf(h), yr=num(h.divPerShare)*shares, per=divPerPayment(h), nx=nextDivDate(h);
+          return `<div class="note" style="margin-top:12px">Pays about <b>${fmt2(num(h.divPerShare))}</b> per share a year${num(h.divYield)?` · ${(num(h.divYield)*100).toFixed(2)}% yield`:""}.
+            On ${shares} share${shares===1?"":"s"} that is <b>${fmt2(yr)}</b>/yr — ${f.n?`about <b>${fmt2(per)}</b> every ${f.every}`:`paid irregularly`}, averaging <b>${fmt2(yr/12)}</b>/mo.
+            ${f.n?(nx?`<br>Next payment expected around <b>${esc(shortDate(nx))}</b>.`:`<br><span class="muted">Set a <b>last payment</b> date and the schedule fills in below.</span>`):""}</div>`;})()}
         <div class="toolbar" style="margin:14px 0 0">
           <button class="btn sm" data-href="${h.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>Refresh price</button>
           <span class="muted" style="font-size:13px">${h.lastQuote?"updated "+h.lastQuote:"never fetched"}</span>
@@ -2155,18 +2586,36 @@ function renderInvest(){
   box.querySelectorAll("[data-hsh]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hsh);if(h){h.shares=num(e.currentTarget.value);saveAll();}});
   box.querySelectorAll("[data-hpr]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hpr);if(h){h.price=num(e.currentTarget.value);recordPrice(h);saveAll();}});
   box.querySelectorAll("[data-hdiv]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hdiv);if(h){h.divPerShare=num(e.currentTarget.value);saveAll();}});
+  box.querySelectorAll("[data-hfreq]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hfreq);
+    if(h){h.divFreq=e.currentTarget.value; h.divFreqAuto=false; saveAll();}});
+  box.querySelectorAll("[data-hlastdiv]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hlastdiv);
+    if(h){h.lastDiv=e.currentTarget.value; saveAll();}});
   box.querySelectorAll("[data-hac]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hac);if(h){h.avgCost=num(e.currentTarget.value);saveAll();}});
   box.querySelectorAll("[data-href]").forEach(b=>b.onclick=async e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.href);
     if(h&&await refreshHolding(h,document.getElementById("quoteStatus"))){recordPrice(h);saveAll();}});
   box.querySelectorAll("[data-hdel]").forEach(b=>b.onclick=e=>{db.holdings=db.holdings.filter(x=>x.id!==e.currentTarget.dataset.hdel);expHolding=null;saveAll();});
   const payers=db.holdings.filter(h=>num(h.divPerShare)>0&&num(h.shares)>0)
-    .map(h=>({n:h.ticker||h.name,per:num(h.divPerShare),sh:num(h.shares),yr:num(h.divPerShare)*num(h.shares)}))
+    .map(h=>({n:h.ticker||h.name,f:divFreqOf(h),auto:!!h.divFreqAuto,each:divPerPayment(h),
+      sh:num(h.shares),yr:num(h.divPerShare)*num(h.shares),next:nextDivDate(h)}))
     .sort((a,b)=>b.yr-a.yr);
   const projEl=document.getElementById("divProjected");
-  if(projEl) projEl.innerHTML=payers.length?`<table><thead><tr><th>Holding</th><th class="amt">Per share/yr</th><th class="amt">Shares</th><th class="amt">Per year</th><th class="amt">Per month</th></tr></thead><tbody>
-    ${payers.map(x=>`<tr><td><b>${esc(x.n)}</b></td><td class="amt">${fmt2(x.per)}</td><td class="amt">${x.sh}</td><td class="amt pos"><b>${fmt2(x.yr)}</b></td><td class="amt">${fmt2(x.yr/12)}</td></tr>`).join("")}
-    <tr><td colspan="3"><b>Total</b></td><td class="amt pos"><b>${fmt2(estAnnualDiv())}</b></td><td class="amt"><b>${fmt2(estAnnualDiv()/12)}</b></td></tr></tbody></table>`
-    :`<div class="empty" style="padding:24px">Add a ticker to a holding and hit Refresh — if it pays a dividend, the amounts fill in here on their own. You can also type the dividend per share yourself.</div>`;
+  if(projEl) projEl.innerHTML=payers.length?`<table class="stacktbl div5"><thead><tr><th>Holding</th><th>Pays</th><th class="amt">Each payment</th><th class="amt">Per year</th><th class="amt">Next</th></tr></thead><tbody>
+    ${payers.map(x=>`<tr><td><b>${esc(x.n)}</b></td>
+      <td><span class="catpill">${esc(x.f.label)}</span>${x.auto?` <span class="muted" style="font-size:11.5px">detected</span>`:""}</td>
+      <td class="amt">${x.f.n?fmt2(x.each):"—"}</td><td class="amt pos"><b>${fmt2(x.yr)}</b></td>
+      <td class="amt muted">${x.next?esc(shortDate(x.next)):"—"}</td></tr>`).join("")}
+    <tr class="sumrow"><td colspan="3"><b>Total</b></td><td class="amt pos"><b>${fmt2(estAnnualDiv())}</b></td><td class="amt muted">${fmt2(estAnnualDiv()/12)}/mo</td></tr></tbody></table>`
+    :`<div class="empty" style="padding:24px">Add a ticker to a holding and hit Refresh — if it pays a dividend, the amount and how often it pays fill in on their own. You can also set both yourself.</div>`;
+  const upEl=document.getElementById("divUpcoming");
+  if(upEl){ const up=upcomingDividends(120);
+    upEl.innerHTML=up.length?`<div class="${up.length>5?"scrollrows":""}">${up.map(x=>`<div class="upitem">
+        <span class="updot" style="background:${cssVar("--pos","#0ca35a")}1f;color:${cssVar("--pos","#0ca35a")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
+        <div class="upmain"><div class="upname">${esc(x.name)}</div><div class="upwhen">${esc(shortDate(x.date))} · in ${Math.max(0,Math.ceil(daysBetween(todayISO(),x.date)))} days</div></div>
+        <div class="upamt pos">+${fmt2(x.amount)}</div></div>`).join("")}</div>
+      <div class="upitem" style="background:var(--raise);border-bottom:0"><span class="updot" style="background:transparent"></span>
+        <div class="upmain"><div class="upname">Expected over 4 months</div><div class="upwhen">${up.length} payment${up.length===1?"":"s"}</div></div>
+        <div class="upamt pos">+${fmt2(up.reduce((s,x)=>s+x.amount,0))}</div></div>`
+      :`<div class="empty" style="padding:22px">Set how often each holding pays and when it last paid — the schedule shows up here.</div>`; }
   document.getElementById("divKpis").innerHTML=`
     <div class="card kpi"><div class="label">Received (12 mo)</div><div class="val pos">${fmt(divTrailing12())}</div><div class="sub">trailing 12 months</div></div>
     <div class="card kpi"><div class="label">All-time dividends</div><div class="val">${fmt(divTotal())}</div><div class="sub">${db.dividends.length} payments</div></div>
@@ -2270,29 +2719,31 @@ function renderAddPanel(){
         </select></div>
         <div class="field"><label>Type</label><select id="na-kind">${LEAF_KINDS.map(([v,o])=>`<option value="${v}" ${v==="checking"?"selected":""}>${o.label}</option>`).join("")}</select></div>
         <div class="field"><label id="na-ballab">Balance</label><input id="na-bal" type="number" placeholder="0"></div>
-        <div class="field" id="na-limwrap" style="display:none"><label>Credit limit</label><input id="na-lim" type="number" placeholder="750"></div>
+        <div class="field" id="na-limwrap" style="display:none"><label id="na-limlab">Credit limit</label><input id="na-lim" type="number" placeholder="750"></div>
         <button class="btn primary" id="na-add">Add account</button>
         <button class="btn ghost" data-addcancel="1">Cancel</button>
       </div>
       <div class="note" id="na-note" style="margin-top:12px;display:none"></div>
       ${holders.length?"":`<div class="note" style="margin-top:12px">Tip: add a <b>bank</b> first if you want to group checking and savings under it.</div>`}`;
     const kindSel=p.querySelector("#na-kind");
-    const refreshKind=()=>{ const liab=!!(ACCT_KINDS[kindSel.value]||{}).liability;
+    const refreshKind=()=>{ const k=ACCT_KINDS[kindSel.value]||{}, liab=!!k.liability, inst=!!k.installment;
       p.querySelector("#na-limwrap").style.display=liab?"":"none";
+      p.querySelector("#na-limlab").textContent=inst?"Original loan amount":"Credit limit";
+      p.querySelector("#na-lim").placeholder=inst?"24000":"750";
       p.querySelector("#na-ballab").textContent=liab?"Balance owed":"Balance";
       const nt=p.querySelector("#na-note"); nt.style.display=liab?"block":"none";
-      if(liab)nt.innerHTML="This is money you owe, so it stays out of <b>money on hand</b>. It'll also be added to <b>Debt payoff</b> so the balance, utilization and payments all stay in one place."; };
+      if(liab)nt.innerHTML="This is money you owe, so it stays out of <b>money on hand</b>. It'll also be added to <b>Debt payoff</b> as a"+(inst?"n installment loan":" card")+" so the balance, payoff progress and payments all stay in one place. Add the APR and monthly payment there for a payoff date."; };
     kindSel.onchange=refreshKind; refreshKind();
     p.querySelector("#na-add").onclick=()=>{const n=p.querySelector("#na-name").value.trim();if(!n){p.querySelector("#na-name").focus();return;}
       const pid=p.querySelector("#na-parent").value||null;
       if(pid){const par=db.accounts.find(x=>x.id===pid); if(par)par.collapsed=false;}
       const kind=kindSel.value, bal=num(p.querySelector("#na-bal").value);
       const liab=!!(ACCT_KINDS[kind]||{}).liability;
-      const a={id:uid(),name:n,kind,value:bal,parentId:pid};
-      if(liab){ a.limit=num(p.querySelector("#na-lim").value);
-        const d={id:uid(),name:n,balance:bal,start:bal,kind:"card",limit:a.limit,payments:[]};
-        db.debts.push(d); a.debtId=d.id; }
-      db.accounts.push(a);
+      const a={id:uid(),name:n,kind,value:liab?Math.abs(bal):bal,parentId:pid};
+      if(liab){ const extra=num(p.querySelector("#na-lim").value);
+        if((ACCT_KINDS[kind]||{}).installment)a.orig=extra; else a.limit=extra;
+        db.accounts.push(a); makeDebtFor(a); }
+      else db.accounts.push(a);
       addMode=null; saveAll();};
   }
   p.querySelectorAll("[data-addcancel]").forEach(b=>b.onclick=()=>{addMode=null;renderAddPanel();});
@@ -2309,7 +2760,7 @@ function renderCash(){
         <div class="hitem"><div class="k">Wallets</div><div class="v">${fmt(groupTotal("Digital wallets"))}</div></div>
         <div class="hitem"><div class="k">Cash</div><div class="v">${fmt(groupTotal("Cash"))}</div></div>
         <div class="hitem"><div class="k">Investments</div><div class="v">${fmt(investTotal())}</div></div>
-        ${cardAccounts().length?`<div class="hitem"><div class="k">Cards owed</div><div class="v neg">${fmt(groupTotal("Cards & credit"))}</div></div>`:""}
+        ${cardAccounts().length?`<div class="hitem"><div class="k">Owed</div><div class="v neg">${fmt(Math.abs(groupTotal("Cards & credit"))+Math.abs(groupTotal("Loans")))}</div></div>`:""}
       </div></div>`; }
   const box=document.getElementById("acctList"); if(!box)return;
   const opts=(list,cur)=>list.map(([v,o])=>`<option value="${v}" ${cur===v?"selected":""}>${o.label}</option>`).join("");
@@ -2317,12 +2768,16 @@ function renderCash(){
     const editing=editAcct===a.id;
     const ld=isLiab(a)?linkedDebt(a):null;
     const meta=isHolder?`${o.label}${kids.length?` · ${kids.length} account${kids.length===1?"":"s"}`:" · empty"}`
-      :isLiab(a)?`${o.label}${num(a.limit)?` · ${fmt(num(a.limit))} limit`:""}${ld?" · in Debt payoff":" · not tracked as debt"}`:o.label;
-    return `<div class="arow${isSub?" sub":""}${editing?" editing":""}">
+      :isLiab(a)?[o.label,
+          isInstallment(a)?(num(a.orig)?`${fmt(num(a.orig))} original`:null):(num(a.limit)?`${fmt(num(a.limit))} limit`:null),
+          num(a.apr)?`${num(a.apr)}% APR`:null,
+          ld?"in Debt payoff":"not tracked as debt"].filter(Boolean).join(" · ")
+      :o.label;
+    return `<div class="arow${isSub?" sub":""}${editing?" editing":""}" data-caopen="${a.id}">
       ${kids.length?`<button class="twist${open?" open":""}" data-catog="${a.id}" aria-label="${open?'Collapse':'Expand'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>`:`<span class="twist ghosted"></span>`}
       <div class="glyph${isSub?" small":""}" style="background:${o.color}">${esc(acctInitials(a.name))}</div>
       <div class="ainfo"><div class="aname">${esc(a.name)}</div><div class="ameta">${esc(meta)}</div></div>
-      <div class="abal${isHolder?" roll":""}${isLiab(a)?" owed":""}">${isLiab(a)?"-"+fmt(num(a.value)).replace("-",""):fmt(acctBalance(a))}${isHolder?`<em>total</em>`:isLiab(a)?`<em>owed</em>`:""}</div>
+      <div class="abal${isHolder?" roll":""}${isLiab(a)?" owed":""}">${isLiab(a)?"-"+fmt(owed(a)):fmt(acctBalance(a))}${isHolder?`<em>total</em>`:isLiab(a)?`<em>owed</em>`:""}</div>
       <button class="aedit${editing?" on":""}" data-caedit="${a.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
     </div>
     ${editing?`<div class="aedit-panel${isSub?" sub":""}">
@@ -2330,13 +2785,20 @@ function renderCash(){
         <div class="field"><label>Name</label><input value="${esc(a.name)}" data-caname="${a.id}"></div>
         <div class="field"><label>Type</label><select data-cakind="${a.id}">${opts(isHolder?HOLDER_KINDS:LEAF_KINDS,a.kind)}</select></div>
         ${isHolder?"":`<div class="field"><label>${isLiab(a)?"Balance owed":"Balance"}</label><input type="number" value="${num(a.value)}" data-caval="${a.id}"></div>`}
-        ${isLiab(a)?`<div class="field"><label>Credit limit</label><input type="number" value="${num(a.limit)||""}" placeholder="750" data-calim="${a.id}"></div>
+        ${isLiab(a)?`
+        ${isInstallment(a)?`<div class="field"><label>Original loan amount</label><input type="number" value="${num(a.orig)||""}" placeholder="24000" data-caorig="${a.id}"></div>`
+          :`<div class="field"><label>Credit limit</label><input type="number" value="${num(a.limit)||""}" placeholder="750" data-calim="${a.id}"></div>`}
+        <div class="field"><label>APR %</label><input type="number" step="any" value="${num(a.apr)||""}" placeholder="7.9" data-caapr="${a.id}"></div>
+        <div class="field"><label>Payment / mo</label><input type="number" value="${num(a.payment)||""}" placeholder="${isInstallment(a)?"173":"50"}" data-capay="${a.id}"></div>
         <div class="field" style="grid-column:span 2"><label>Track in Debt payoff</label><select data-caldebt="${a.id}">
           <option value="">Don't track it there</option>
           ${db.debts.map(d=>`<option value="${d.id}" ${a.debtId===d.id?"selected":""}>${esc(d.name)}</option>`).join("")}
-          <option value="__new">+ Create a debt from this card</option></select></div>`:""}
+          <option value="__new">+ Create a debt from this ${isInstallment(a)?"loan":"card"}</option></select></div>`:""}
       </div>
-      ${isLiab(a)?`<div class="note" style="margin-top:12px;font-size:13px">${ld?`Balance and limit flow into <b>${esc(ld.name)}</b> under Debt. Change it here and it updates there — including after a bank sync.`:"Link it to a debt and the payoff tracker, utilization and payment log all follow this balance automatically."}</div>`:""}
+      ${isLiab(a)?(()=>{ const po=payoffDateISO(owed(a),a.apr,a.payment), mo=payoffMonths(owed(a),a.apr,a.payment);
+        return `<div class="note" style="margin-top:12px;font-size:13px">${ld?`Balance${isInstallment(a)?", original amount":", limit"}, APR and payment flow into <b>${esc(ld.name)}</b> under Debt — including after a bank sync.`:"Link it to a debt and the payoff tracker, utilization and payment log all follow this balance automatically."}
+        ${po?`<br>At ${fmt(num(a.payment))}/mo${num(a.apr)?` and ${num(a.apr)}% APR`:""} this clears in about <b>${mo} month${mo===1?"":"s"}</b> — around <b>${esc(monthYear(po))}</b>.`
+          :(mo===Infinity?`<br><span style="color:var(--warn)">At ${fmt(num(a.payment))}/mo the interest outruns the payment — this balance never clears.</span>`:"")}</div>`;})():""}
       <div class="toolbar" style="margin:12px 0 0">
         ${isHolder?`<button class="btn sm" data-caadd="${a.id}">+ Add account inside</button>`:""}
         <div class="spacer"></div>
@@ -2347,25 +2809,31 @@ function renderCash(){
   box.innerHTML=db.accounts.length? ACCT_GROUPS.map(g=>{
     const list=topAccounts().filter(a=>kindOf(a).group===g);
     if(!list.length)return "";
-    const liabGroup=g==="Cards & credit";
-    return `<div class="grouphead"><span>${g}</span><span${liabGroup?' style="color:var(--neg)"':''}>${liabGroup?"-":""}${fmt(groupTotal(g))} ${liabGroup?"owed":""}</span></div>`+
+    const liabGroup=LIAB_GROUPS.includes(g);
+    return `<div class="grouphead"><span>${g}</span><span${liabGroup?' style="color:var(--neg)"':''}>${liabGroup?"-":""}${fmt(Math.abs(groupTotal(g)))}${liabGroup?" owed":""}</span></div>`+
       list.map(a=>rowFor(a,false)+(a.collapsed?"":kidsOf(a.id).map(k=>rowFor(k,true)).join(""))).join("");
     }).join("") + `<div class="grouphead total"><span>Total money on hand</span><span>${fmt(totalCash())}</span></div>`
     :`<div class="empty">No accounts yet — add one above.</div>`;
   box.querySelectorAll("[data-catog]").forEach(b=>b.onclick=e=>{const a=db.accounts.find(x=>x.id===e.currentTarget.dataset.catog);
     if(a){a.collapsed=!a.collapsed;saveAll();}});
-  box.querySelectorAll("[data-caedit]").forEach(b=>b.onclick=e=>{const id=e.currentTarget.dataset.caedit;editAcct=editAcct===id?null:id;renderCash();});
+  box.querySelectorAll("[data-caedit]").forEach(b=>b.onclick=e=>{e.stopPropagation();const id=e.currentTarget.dataset.caedit;editAcct=editAcct===id?null:id;renderCash();});
+  box.querySelectorAll("[data-caopen]").forEach(r=>r.onclick=e=>{
+    if(e.target.closest("[data-catog],[data-caedit]"))return;
+    const id=r.dataset.caopen; editAcct=editAcct===id?null:id; renderCash();});
   box.querySelectorAll("[data-cadone]").forEach(b=>b.onclick=()=>{editAcct=null;renderCash();});
   box.querySelectorAll("[data-caadd]").forEach(b=>b.onclick=e=>{const pid=e.currentTarget.dataset.caadd;
     const p=db.accounts.find(x=>x.id===pid); if(p)p.collapsed=false;
     const n={id:uid(),name:"Checking",kind:"checking",value:0,parentId:pid}; db.accounts.push(n); editAcct=n.id; saveAll();});
   box.querySelectorAll("[data-caname]").forEach(i=>i.onchange=e=>{const a=db.accounts.find(x=>x.id===e.target.dataset.caname);if(a){a.name=e.target.value;saveAll();}});
-  box.querySelectorAll("[data-caval]").forEach(i=>i.onchange=e=>{const a=db.accounts.find(x=>x.id===e.target.dataset.caval);if(a){a.value=num(e.target.value);saveAll();}});
+  box.querySelectorAll("[data-caval]").forEach(i=>i.onchange=e=>{const a=db.accounts.find(x=>x.id===e.target.dataset.caval);
+    if(a){ const v=num(e.target.value); a.value=isLiab(a)?Math.abs(v):v; saveAll(); }});
   box.querySelectorAll("[data-calim]").forEach(i=>i.onchange=e=>{const a=db.accounts.find(x=>x.id===e.target.dataset.calim);if(a){a.limit=num(e.target.value);saveAll();}});
+  box.querySelectorAll("[data-caorig]").forEach(i=>i.onchange=e=>{const a=db.accounts.find(x=>x.id===e.target.dataset.caorig);if(a){a.orig=num(e.target.value);saveAll();}});
+  box.querySelectorAll("[data-caapr]").forEach(i=>i.onchange=e=>{const a=db.accounts.find(x=>x.id===e.target.dataset.caapr);if(a){a.apr=num(e.target.value);saveAll();}});
+  box.querySelectorAll("[data-capay]").forEach(i=>i.onchange=e=>{const a=db.accounts.find(x=>x.id===e.target.dataset.capay);if(a){a.payment=num(e.target.value);saveAll();}});
   box.querySelectorAll("[data-caldebt]").forEach(i=>i.onchange=e=>{const a=db.accounts.find(x=>x.id===e.target.dataset.caldebt); if(!a)return;
     const v=e.target.value;
-    if(v==="__new"){ const d={id:uid(),name:a.name,balance:num(a.value),start:num(a.value),kind:"card",limit:num(a.limit),payments:[]};
-      db.debts.push(d); a.debtId=d.id; }
+    if(v==="__new") makeDebtFor(a);
     else a.debtId=v||"";
     saveAll();});
   box.querySelectorAll("[data-cakind]").forEach(i=>i.onchange=e=>{const a=db.accounts.find(x=>x.id===e.target.dataset.cakind);
@@ -2473,6 +2941,25 @@ function openDrawer(){ document.getElementById("sidebar").classList.add("open");
 function closeDrawer(){ const sb=document.getElementById("sidebar"); if(sb)sb.classList.remove("open"); const sc=document.getElementById("scrim"); if(sc)sc.classList.remove("on"); }
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-go]"); if(b){ setView(b.dataset.go); } });
 
+/* Each screen's intro paragraph explains it once and then costs vertical space
+   forever. Tuck it behind a small (i) beside the title — clear, one tap, no clutter. */
+function collapseLeads(){
+  document.querySelectorAll(".view").forEach(v=>{
+    const h=v.querySelector("h1.page"); if(!h)return;
+    if(h.parentElement.classList.contains("titlerow"))return;
+    const lead=v.querySelector("p.lead"); if(!lead)return;
+    lead.hidden=true;
+    const row=document.createElement("div"); row.className="titlerow";
+    h.parentNode.insertBefore(row,h); row.appendChild(h);
+    const b=document.createElement("button");
+    b.type="button"; b.className="infobtn"; b.textContent="i";
+    b.setAttribute("aria-label","What this screen is for");
+    b.setAttribute("aria-expanded","false");
+    b.onclick=()=>{ const show=lead.hidden; lead.hidden=!show;
+      b.classList.toggle("on",show); b.setAttribute("aria-expanded",show?"true":"false"); };
+    row.appendChild(b);
+  });
+}
 function renderAll(){ captureSnapshot(); renderNav(); renderSlotPicker(); syncTheme(); renderCats();renderDash();renderTrends();renderIncome();renderPaychecks();renderTx();renderBudget();renderGoals();renderForecast();renderHistoryList();renderCash();renderCredit();renderInvest();renderRules(); }
 
 /* ---------- events ---------- */
@@ -2483,6 +2970,11 @@ document.getElementById("monthSel").addEventListener("change",e=>{curMonth=e.tar
 document.getElementById("budgetMonthSel").addEventListener("change",e=>{budgetMonth=e.target.value;renderBudget();});
 document.getElementById("csvFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>handleCSV(r.result);r.readAsText(f);e.target.value="";});
 document.getElementById("txSearch").addEventListener("input",renderTx);
+document.getElementById("filtToggle").addEventListener("click",()=>setFiltOpen(!filtOpen));
+["acct","cat","when","dir","sort"].forEach(k=>{const el=document.getElementById("f-"+k);
+  if(el)el.addEventListener("change",e=>{txFilter[k]=e.target.value;renderTx();});});
+["min","max"].forEach(k=>{const el=document.getElementById("f-"+k);
+  if(el)el.addEventListener("input",e=>{txFilter[k]=e.target.value.trim();renderTx();});});
 document.getElementById("clearTxBtn").addEventListener("click",e=>armConfirm(e.currentTarget,()=>{db.transactions=[];saveAll();}));
 document.getElementById("addTxBtn").addEventListener("click",()=>{const p=document.getElementById("manualTxPanel");const show=p.style.display==="none";p.style.display=show?"block":"none";
   if(show){document.getElementById("mt-cat").innerHTML=db.categories.map(c=>`<option>${c}</option>`).join("");document.getElementById("mt-date").value=todayISO();document.getElementById("mt-desc").focus();}});
@@ -2521,7 +3013,7 @@ document.getElementById("nd-add").addEventListener("click",()=>{const name=docum
   saveAll();});
 document.getElementById("addScoreBtn").addEventListener("click",()=>{const date=document.getElementById("scoreDate").value||todayISO();const score=parseInt(document.getElementById("scoreVal").value);if(isNaN(score))return;
   db.creditLog=db.creditLog.filter(x=>x.date!==date);db.creditLog.push({date,score});document.getElementById("scoreVal").value="";saveAll();});
-document.getElementById("addHoldingBtn").addEventListener("click",()=>{db.holdings.push({id:uid(),name:"New holding",ticker:"",shares:0,price:0,avgCost:0,divPerShare:0});saveAll();});
+document.getElementById("addHoldingBtn").addEventListener("click",()=>{db.holdings.push({id:uid(),name:"New holding",ticker:"",shares:0,price:0,avgCost:0,divPerShare:0,divFreq:"quarterly"});saveAll();});
 document.getElementById("refreshAllBtn").addEventListener("click",async e=>{
   // hold the node: after an await, e.currentTarget is null
   const btn=e.currentTarget;
@@ -2574,10 +3066,26 @@ async function sfClaim(setupToken){
   if(!/^https?:\/\/.+@/.test(access)) throw new Error("Unexpected response from SimpleFIN");
   return access;
 }
+/* Banks name accounts freely, so guess the type from the words they use.
+   Order matters: "Used Vehicle Loan" must land on auto loan, not on "credit union". */
 function sfKind(name){ const n=(name||"").toLowerCase();
-  if(/sav|money ?market|cd\b/.test(n))return "savings";
-  if(/credit|card|visa|master|amex/.test(n))return "checking";
+  if(/mortgage|home ?equity|heloc/.test(n))return "mortgage";
+  if(/(auto|car|vehicle|truck|motorcycle)\b.*(loan|note|finance)|(loan|note).*(auto|car|vehicle)/.test(n))return "autoloan";
+  if(/student|sallie|navient|nelnet/.test(n))return "studentloan";
+  if(/line of credit|\bloc\b|personal loan|installment/.test(n))return "personalloan";
+  if(/credit ?card|\bvisa\b|mastercard|master ?card|\bamex\b|american express|discover ?it|\bcard\b/.test(n))return "credit";
+  if(/sav|money ?market|\bcd\b/.test(n))return "savings";
+  if(/\bloan\b/.test(n))return "personalloan";
   return "checking"; }
+/* SimpleFIN gives a name and an org; "Navy Federal Credit Union Used Vehicle Loan"
+   under org "Navy Federal" shouldn't become "Navy Federal Navy Federal …". */
+function sfName(a){
+  const nm=String((a&&a.name)||"Account").trim();
+  const org=String((a&&a.org&&(a.org.name||a.org.domain))||"").trim();
+  if(!org) return nm;
+  if(nm.toLowerCase().includes(org.toLowerCase().split(/\s+/)[0].toLowerCase())) return nm;
+  return (org+" "+nm).trim();
+}
 async function sfSync(days){
   if(!syncCfg.sfAccess) throw new Error("Not connected yet");
   const {base,auth}=sfSplit(syncCfg.sfAccess);
@@ -2586,15 +3094,23 @@ async function sfSync(days){
   if(r.status===403) throw new Error("Access was revoked — reconnect with a new setup token");
   if(!r.ok) throw new Error("SimpleFIN returned "+r.status);
   const j=await r.json();
-  let newTx=0,accts=0,dupes=0;
+  let newTx=0,accts=0,dupes=0,newAcct=0,newDebt=0;
   (j.accounts||[]).forEach(a=>{
     let target=db.accounts.find(x=>x.sfId===a.id);
+    const nm=sfName(a);
     if(!target){
-      const org=a.org&&(a.org.name||a.org.domain)?String(a.org.name||a.org.domain)+" ":"";
-      target={id:uid(),name:(org+(a.name||"Account")).trim(),kind:sfKind(a.name),value:0,parentId:null,sfId:a.id};
-      db.accounts.push(target);
+      target={id:uid(),name:nm,kind:sfKind(nm),value:0,parentId:null,sfId:a.id};
+      db.accounts.push(target); newAcct++;
     }
-    const bal=parseFloat(a.balance); if(!isNaN(bal))target.value=bal;
+    const bal=parseFloat(a.balance);
+    /* A card or loan comes back negative because you owe it; we store what's owed. */
+    if(!isNaN(bal))target.value=isLiab(target)?Math.abs(bal):bal;
+    const lim=parseFloat(a["available-balance"]);
+    if(isLiab(target)&&!isInstallment(target)&&!num(target.limit)&&!isNaN(lim)&&lim>0)
+      target.limit=Math.round(Math.abs(lim)+Math.abs(bal||0));
+    /* a liability the bank just handed us belongs in Debt payoff, typed to match */
+    if(isLiab(target)&&!linkedDebt(target)&&owed(target)>0){ makeDebtFor(target); newDebt++; }
+    const ld2=linkedDebt(target); if(ld2&&ld2.name!==target.name&&!ld2.renamed)ld2.name=target.name;
     accts++;
     (a.transactions||[]).forEach(t=>{
       const tid=String(t.id);
@@ -2609,7 +3125,8 @@ async function sfSync(days){
   });
   db.transactions.sort((a,b)=>b.date.localeCompare(a.date));
   syncCfg.sfLast=new Date().toISOString(); saveSyncCfg();
-  return {newTx,accts,dupes,errors:(j.errors||[])};
+  syncLinkedDebts();
+  return {newTx,accts,dupes,newAcct,newDebt,errors:(j.errors||[])};
 }
 function sfSay(html,cls){ const el=document.getElementById("sfMsg"); if(el)el.innerHTML=`<span class="${cls||"muted"}">${html}</span>`; }
 function renderBank(){
@@ -2646,6 +3163,8 @@ function renderBank(){
     try{ const days=+document.getElementById("sfDays").value||90; const r=await sfSync(days);
       saveAll(); renderBank();
       sfSay(`Pulled ✓ — <b>${r.newTx}</b> new transaction${r.newTx===1?"":"s"} across ${r.accts} account${r.accts===1?"":"s"}${r.dupes?`, ${r.dupes} already had`:""}.`+
+        (r.newAcct?`<br><b>${r.newAcct}</b> new account${r.newAcct===1?"":"s"} added.`:"")+
+        (r.newDebt?` <b>${r.newDebt}</b> card/loan balance${r.newDebt===1?"":"s"} now tracked in <b>Debt payoff</b> — add the APR and monthly payment there for a payoff date.`:"")+
         (r.errors.length?`<br><span class="neg">Bank messages: ${esc(r.errors.join("; "))}</span>`:""),"pos");
     }catch(e){ sfSay("Sync failed — "+esc(e.message),"neg"); }
     sy.disabled=false;
@@ -2989,9 +3508,9 @@ function forecastTo(toISO){
   const flex=Object.keys(db.budgets).reduce((s,c)=>s+num(db.budgets[c]),0);
   const dailyFlex=flex/30.44;
   const pay={};
-  db.income.forEach(s=>{ const ds=payDates(s,start,toISO); if(ds)ds.forEach(d=>{pay[d]=(pay[d]||0)+afterTax(perPaycheck(s));});
+  db.income.forEach(s=>{ const ds=payDates(s,start,toISO); if(ds)ds.forEach(d=>{pay[d]=(pay[d]||0)+netOf(s,perPaycheck(s));});
     else { const amt=scheduledPay(s,start,toISO); if(amt>0){ const days=Math.max(1,Math.round(daysBetween(start,toISO)));
-      for(let k=1;k<=days;k++){ const d=new Date(start+"T12:00:00"); d.setDate(d.getDate()+k); pay[d.toISOString().slice(0,10)]=(pay[d.toISOString().slice(0,10)]||0)+afterTax(amt)/days; } } } });
+      for(let k=1;k<=days;k++){ const d=new Date(start+"T12:00:00"); d.setDate(d.getDate()+k); pay[d.toISOString().slice(0,10)]=(pay[d.toISOString().slice(0,10)]||0)+netOf(s,amt)/days; } } } });
   let bal=totalCash(); const pts=[],labels=[],events=[];
   const cur=new Date(start+"T12:00:00"), end=new Date(toISO+"T12:00:00");
   let guard=0,lowest={v:bal,d:start};
@@ -3096,6 +3615,7 @@ try{ load(); }catch(e){ db=seed(); normalize(); }
 try{ loadSyncCfg(); }catch(e){}
 try{ syncTheme(); }catch(e){}
 try{ envSetup(); }catch(e){}
+try{ collapseLeads(); }catch(e){}
 try{ renderAll(); }catch(e){
   const m=document.querySelector("main");
   if(m) m.insertAdjacentHTML("afterbegin",`<div class="storagewarn"><b>Something went wrong drawing the page.</b> ${esc(e.message)}<br>Your saved data is intact — try reloading, or use Settings → Load backup.</div>`);
