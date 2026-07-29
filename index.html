@@ -818,9 +818,8 @@
       </div>
     </div>
 
-    <div class="sectiontitle"><h2>Flexible budgets</h2><span class="hint">variable spending — a target to stay under</span><span class="spacer"></span>
-      <label class="flex" style="font-size:14px;gap:8px;white-space:nowrap"><input type="checkbox" id="rollToggle"> Roll unspent into next month</label></div>
-    <div class="card pad" id="budgetList"></div>
+    <div class="sectiontitle"><h2>Flexible budgets</h2><span class="hint">tap one to edit · rollover is per budget</span></div>
+    <div class="card" id="budgetList"></div>
     <div class="card pad" style="margin-top:12px">
       <b style="font-size:13.5px">Add a budget</b>
       <div class="formgrid" style="margin-top:10px">
@@ -1061,6 +1060,9 @@ const todayISO = () => new Date().toISOString().slice(0,10);
 /* "2026-08-05" is too wide for a stat tile and reads like a serial number. */
 const shortDate = iso => { if(!iso)return "—"; const [y,m,d]=iso.split("-").map(Number);
   return new Date(y,m-1,d).toLocaleDateString(undefined,{month:"short",day:"numeric"}); };
+/* a per-share dividend is often fractions of a cent — $0.26 hides real precision */
+const fmtPS = n => { const v=num(n);
+  return "$"+(Math.abs(v)<1 ? v.toFixed(4).replace(/(\.\d*?)0+$/,"$1").replace(/\.$/,"") : v.toFixed(2)); };
 const monthYear = iso => { if(!iso)return "—"; const [y,m]=iso.split("-").map(Number);
   return new Date(y,m-1,1).toLocaleDateString(undefined,{month:"long",year:"numeric"}); };
 /* IDs must never collide. performance.now() is clamped to 1ms in Safari, so the old
@@ -1190,6 +1192,15 @@ function repairIds(){
 }
 function normalize(){
   if(!Array.isArray(db.paychecks)) db.paychecks=[];
+  /* Rollover is per budget now, and each one records the month it started so a
+     brand-new budget can't "carry in" money from months it didn't exist in. */
+  if(!db.budgetMeta||typeof db.budgetMeta!=="object") db.budgetMeta={};
+  Object.keys(db.budgets||{}).forEach(c=>{
+    const m=db.budgetMeta[c]=db.budgetMeta[c]||{};
+    if(m.since===undefined) m.since=monthKey(todayISO());
+    if(m.roll===undefined) m.roll=!(db.settings&&db.settings.rollover===false);
+  });
+  Object.keys(db.budgetMeta).forEach(c=>{ if(db.budgets&&db.budgets[c]===undefined) delete db.budgetMeta[c]; });
   if(!db.monthBudgets||typeof db.monthBudgets!=='object') db.monthBudgets={};
   if(!db.budgetStart) db.budgetStart=monthKey(todayISO());
   (db.recurring||[]).forEach(b=>{ if(!b.dueDay)b.dueDay=1; });
@@ -1208,7 +1219,13 @@ function normalize(){
   // holdings: total cost -> average cost per share
   (db.holdings||[]).forEach(h=>{ if(h.avgCost===undefined){ const sh=num(h.shares); h.avgCost=sh>0?num(h.cost)/sh:num(h.price); } delete h.cost;
     if(h.ticker===undefined)h.ticker=""; if(h.divPerShare===undefined)h.divPerShare=0;
-    if(h.divFreq===undefined)h.divFreq="quarterly"; });
+    if(h.divFreq===undefined)h.divFreq="quarterly";
+    /* dividend per share used to mean "per year"; it now means "per payment" */
+    if(h.divBasis!=="payment"){
+      const n=(DIV_FREQ[h.divFreq]||{}).n||0;
+      if(n>1&&num(h.divPerShare)>0) h.divPerShare=+(num(h.divPerShare)/n).toFixed(6);
+      h.divBasis="payment";
+    } });
   /* bank-signed liability balances (negative = owed) become plain "amount owed" */
   (db.accounts||[]).forEach(a=>{ const k=ACCT_KINDS[a.kind]; if(k&&k.liability&&num(a.value)<0)a.value=Math.abs(num(a.value)); });
   /* Early bank syncs glued the org name onto a name that already contained it,
@@ -1468,11 +1485,17 @@ async function refreshHolding(h,statusEl){
   if(statusEl)statusEl.textContent=`Fetching ${h.ticker.toUpperCase()}…`;
   try{
     const q=await fetchQuote(h.ticker); h.price=q.price; h.lastQuote=todayISO(); recordPrice(h);
-    const d=await fetchDividend(h.ticker); if(d){ h.divPerShare=d.divPerShare; h.divYield=d.divYield; }
+    const d=await fetchDividend(h.ticker); if(d){ h.divYield=d.divYield; }
     let sched=null;
     try{ sched=await fetchDivSchedule(h.ticker); }catch(e){}
     if(sched){ h.divFreq=sched.freq; h.divFreqAuto=true; h.lastDiv=sched.last; h.divChecked=todayISO();
-      if(sched.trailingPerShare>0) h.divPerShare=sched.trailingPerShare; }
+      /* the schedule lists real payments, so average them for the per-payment figure */
+      if(sched.count>0&&sched.trailingPerShare>0) h.divPerShare=+(sched.trailingPerShare/sched.count).toFixed(6);
+      h.divBasis="payment";
+    } else if(d&&d.divPerShare>0){
+      /* only an annual figure came back — split it across the known frequency */
+      const n=divFreqN(h)||1; h.divPerShare=+(d.divPerShare/n).toFixed(6); h.divBasis="payment";
+    }
     const extra=sched?` · pays ${DIV_FREQ[sched.freq].label.toLowerCase()} (${sched.count} in the last year)`:(d?" · dividend data included":"");
     if(statusEl)statusEl.innerHTML=`✓ ${esc(h.ticker.toUpperCase())} @ ${fmt2(q.price)} <span class="muted">via ${q.source}${extra}</span>`;
     return true;
@@ -1573,7 +1596,13 @@ function acctInitials(n){ const w=(n||"?").trim().split(/\s+/).filter(Boolean); 
 const investTotal=()=>db.holdings.reduce((s,h)=>s+num(h.shares)*num(h.price),0);
 const holdingCost=h=>num(h.shares)*num(h.avgCost);
 const investCost=()=>db.holdings.reduce((s,h)=>s+holdingCost(h),0);
-const estAnnualDiv=()=>db.holdings.reduce((s,h)=>s+num(h.shares)*num(h.divPerShare),0);
+/* divPerShare is what one payment pays per share. The annual figure is derived
+   from the frequency — locking in a yearly number would make the frequency
+   question pointless, and a $0.264 monthly REIT payment is not $0.264 a year. */
+const divFreqN=h=>divFreqOf(h).n;
+const divAnnualPerShare=h=>{ const n=divFreqN(h); return n?num(h.divPerShare)*n:num(h.divPerShare); };
+const divAnnualFor=h=>num(h.shares)*divAnnualPerShare(h);
+const estAnnualDiv=()=>db.holdings.reduce((s,h)=>s+divAnnualFor(h),0);
 /* How often a holding actually pays. A REIT on a monthly schedule and a fund on a
    quarterly one throw off the same annual figure in very different lumps, which is
    what matters when you're planning around a payday. */
@@ -1581,7 +1610,7 @@ const DIV_FREQ={monthly:{n:12,label:"Monthly",every:"month"},quarterly:{n:4,labe
   semiannual:{n:2,label:"Twice a year",every:"6 months"},annual:{n:1,label:"Once a year",every:"year"},
   irregular:{n:0,label:"Irregular / none",every:""}};
 const divFreqOf=h=>DIV_FREQ[h&&h.divFreq]||DIV_FREQ.quarterly;
-const divPerPayment=h=>{ const f=divFreqOf(h).n; return f?num(h.divPerShare)*num(h.shares)/f:0; };
+const divPerPayment=h=>divFreqN(h)?num(h.divPerShare)*num(h.shares):0;
 /* the next date a holding is expected to pay, stepped forward from the last one we know of */
 function nextDivDate(h){
   const f=divFreqOf(h).n; if(!f)return null;
@@ -1899,6 +1928,7 @@ function renderDash(){
 
 /* INCOME */
 let horizon="3";
+let expStream=null;
 function renderIncome(){
   const from=todayISO();
   const est=monthlyIncomeNet();
@@ -1933,21 +1963,42 @@ function renderIncome(){
       : s.model==="daily"?`${fmt(num(s.rate))}/day × ${num(s.units)} days/wk · paid ${freqLabel[s.payFreq]||"weekly"}`
       : `${fmt(num(s.amount))} one-time`;
     const win = s.model==="onetime"?`on ${s.date||"—"}`:`${s.start||"—"} → ${s.end||"ongoing"}`;
-    return `<div class="card pad">
-      <div class="between" style="margin-bottom:6px">
-        <div class="flex"><span class="tag ${s.active===false?'bad':'ok'}">${s.active===false?'PAUSED':(s.type||'Income')}</span>
-          <input class="miniedit iname" style="width:210px;text-align:left" value="${esc(s.name)}" data-iname="${s.id}">
-          ${streamNoTax(s)?`<span class="tag notax" title="Excluded from the tax estimate">NO TAX</span>`:""}</div>
-        <div class="flex"><b>${fmt(streamMonthly(s))}/mo</b><button class="btn ghost sm" data-iedit="${s.id}">edit</button><button class="btn ghost sm" data-idel="${s.id}">✕</button></div>
+    const np=nextPayday(s), open=expStream===s.id;
+    const meta=[s.active===false?null:(modelName[s.model]||s.model), per,
+      (s.extras&&s.extras.length)?`+${s.extras.length} extra${s.extras.length===1?"":"s"}`:null,
+      streamNoTax(s)?"not taxed":null].filter(Boolean).join(" · ");
+    return `<div class="dcard${open?" editing":""}">
+      <div class="dtop" data-iopen="${s.id}">
+        <span class="tag ${s.active===false?'bad':'ok'}">${s.active===false?'PAUSED':esc(s.type||'Income')}</span>
+        <div class="dinfo"><div class="dname">${esc(s.name)}</div><div class="dmeta">${esc(meta)}</div></div>
+        <div class="damt"><div class="dbal">${fmt(streamMonthly(s))}</div><div class="dof">per month</div></div>
+        <button class="aedit${open?" on":""}" data-iedit="${s.id}" aria-label="Edit ${esc(s.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
       </div>
-      <div class="muted" style="font-size:13px">${modelName[s.model]||s.model} · ${per} · ${win}</div>
-      ${(s.extras&&s.extras.length)?`<div class="muted" style="font-size:13px;margin-top:3px">+ ${s.extras.map(e=>esc(e.label)+" ("+fmt(num(e.amount))+"/"+e.cadence+")").join(" · ")}</div>`:""}
-      ${(()=>{const np=nextPayday(s);return np?`<div style="font-size:13px;margin-top:4px;color:var(--pos);font-weight:560">Next payday ${esc(shortDate(np))} · ${daysUntil(np)<=0?"today":daysUntil(np)+" days"}</div>`:"";})()}
-      <div id="iedit-${s.id}"></div>
-    </div>`; }).join(""):`<div class="empty">No income streams yet — add your job or gig.</div>`;
-  db.income.forEach(s=>{ const nm=document.querySelector(`[data-iname="${s.id}"]`); if(nm)nm.onchange=e=>{s.name=e.target.value;saveAll();}; });
-  document.querySelectorAll("[data-idel]").forEach(b=>b.onclick=e=>{db.income=db.income.filter(x=>x.id!==e.target.dataset.idel);saveAll();});
-  document.querySelectorAll("[data-iedit]").forEach(b=>b.onclick=e=>openIncomeEditor(e.target.dataset.iedit));
+      ${np?`<div class="dbarrow" style="padding-bottom:12px"><span style="font-size:13px;color:var(--pos);font-weight:580">Next payday ${esc(shortDate(np))} · ${daysUntil(np)<=0?"today":daysUntil(np)+" days"}</span></div>`:""}
+      ${open?`<div class="dpanel">
+        <div class="formgrid"><div class="field"><label>Name</label><input value="${esc(s.name)}" data-iname="${s.id}"></div></div>
+        <div class="muted" style="font-size:12.5px;margin-top:6px">${esc(win)}</div>
+        <div id="iedit-${s.id}"></div>
+        <div class="toolbar" style="margin:14px 0 0">
+          <div class="spacer"></div>
+          <button class="btn sm danger" data-idel="${s.id}">Delete stream</button>
+          <button class="btn sm primary" data-idone="1">Done</button>
+        </div>
+      </div>`:`<div id="iedit-${s.id}" hidden></div>`}
+    </div>`; }).join(""):`<div class="empty" style="padding:22px">No income streams yet — add your job or gig.</div>`;
+  const il=document.getElementById("incomeList");
+  il.querySelectorAll("[data-iopen]").forEach(el=>el.onclick=e=>{
+    if(e.target.closest("[data-iedit]"))return;
+    const id=el.dataset.iopen; const willOpen=expStream!==id; expStream=willOpen?id:null;
+    renderIncome(); if(willOpen)renderIncomeEditor(id);});
+  il.querySelectorAll("[data-iedit]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+    const id=b.dataset.iedit; const willOpen=expStream!==id; expStream=willOpen?id:null;
+    renderIncome(); if(willOpen)renderIncomeEditor(id);});
+  il.querySelectorAll("[data-idone]").forEach(b=>b.onclick=()=>{expStream=null;renderIncome();});
+  if(expStream&&il.querySelector("#iedit-"+expStream))setTimeout(()=>{try{renderIncomeEditor(expStream);}catch(e){}},0);
+  db.income.forEach(s=>{ const nm=il.querySelector(`[data-iname="${s.id}"]`); if(nm)nm.onchange=e=>{s.name=e.target.value;saveAll();}; });
+  il.querySelectorAll("[data-idel]").forEach(b=>b.onclick=e=>{const id=e.currentTarget.dataset.idel;
+    db.income=db.income.filter(x=>x.id!==id); if(expStream===id)expStream=null; saveAll();});
 }
 function readEditorInto(s){ const g=id=>document.getElementById(id);
   if(g("e-type"))s.type=g("e-type").value;
@@ -1961,13 +2012,13 @@ function readEditorInto(s){ const g=id=>document.getElementById(id);
   if(g("e-date"))s.date=g("e-date").value;
   if(g("e-active"))s.active=g("e-active").value==="yes";
   if(g("e-notax"))s.notax=g("e-notax").checked; }
-function openIncomeEditor(id){ const box=document.getElementById("iedit-"+id); if(!box)return;
-  if(box.dataset.open==="1"){box.dataset.open="";box.innerHTML="";return;} box.dataset.open="1"; renderIncomeEditor(id); }
+function openIncomeEditor(id){ const willOpen=expStream!==id; expStream=willOpen?id:null;
+  renderIncome(); if(willOpen)renderIncomeEditor(id); }
 function renderIncomeEditor(id){
   const s=db.income.find(x=>x.id===id); if(!s)return; const box=document.getElementById("iedit-"+id); if(!box)return; box.dataset.open="1";
   const extras=s.extras||[]; const mf=MODELFIELDS[s.model]||MODELFIELDS.monthly; const rateVal=mf.amountField?num(s.amount):num(s.rate);
   const gig=s.model==="daily"?gigEstimate(s):null;
-  box.innerHTML=`<div class="formgrid" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+  box.innerHTML=`<div class="formgrid" style="margin-top:12px">
     <div class="field"><label>Type</label><select id="e-type">${["Regular","Production","Gig","Other"].map(t=>`<option ${s.type===t?"selected":""}>${t}</option>`).join("")}</select></div>
     <div class="field"><label>Pay model</label><select id="e-model">${[["daily","Day rate (production)"],["monthly","Salary / flat pay"],["hourly","Hourly"],["onetime","One-time gig"]].map(([v,l])=>`<option value="${v}" ${s.model===v?"selected":""}>${l}</option>`).join("")}</select></div>
     <div class="field"><label>${mf.rateLabel}</label><input id="e-rate" type="number" value="${rateVal}"></div>
@@ -2219,8 +2270,13 @@ function merchantKey(desc){ const c=(desc||"").toLowerCase().replace(/[^a-z ]+/g
 /* BUDGET — bills (fixed obligations) vs flexible budgets (spending targets)
    With rollover on, a category behaves like an envelope: what you don't spend stays
    in it, and overspending eats into next month. Available = carried in + budgeted - spent. */
-let budgetMonth=null,editBill=null;
+let budgetMonth=null,editBill=null,editBudget=null;
+function budgetMetaOf(cat){ return (db.budgetMeta&&db.budgetMeta[cat])||{}; }
+function budgetSince(cat){ return budgetMetaOf(cat).since||budgetStartMonth(); }
+function budgetRolls(cat){ const m=budgetMetaOf(cat); return m.roll===undefined?true:!!m.roll; }
 function budgetedFor(cat,m){
+  /* nothing was budgeted in a month before this budget existed */
+  if(m<budgetSince(cat)) return 0;
   const o=db.monthBudgets&&db.monthBudgets[m];
   if(o&&o[cat]!=null) return num(o[cat]);
   return num(db.budgets[cat]);
@@ -2243,8 +2299,9 @@ function monthsUpTo(m){
   return out;
 }
 function carriedInto(cat,m){
-  if(!db.settings.rollover) return 0;
-  let a=0; for(const mm of monthsUpTo(m)){ if(mm===m)break; a+=budgetedFor(cat,mm)-spentFor(cat,mm); }
+  if(!budgetRolls(cat)) return 0;
+  const since=budgetSince(cat);
+  let a=0; for(const mm of monthsUpTo(m)){ if(mm===m)break; if(mm<since)continue; a+=budgetedFor(cat,mm)-spentFor(cat,mm); }
   return a;
 }
 function availableFor(cat,m){ return carriedInto(cat,m)+budgetedFor(cat,m)-spentFor(cat,m); }
@@ -2348,36 +2405,66 @@ function renderBudget(){
   bl.querySelectorAll("[data-billdel]").forEach(btn=>btn.onclick=e=>{const id=e.currentTarget.dataset.billdel;
     db.transactions=db.transactions.filter(t=>!(t.billRef&&t.billRef.split("|")[0]===id));
     db.recurring=db.recurring.filter(x=>x.id!==id); editBill=null; saveAll();});
-  // flexible budgets — envelope style
-  const roll=!!db.settings.rollover;
+  // flexible budgets — envelope style, one compact row each
   const rows=budCats.sort((a,b)=>(spent[b]||0)-(spent[a]||0));
   document.getElementById("budgetList").innerHTML=rows.length?rows.map(c=>{
     const bud=budgetedFor(c,mk), sp=spent[c]||0, carry=carriedInto(c,mk), avail=carry+bud-sp;
     const pool=carry+bud, pct=pool>0?Math.min(100,sp/pool*100):(sp>0?100:0);
+    const rolls=budgetRolls(c), since=budgetSince(c), editing=editBudget===c;
     const state=avail<0?"bad":pool>0&&sp/pool>0.85?"warn":"ok";
     const col=avail<0?"var(--neg)":pool>0&&sp/pool>0.85?"var(--warn)":"var(--pos)";
-    return `<div style="margin-bottom:20px">
-      <div class="between" style="margin-bottom:6px;flex-wrap:wrap;gap:8px">
-        <span class="flex"><span class="catpill" style="border-left-color:${catColor[c]||'#ccc'}">${esc(c)}</span>
-          <span class="tag ${state}">${avail<0?'OVERSPENT':state==='warn'?'CLOSE':'ON TRACK'}</span></span>
-        <span class="flex"><span class="muted" style="font-size:13px">budget</span>
-          <input class="miniedit" style="width:92px" value="${bud||''}" data-blim="${esc(c)}">
-          <button class="btn ghost sm" data-buddel="${esc(c)}">✕</button></span>
+    const meta=[`${fmt(sp)} of ${fmt(bud)}`,
+      rolls&&carry?`${carry>=0?"+":""}${fmt(carry)} rolled in`:null,
+      rolls?null:"no rollover"].filter(Boolean).join(" · ");
+    return `<div class="brow${editing?" editing":""}">
+      <div class="bmain" data-budopen="${esc(c)}">
+        <span class="bdot" style="background:${catColor[c]||'#94a3b8'};width:9px;height:9px"></span>
+        <div class="binfo"><div class="bname">${esc(c)}</div><div class="bmeta">${meta}</div></div>
+        <div class="damt"><div class="dbal" style="color:${avail<0?'var(--neg)':'var(--ink)'}">${fmt(avail)}</div>
+          <div class="dof">${avail<0?"over":"left"}</div></div>
+        <button class="aedit${editing?" on":""}" data-budedit="${esc(c)}" aria-label="Edit ${esc(c)} budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
       </div>
-      <div class="between" style="align-items:flex-end;margin-bottom:6px">
-        <span class="muted" style="font-size:13px">${roll&&carry?`${carry>=0?"rolled in":"carried over"} ${fmt(carry)} + ${fmt(bud)} budgeted − ${fmt(sp)} spent`:`${fmt(sp)} spent of ${fmt(bud)}`}</span>
-        <span style="text-align:right"><b style="font-size:19px;color:${avail<0?'var(--neg)':'var(--ink)'}">${fmt(avail)}</b>
-          <div class="muted" style="font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:640">available</div></span>
+      <div class="dbarrow" style="padding-bottom:12px">
+        <div class="bar"><span style="width:${pct.toFixed(1)}%;background:${col}"></span></div>
+        <span class="tag ${state}" style="flex:none">${avail<0?'OVER':state==='warn'?'CLOSE':'OK'}</span>
       </div>
-      <div class="bar"><span style="width:${pct.toFixed(1)}%;background:${col}"></span></div>
-      ${avail<0?`<div class="muted" style="font-size:12.5px;margin-top:5px;color:var(--neg)">${fmt(-avail)} over — ${roll?"this comes out of next month":"trim it or raise the budget"}</div>`:""}
-    </div>`; }).join(""):`<div class="empty">No flexible budgets yet. Add one below — e.g. Food $400.</div>`;
-  const rt=document.getElementById("rollToggle"); if(rt)rt.checked=roll;
-  document.querySelectorAll("[data-blim]").forEach(inp=>inp.onchange=e=>{const c=e.currentTarget.dataset.blim;const v=num(e.currentTarget.value);
+      ${editing?`<div class="bpanel">
+        <div class="formgrid">
+          <div class="field"><label>Monthly limit</label><input type="number" value="${bud||''}" data-blim="${esc(c)}"></div>
+        </div>
+        <label class="flex" style="font-size:14px;margin-top:12px;gap:9px;align-items:flex-start">
+          <input type="checkbox" data-broll="${esc(c)}" ${rolls?"checked":""} style="margin-top:3px">
+          <span>Roll unspent into next month<br><span class="muted" style="font-size:12.5px">Envelope style — what you don't spend stays in it, and overspending eats into next month. Turn it off and the budget resets clean every month.</span></span></label>
+        <div class="note" style="margin-top:12px;font-size:13px">
+          ${rolls?`Rolling since <b>${esc(prettyMonth(since))}</b>${carry?` · ${fmt(Math.abs(carry))} ${carry>=0?"carried in":"owed from earlier months"}`:` · nothing carried in yet`}.`
+            :`Resets to ${fmt(bud)} on the 1st of every month.`}
+          ${avail<0?`<br>You're ${fmt(-avail)} over${rolls?" — that comes out of next month":" — trim it or raise the limit"}.`:""}
+        </div>
+        <div class="toolbar" style="margin:12px 0 0">
+          <div class="spacer"></div>
+          <button class="btn sm danger" data-buddel="${esc(c)}">Delete budget</button>
+          <button class="btn sm primary" data-buddone="1">Done</button>
+        </div>
+      </div>`:""}
+    </div>`; }).join(""):`<div class="empty" style="padding:22px">No flexible budgets yet. Add one below — e.g. Food $400.</div>`;
+  const bl2=document.getElementById("budgetList");
+  bl2.querySelectorAll("[data-budopen]").forEach(el=>el.onclick=e=>{
+    if(e.target.closest("[data-budedit]"))return;
+    const c=el.dataset.budopen; editBudget=editBudget===c?null:c; renderBudget();});
+  bl2.querySelectorAll("[data-budedit]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+    const c=b.dataset.budedit; editBudget=editBudget===c?null:c; renderBudget();});
+  bl2.querySelectorAll("[data-buddone]").forEach(b=>b.onclick=()=>{editBudget=null;renderBudget();});
+  bl2.querySelectorAll("[data-blim]").forEach(inp=>inp.onchange=e=>{const c=e.currentTarget.dataset.blim;const v=num(e.currentTarget.value);
     if(v>0){ db.budgets[c]=v; db.monthBudgets=db.monthBudgets||{}; db.monthBudgets[mk]=db.monthBudgets[mk]||{}; db.monthBudgets[mk][c]=v; }
     else { delete db.budgets[c]; if(db.monthBudgets&&db.monthBudgets[mk])delete db.monthBudgets[mk][c]; }
     saveAll();});
-  document.querySelectorAll("[data-buddel]").forEach(btn=>btn.onclick=e=>{delete db.budgets[e.currentTarget.dataset.buddel];saveAll();});
+  bl2.querySelectorAll("[data-broll]").forEach(inp=>inp.onchange=e=>{const c=e.currentTarget.dataset.broll;
+    db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]=db.budgetMeta[c]||{since:monthKey(todayISO())};
+    db.budgetMeta[c].roll=e.currentTarget.checked; saveAll();});
+  bl2.querySelectorAll("[data-buddel]").forEach(btn=>btn.onclick=e=>{const c=e.currentTarget.dataset.buddel;
+    delete db.budgets[c]; if(db.budgetMeta)delete db.budgetMeta[c];
+    Object.keys(db.monthBudgets||{}).forEach(m=>{ if(db.monthBudgets[m])delete db.monthBudgets[m][c]; });
+    editBudget=null; saveAll();});
   const rc=document.getElementById("recCat"); if(rc)rc.innerHTML=db.categories.filter(c=>c!=="Income").map(c=>`<option>${c}</option>`).join("");
   const bc=document.getElementById("budCat"); if(bc)bc.innerHTML=db.categories.filter(c=>c!=="Income").map(c=>`<option>${c}</option>`).join("");
 }
@@ -2589,7 +2676,7 @@ function renderInvest(){
           <div class="hstat"><div class="k">Market value</div><div class="v">${fmt2(val)}</div></div>
           <div class="hstat"><div class="k">Total cost</div><div class="v">${fmt2(cost)}</div></div>
           <div class="hstat"><div class="k">Gain / loss</div><div class="v ${gain>=0?'pos':'neg'}">${gain>=0?"+":""}${fmt2(gain)}${cost>0?` <span class="muted" style="font-size:13px">(${((gain/cost)*100).toFixed(1)}%)</span>`:""}</div></div>
-          <div class="hstat"><div class="k">Est. dividends /yr</div><div class="v">${fmt2(num(h.divPerShare)*shares)}</div></div>
+          <div class="hstat"><div class="k">Est. dividends /yr</div><div class="v">${fmt2(divAnnualFor(h))}</div></div>
         </div>
         <div class="formgrid">
           <div class="field"><label>Name</label><input value="${esc(h.name||"")}" data-hname="${h.id}"></div>
@@ -2597,15 +2684,17 @@ function renderInvest(){
           <div class="field"><label>Shares</label><input type="number" step="any" value="${shares}" data-hsh="${h.id}"></div>
           <div class="field"><label>Avg cost / share</label><input type="number" step="any" value="${num(h.avgCost)}" data-hac="${h.id}"></div>
           <div class="field"><label>Current price</label><input type="number" step="any" value="${num(h.price)}" data-hpr="${h.id}"></div>
-          <div class="field"><label>Dividend / share (per yr)</label><input type="number" step="any" value="${num(h.divPerShare)}" data-hdiv="${h.id}"></div>
+          <div class="field"><label>Dividend / share <span class="muted" style="font-weight:400">each payment</span></label><input type="number" step="any" value="${num(h.divPerShare)||""}" placeholder="0.264" data-hdiv="${h.id}"></div>
           <div class="field"><label>Pays${h.divFreqAuto?` <span class="muted" style="font-weight:400">· detected</span>`:""}</label>
             <select data-hfreq="${h.id}">${Object.entries(DIV_FREQ).map(([v,o2])=>`<option value="${v}" ${(h.divFreq||"quarterly")===v?"selected":""}>${o2.label}</option>`).join("")}</select></div>
           <div class="field"><label>Last payment${h.divFreqAuto?" (from data)":""}</label><input type="date" value="${esc(h.lastDiv||"")}" data-hlastdiv="${h.id}"></div>
         </div>
         ${(()=>{ if(!num(h.divPerShare))return "";
-          const f=divFreqOf(h), yr=num(h.divPerShare)*shares, per=divPerPayment(h), nx=nextDivDate(h);
-          return `<div class="note" style="margin-top:12px">Pays about <b>${fmt2(num(h.divPerShare))}</b> per share a year${num(h.divYield)?` · ${(num(h.divYield)*100).toFixed(2)}% yield`:""}.
-            On ${shares} share${shares===1?"":"s"} that is <b>${fmt2(yr)}</b>/yr — ${f.n?`about <b>${fmt2(per)}</b> every ${f.every}`:`paid irregularly`}, averaging <b>${fmt2(yr/12)}</b>/mo.
+          const f=divFreqOf(h), yr=divAnnualFor(h), per=divPerPayment(h), nx=nextDivDate(h);
+          return `<div class="note" style="margin-top:12px">
+            ${f.n?`<b>${fmtPS(h.divPerShare)}</b> per share every ${f.every} × <b>${f.n}</b> a year = <b>${fmtPS(divAnnualPerShare(h))}</b> per share annually`
+                 :`<b>${fmtPS(h.divPerShare)}</b> per share a year (paid irregularly)`}${num(h.divYield)?` · ${(num(h.divYield)*100).toFixed(2)}% yield`:""}.
+            <br>On ${shares} share${shares===1?"":"s"}: ${f.n?`<b>${fmt2(per)}</b> per payment, `:""}<b>${fmt2(yr)}</b>/yr, averaging <b>${fmt2(yr/12)}</b>/mo.
             ${f.n?(nx?`<br>Next payment expected around <b>${esc(shortDate(nx))}</b>.`:`<br><span class="muted">Set a <b>last payment</b> date and the schedule fills in below.</span>`):""}</div>`;})()}
         <div class="toolbar" style="margin:14px 0 0">
           <button class="btn sm" data-href="${h.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>Refresh price</button>
@@ -2632,7 +2721,7 @@ function renderInvest(){
   box.querySelectorAll("[data-hdel]").forEach(b=>b.onclick=e=>{db.holdings=db.holdings.filter(x=>x.id!==e.currentTarget.dataset.hdel);expHolding=null;saveAll();});
   const payers=db.holdings.filter(h=>num(h.divPerShare)>0&&num(h.shares)>0)
     .map(h=>({n:h.ticker||h.name,f:divFreqOf(h),auto:!!h.divFreqAuto,each:divPerPayment(h),
-      sh:num(h.shares),yr:num(h.divPerShare)*num(h.shares),next:nextDivDate(h)}))
+      sh:num(h.shares),yr:divAnnualFor(h),next:nextDivDate(h)}))
     .sort((a,b)=>b.yr-a.yr);
   const projEl=document.getElementById("divProjected");
   if(projEl) projEl.innerHTML=payers.length?`<table class="stacktbl div5"><thead><tr><th>Holding</th><th>Pays</th><th class="amt">Each payment</th><th class="amt">Per year</th><th class="amt">Next</th></tr></thead><tbody>
@@ -3049,7 +3138,7 @@ document.getElementById("nd-add").addEventListener("click",()=>{const name=docum
   saveAll();});
 document.getElementById("addScoreBtn").addEventListener("click",()=>{const date=document.getElementById("scoreDate").value||todayISO();const score=parseInt(document.getElementById("scoreVal").value);if(isNaN(score))return;
   db.creditLog=db.creditLog.filter(x=>x.date!==date);db.creditLog.push({date,score});document.getElementById("scoreVal").value="";saveAll();});
-document.getElementById("addHoldingBtn").addEventListener("click",()=>{db.holdings.push({id:uid(),name:"New holding",ticker:"",shares:0,price:0,avgCost:0,divPerShare:0,divFreq:"quarterly"});saveAll();});
+document.getElementById("addHoldingBtn").addEventListener("click",()=>{db.holdings.push({id:uid(),name:"New holding",ticker:"",shares:0,price:0,avgCost:0,divPerShare:0,divFreq:"quarterly",divBasis:"payment"});saveAll();});
 document.getElementById("refreshAllBtn").addEventListener("click",async e=>{
   // hold the node: after an await, e.currentTarget is null
   const btn=e.currentTarget;
@@ -3412,9 +3501,12 @@ document.getElementById("addDivBtn").addEventListener("click",()=>{const date=do
 document.getElementById("addRecBtn").addEventListener("click",()=>{const name=document.getElementById("recName").value.trim();const category=document.getElementById("recCat").value;const amount=num(document.getElementById("recAmt").value);if(!name||!amount)return;
   db.recurring.push({id:uid(),name,category,amount,dueDay:Math.min(28,Math.max(1,num(document.getElementById("recDay").value)||1))});
   document.getElementById("recName").value="";document.getElementById("recAmt").value="";document.getElementById("recDay").value="";saveAll();});
-document.getElementById("rollToggle").addEventListener("change",e=>{db.settings.rollover=e.target.checked;saveAll();});
 document.getElementById("markAllBillsBtn").addEventListener("click",()=>{db.recurring.forEach(b=>setBillPaid(b,budgetMonth,true));saveAll();});
-document.getElementById("addBudBtn").addEventListener("click",()=>{const c=document.getElementById("budCat").value;const v=num(document.getElementById("budLimit").value);if(!c||!v)return;db.budgets[c]=v;document.getElementById("budLimit").value="";saveAll();});
+document.getElementById("addBudBtn").addEventListener("click",()=>{const c=document.getElementById("budCat").value;const v=num(document.getElementById("budLimit").value);if(!c||!v)return;
+  db.budgets[c]=v;
+  /* starts this month, so it can't inherit a balance from before it existed */
+  db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]={since:monthKey(todayISO()),roll:true};
+  document.getElementById("budLimit").value=""; editBudget=c; saveAll();});
 document.getElementById("addRuleBtn").addEventListener("click",()=>{const m=document.getElementById("ruleMatch").value.trim();const c=document.getElementById("ruleCat").value;if(!m)return;db.rules.push({m,c});document.getElementById("ruleMatch").value="";saveAll();});
 document.getElementById("saveBtn").addEventListener("click",()=>{db.updatedAt=new Date().toISOString();
   const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});const a=document.createElement("a");
