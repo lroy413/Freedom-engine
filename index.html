@@ -130,7 +130,11 @@
   .between{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
   /* a page title and its month picker shouldn't fight over one narrow row */
   .pagerow{align-items:flex-end;gap:14px}
-  @media(max-width:600px){ .pagerow>h1.page{flex:1 1 100%;margin-bottom:0} .pagerow>.field{width:100%!important;max-width:none} }
+  /* only the big page titles need their picker on a line of its own */
+  @media(max-width:600px){
+    .pagerow>h1.page,.pagerow>.titlerow{flex:1 1 100%;margin-bottom:0}
+    .pagerow>h1.page~.field,.pagerow>.titlerow~.field{width:100%!important;max-width:none} }
+  @media(max-width:600px){ .nolabel-sm>label{display:none} }
   .stack{display:flex;flex-direction:column;gap:12px}
   .tag{font-size:11.5px;font-weight:690;padding:3px 10px;border-radius:20px;letter-spacing:.02em}
   .tag.ok{background:#e4f6ec;color:#0a9150} .tag.warn{background:#fcf0dd;color:#c07a10} .tag.bad{background:#fbe6e4;color:var(--neg)}
@@ -228,28 +232,37 @@
     nav.tabs button{flex-direction:column;gap:3px;padding:7px 11px;font-size:11px;font-weight:600;min-width:66px;border-radius:12px}
     nav.tabs .ic{display:block}
     nav.tabs button.active{background:var(--accent-soft)}
-    .kpis{grid-template-columns:1fr 1fr;gap:11px}
-    .kpi{padding:15px 15px}
-    .kpi .val{font-size:25px}
-    .kpi .label{font-size:11px}
-    .kpi .sub{font-size:12.5px}
+    /* density pass: the phone should show more of the page, not bigger type */
+    .grid{gap:10px}
+    .kpis{grid-template-columns:1fr 1fr;gap:10px}
+    .kpi{padding:13px 14px}
+    .kpi .val{font-size:23px;margin-top:5px}
+    .kpi .label{font-size:10.5px;letter-spacing:.05em}
+    .kpi .sub{font-size:12px;margin-top:3px}
+    .kpitop{margin-bottom:0}
+    .kpiicon{width:28px;height:28px;border-radius:9px}
+    .kpiicon svg{width:15px;height:15px}
     h1.page{font-size:23px;margin-bottom:4px}
     p.lead{font-size:14.5px;line-height:1.45;margin-bottom:14px}
-    .toolbar>input[type=text],.toolbar>input:not([type]){flex:1 1 100%}
+    .toolbar>input[type=text],.toolbar>input:not([type]){flex:1 1 130px;min-width:0}
     .hero{padding:22px 20px;border-radius:18px}
     .hero .hval{font-size:40px}
     .formgrid{grid-template-columns:1fr;gap:13px}
     .between{flex-wrap:wrap}
     .field select,.field input{min-width:150px}
     .card{overflow-x:auto}
-    .pad{padding:17px}
-    .field input,.field select,.btn,textarea{min-height:46px}
-    .miniedit{min-height:42px;width:104px}
-    .btn.sm{min-height:40px}
+    .pad{padding:15px}
+    .note{padding:11px 13px;font-size:13.5px}
+    .field input,.field select,.btn,textarea{min-height:44px}
+    .field label{font-size:11.5px;margin-bottom:3px}
+    .miniedit{min-height:40px;width:104px}
+    .btn.sm{min-height:36px;font-size:13.5px;padding:0 12px}
+    .btn.sm svg{width:16px;height:16px}
     table{font-size:14.5px}
     th,td{padding:11px 9px}
     .row2{grid-template-columns:1fr}
-    .sectiontitle{margin:26px 0 12px}
+    .sectiontitle{margin:18px 0 10px;gap:8px}
+    .sectiontitle h2{font-size:16px}
     .thermo{height:170px;width:42px}
     .big{font-size:36px}
     .arow{padding:12px 13px;gap:10px}
@@ -368,16 +381,22 @@
       gap:2px 12px;padding:11px 14px;border-bottom:1px solid var(--line)}
     .stacktbl tr:last-child{border-bottom:0}
     .stacktbl td{display:block;border:0;padding:0;min-width:0}
-    .tx5 tr{grid-template-areas:"desc amt" "date amt" "cat del"}
-    .tx4 tr{grid-template-areas:"desc amt" "date amt" "cat cat"}
-    .stacktbl td:nth-child(1){grid-area:date;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+    /* two grid rows, not three — the date and category share a line */
+    .stacktbl tr{grid-template-columns:auto 1fr auto;gap:4px 8px;padding:9px 12px}
+    .tx5 tr{grid-template-areas:"desc desc amt" "date cat del"}
+    .tx4 tr{grid-template-areas:"desc desc amt" "date cat amt"}
+    .stacktbl td:nth-child(1){grid-area:date;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;align-self:center}
     .stacktbl td:nth-child(2){grid-area:desc;font-size:15px;font-weight:600;
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .stacktbl td:nth-child(3){grid-area:cat;margin-top:7px}
-    .stacktbl td:nth-child(3) .catsel{width:100%;max-width:230px}
+    .stacktbl td:nth-child(3){grid-area:cat;min-width:0}
+    .stacktbl td:nth-child(3) .catsel{width:100%;max-width:none}
     .stacktbl td:nth-child(4){grid-area:amt;text-align:right;align-self:center;
       font-size:16px;font-weight:680;font-variant-numeric:tabular-nums}
-    .tx5 td:nth-child(5){grid-area:del;text-align:right;margin-top:7px}
+    .tx5 td:nth-child(5){grid-area:del;text-align:right}
+    .stacktbl .catsel{min-height:32px;font-size:13px;padding:4px 22px 4px 8px}
+    .stacktbl .btn.sm{min-height:32px;padding:0 9px}
+    .stacktbl .txdesc,.stacktbl .txamt{padding:2px 5px;margin:-2px -5px}
+    .stacktbl .txdate{padding:2px 4px;margin:-2px -4px;font-size:12px}
     .div5 tr{grid-template-columns:1fr auto;grid-template-areas:"name yr" "freq yr" "each next"}
     .div5 td:nth-child(1){grid-area:name;font-size:15px}
     .div5 td:nth-child(2){grid-area:freq;margin-top:5px}
@@ -432,6 +451,41 @@
     .filtrow{grid-template-columns:1fr 1fr;gap:10px}
     .sumrow2{gap:10px 18px} .sumitem .v{font-size:18px}
   }
+
+  /* ---------- bill tabs, tiers ---------- */
+  .tabrow{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px;padding-bottom:2px}
+  .tabrow::-webkit-scrollbar{display:none}
+  .tabrow:empty{display:none}
+  .btab{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);background:var(--card);
+    color:var(--ink2);border-radius:20px;padding:7px 13px;font-size:13.5px;font-weight:600;white-space:nowrap;cursor:pointer}
+  .btab:hover{background:var(--raise);color:var(--ink)}
+  .btab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  html[data-theme="dark"] .btab.on{color:#12131a}
+  .bcount{font-size:11.5px;opacity:.7;font-variant-numeric:tabular-nums}
+  .tchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line2);background:var(--card);
+    color:var(--ink2);border-radius:20px;padding:7px 12px;font-size:13px;font-weight:560;cursor:pointer}
+  .tchip b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+  .tchip:hover{background:var(--raise)}
+  .tchip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+  .tchip.on b{color:var(--accent-ink)}
+  .tdot{width:8px;height:8px;border-radius:50%;flex:none}
+  .floornote{font-size:13px;color:var(--muted);margin:0 0 12px 2px;line-height:1.4}
+  .floornote b{color:var(--ink)}
+  .smonly{display:none}
+  @media(max-width:820px){
+    .lgonly{display:none} .smonly{display:inline}
+    /* one scrolling row beats two wrapped ones */
+    .scrollchips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;margin-bottom:10px}
+    .scrollchips::-webkit-scrollbar{display:none}
+    .scrollchips>*{flex:none}
+    .tchip{padding:6px 11px;font-size:12.5px}
+    .floornote{font-size:12.5px;margin-bottom:10px}
+  }
+  .bizmark{font-size:9.5px;font-weight:760;letter-spacing:.06em;color:#2563eb;background:rgba(37,99,235,.12);
+    padding:2px 5px;border-radius:5px;vertical-align:1px}
+  html[data-theme="dark"] .bizmark,html[data-theme="bushido"] .bizmark{color:#93c5fd;background:rgba(147,197,253,.14)}
+  .scrollrows.bills{max-height:330px}
+  @media(max-width:820px){ .scrollrows.bills{max-height:296px} }
 
   /* ---------- bill rows ---------- */
   .brow{border-bottom:1px solid var(--line)}
@@ -667,8 +721,8 @@
     <div id="startCard"></div>
     <div id="dashHero"></div>
     <div class="between pagerow" style="margin-bottom:14px">
-      <div><h2 style="font-size:17.5px">This month</h2><div class="muted" style="font-size:13.5px" id="dashMonthLabel"></div></div>
-      <div class="field" style="width:auto"><label>Month</label><select id="monthSel"></select></div>
+      <h2 style="font-size:17.5px" id="dashMonthLabel">This month</h2>
+      <div class="field nolabel-sm" style="width:auto"><label>Month</label><select id="monthSel"></select></div>
     </div>
     <div class="grid kpis" id="kpiRow"></div>
     <div class="sectiontitle"><h2>Spending this month</h2><span class="hint" id="spendHint"></span></div>
@@ -740,7 +794,7 @@
         <button class="btn" id="addTxBtn">Add manually</button>
         <div class="spacer"></div>
         <input id="txSearch" class="btn" style="min-width:180px" placeholder="Search…">
-        <button class="btn danger sm" id="clearTxBtn">Delete all transactions</button>
+        <button class="btn danger sm" id="clearTxBtn"><span class="lgonly">Delete all transactions</span><span class="smonly">Delete all</span></button>
       </div>
       <div id="mapPanel"></div>
       <div id="manualTxPanel" style="display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
@@ -805,27 +859,37 @@
     <p class="lead">Money in, bills to cover, flexible spending to stay under — what's left is yours to save or attack debt with.</p>
     <div class="grid kpis" id="budgetKpis" style="margin-bottom:22px"></div>
 
-    <div class="sectiontitle"><h2>Bills</h2><span class="hint">fixed obligations — check each one off as you pay it</span><span class="spacer"></span><button class="btn sm ghost" id="markAllBillsBtn">Mark all paid</button></div>
+    <div class="sectiontitle"><h2>Bills</h2><span class="hint">tap one to edit</span><span class="spacer"></span>
+      <span class="flex" style="gap:8px"><button class="btn sm ghost" id="calBillsBtn" title="Download a calendar file with a reminder for every bill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span class="lgonly">Add to calendar</span></button>
+      <button class="btn sm ghost" id="markAllBillsBtn"><span class="lgonly">Mark all paid</span><span class="smonly">All paid</span></button>
+      <button class="btn sm primary" id="showAddBill">+ Bill</button></span></div>
+    <div id="billFloor"></div>
+    <div class="tabrow" id="billTabs"></div>
     <div class="card" id="billsList"></div>
-    <div class="card pad" style="margin-top:12px">
+    <div id="calMsg" class="muted" style="font-size:13px;margin-top:8px"></div>
+    <div class="card pad" id="addBillPanel" style="margin-top:12px;display:none">
       <b style="font-size:13.5px">Add a bill</b>
       <div class="formgrid" style="margin-top:10px">
         <div class="field"><label>Bill name</label><input id="recName" placeholder="Rent"></div>
         <div class="field"><label>Category</label><select id="recCat"></select></div>
         <div class="field"><label>Amount / mo</label><input id="recAmt" type="number" placeholder="1450"></div>
         <div class="field"><label>Due day of month</label><input id="recDay" type="number" min="1" max="28" placeholder="1"></div>
-        <button class="btn" id="addRecBtn">Add bill</button>
+        <div class="field"><label>Calendar reminder <span class="muted" style="font-weight:400">days before</span></label><input id="billAlertDays" type="number" min="0" max="14" placeholder="3"></div>
+        <button class="btn primary" id="addRecBtn">Add bill</button>
+        <button class="btn ghost" data-hideadd="addBillPanel">Cancel</button>
       </div>
     </div>
 
-    <div class="sectiontitle"><h2>Flexible budgets</h2><span class="hint">tap one to edit · rollover is per budget</span></div>
+    <div class="sectiontitle"><h2>Flexible budgets</h2><span class="hint">tap one to edit · rollover is per budget</span><span class="spacer"></span>
+      <button class="btn sm primary" id="showAddBudget">+ Budget</button></div>
     <div class="card" id="budgetList"></div>
-    <div class="card pad" style="margin-top:12px">
+    <div class="card pad" id="addBudgetPanel" style="margin-top:12px;display:none">
       <b style="font-size:13.5px">Add a budget</b>
       <div class="formgrid" style="margin-top:10px">
         <div class="field"><label>Category</label><select id="budCat"></select></div>
         <div class="field"><label>Monthly limit</label><input id="budLimit" type="number" placeholder="400"></div>
-        <button class="btn" id="addBudBtn">Add budget</button>
+        <button class="btn primary" id="addBudBtn">Add budget</button>
+        <button class="btn ghost" data-hideadd="addBudgetPanel">Cancel</button>
       </div>
     </div>
   </section>
@@ -926,7 +990,7 @@
     <div class="card" id="holdingTable"></div>
     <div class="note" style="margin-top:12px">Add a <b>ticker</b> and hit refresh to pull the current price. Browsers block most free sources when this runs as a downloaded file, so for reliable quotes add a free API key under <b>Settings → Market data</b> (about a minute; Alpha Vantage also returns dividend-per-share). Your browser calls the source directly — only the ticker symbol leaves your device.</div>
 
-    <div class="sectiontitle"><h2>Projected dividend income</h2><span class="hint">amount and cadence per holding</span></div>
+    <div class="sectiontitle"><h2>Projected dividend income</h2><span class="hint">tap a holding to edit its dividend</span></div>
     <div class="card" id="divProjected" style="margin-bottom:8px"></div>
 
     <div class="sectiontitle"><h2>Dividends coming up</h2><span class="hint">next 4 months</span></div>
@@ -1259,9 +1323,11 @@ function load(){
   db = raw? migrate(JSON.parse(raw)) : seed(); normalize();
 }
 function armConfirm(btn,action){
-  if(btn.dataset.armed==="1"){ btn.dataset.armed=""; btn.textContent=btn.dataset.olabel; action(); return; }
-  btn.dataset.olabel=btn.textContent; btn.dataset.armed="1"; btn.textContent="Click again to confirm";
-  setTimeout(()=>{ if(btn.dataset.armed==="1"){ btn.dataset.armed=""; btn.textContent=btn.dataset.olabel; } },3000);
+  /* keep innerHTML, not textContent — labels can hold responsive spans */
+  const restore=()=>{ btn.dataset.armed=""; if(btn._olabel!=null)btn.innerHTML=btn._olabel; };
+  if(btn.dataset.armed==="1"){ restore(); action(); return; }
+  btn._olabel=btn.innerHTML; btn.dataset.armed="1"; btn.textContent="Tap again to confirm";
+  setTimeout(()=>{ if(btn.dataset.armed==="1")restore(); },3000);
 }
 function persist(){
   db.updatedAt=new Date().toISOString();
@@ -1872,7 +1938,8 @@ function renderDash(){
   const months=monthsWithData(); if(!curMonth||!months.includes(curMonth))curMonth=months[0];
   document.getElementById("monthSel").innerHTML=months.map(m=>`<option value="${m}" ${m===curMonth?"selected":""}>${prettyMonth(m)}</option>`).join("");
   const mt=monthTotals(curMonth), g=db.goal, cash=totalCash();
-  document.getElementById("dashMonthLabel").textContent="Showing "+prettyMonth(curMonth);
+  {const el=document.getElementById("dashMonthLabel");
+   if(el)el.textContent=(curMonth===monthKey(todayISO()))?"This month":prettyMonth(curMonth);}
   const spendCats={}; for(const t of db.transactions){ if(monthKey(t.date)===curMonth&&t.amount<0&&!isNeutral(t))spendCats[t.category]=(spendCats[t.category]||0)+(-t.amount); }
   const entriesCount=Object.keys(spendCats).length;
   const C={pos:cssVar("--pos","#0ca35a"),neg:cssVar("--neg","#e0463e"),acc:cssVar("--accent","#4f46e5"),goal:cssVar("--goal","#0ea5a0"),warn:cssVar("--warn","#e5900f"),inv:cssVar("--invest","#7c5cf0")};
@@ -2270,7 +2337,7 @@ function merchantKey(desc){ const c=(desc||"").toLowerCase().replace(/[^a-z ]+/g
 /* BUDGET — bills (fixed obligations) vs flexible budgets (spending targets)
    With rollover on, a category behaves like an envelope: what you don't spend stays
    in it, and overspending eats into next month. Available = carried in + budgeted - spent. */
-let budgetMonth=null,editBill=null,editBudget=null;
+let budgetMonth=null,editBill=null,editBudget=null,billTab="all",billTierFilter=null;
 function budgetMetaOf(cat){ return (db.budgetMeta&&db.budgetMeta[cat])||{}; }
 function budgetSince(cat){ return budgetMetaOf(cat).since||budgetStartMonth(); }
 function budgetRolls(cat){ const m=budgetMetaOf(cat); return m.roll===undefined?true:!!m.roll; }
@@ -2305,6 +2372,26 @@ function carriedInto(cat,m){
   return a;
 }
 function availableFor(cat,m){ return carriedInto(cat,m)+budgetedFor(cat,m)-spentFor(cat,m); }
+/* Bills carry two labels beyond their spending category.
+   GROUP is what kind of bill it is — drives the tabs, so six subscriptions on six
+   different due dates sit together instead of scattered through the list.
+   TIER is how optional it is. Summing the Essential tier gives the number that
+   actually matters to a freelancer: the monthly floor you have to clear. */
+const BILL_GROUPS=["Housing","Utilities","Transport","Insurance","Debt","Subscriptions","Other"];
+const CAT_GROUP={"Rent/Mortgage":"Housing",Rent:"Housing",Electric:"Utilities","Gas (Utility)":"Utilities",
+  Water:"Utilities",Trash:"Utilities",Internet:"Utilities",Phone:"Utilities","Car Payment":"Transport",
+  "Auto & Gas":"Transport","Transport/Gas":"Transport",Insurance:"Insurance","Debt Payment":"Debt",
+  Subscriptions:"Subscriptions",Health:"Other",Household:"Other"};
+const billGroup=b=>(BILL_GROUPS.includes(b&&b.group)?b.group:(CAT_GROUP[b&&b.category]||"Other"));
+const BILL_TIERS={essential:{label:"Essential",short:"ESS",color:"#0ca35a",note:"can't skip it — this is your floor"},
+  flexible:{label:"Flexible",short:"FLEX",color:"#e5900f",note:"needed, but you could downgrade or shop it"},
+  luxury:{label:"Luxury",short:"LUX",color:"#a855f7",note:"elective — first thing to cut when work dries up"}};
+const DEFAULT_TIER={Housing:"essential",Utilities:"essential",Insurance:"essential",Debt:"essential",
+  Transport:"essential",Subscriptions:"luxury",Other:"flexible"};
+const billTier=b=>(BILL_TIERS[b&&b.tier]?b.tier:(DEFAULT_TIER[billGroup(b)]||"flexible"));
+const tierTotal=t=>db.recurring.filter(b=>billTier(b)===t).reduce((s,b)=>s+num(b.amount),0);
+const bizTotal=()=>db.recurring.filter(b=>b.biz).reduce((s,b)=>s+num(b.amount),0);
+const monthlyFloor=()=>tierTotal("essential");
 /* bills: due dates */
 function billDue(b,m){ const d=Math.min(Math.max(1,num(b.dueDay)||1),28); return m+"-"+String(d).padStart(2,"0"); }
 function billStatus(b,m){
@@ -2316,6 +2403,71 @@ function billStatus(b,m){
   return {k:"open",label:"Due "+due.slice(5),cls:""};
 }
 function billRefKey(bill,mk){ return bill.id+"|"+mk; }
+/* --- calendar export ---
+   Push notifications would need a server holding your bill schedule; a calendar
+   file needs nothing. Your phone and computer already alert on calendar events,
+   so one import gives you recurring reminders forever, offline, on every device. */
+function icsEsc(t){ return String(t==null?"":t).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\r?\n/g,"\\n"); }
+/* RFC 5545 folds at 75 OCTETS, not characters — a "·" is two bytes — and a fold
+   must never land inside a multi-byte character. Measure encoded length, split on
+   code-point boundaries. */
+const _enc=(typeof TextEncoder!=="undefined")?new TextEncoder():null;
+const octets=t=>_enc?_enc.encode(t).length:unescape(encodeURIComponent(t)).length;
+function icsFold(line){
+  if(octets(line)<=74) return line;
+  const out=[]; let cur="", first=true;
+  for(const ch of Array.from(line)){
+    const lim=first?74:73;
+    if(octets(cur+ch)>lim){ out.push(cur); cur=ch; first=false; }
+    else cur+=ch;
+  }
+  if(cur)out.push(cur);
+  return out.join("\r\n ");
+}
+/* an all-day event starts at 00:00, so -P(n-1)DT15H lands the alert at 09:00 n days early */
+function icsTrigger(days){ const d=Math.max(0,Math.round(days)); if(d<=0)return "TRIGGER:-PT0M";
+  const dm1=d-1; return "TRIGGER:-P"+(dm1>0?dm1+"D":"")+"T15H"; }
+function billsICS(){
+  const lead=num(db.settings.billAlertDays)||3;
+  const stamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"");
+  const L=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Freedom Engine//Bills//EN","CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH","X-WR-CALNAME:Freedom Engine — Bills","X-WR-TIMEZONE:America/New_York"];
+  const today=todayISO(), thisM=monthKey(today);
+  db.recurring.forEach(b=>{
+    const day=Math.min(Math.max(1,num(b.dueDay)||1),28);
+    /* first occurrence is this month if it hasn't passed, otherwise next month */
+    let first=thisM+"-"+String(day).padStart(2,"0");
+    if(first<today){ const d=new Date(thisM+"-01T12:00:00"); d.setMonth(d.getMonth()+1);
+      first=d.toISOString().slice(0,7)+"-"+String(day).padStart(2,"0"); }
+    const t=BILL_TIERS[billTier(b)].label;
+    const desc=[t,billGroup(b),b.biz?"Business":null,fmt(num(b.amount))+" a month",
+      "Tracked in Freedom Engine"].filter(Boolean).join(" · ");
+    L.push("BEGIN:VEVENT",
+      "UID:"+b.id+"@freedom-engine",
+      "DTSTAMP:"+stamp,
+      "DTSTART;VALUE=DATE:"+first.replace(/-/g,""),
+      "DURATION:P1D",
+      "RRULE:FREQ=MONTHLY;BYMONTHDAY="+day,
+      "SUMMARY:"+icsEsc(b.name+" — "+fmt(num(b.amount))+" due"),
+      "DESCRIPTION:"+icsEsc(desc),
+      "CATEGORIES:"+icsEsc(billGroup(b)),
+      "TRANSP:TRANSPARENT",
+      "BEGIN:VALARM", icsTrigger(lead), "ACTION:DISPLAY",
+      "DESCRIPTION:"+icsEsc(b.name+" "+fmt(num(b.amount))+" due in "+lead+" day"+(lead===1?"":"s")),
+      "END:VALARM","END:VEVENT");
+  });
+  L.push("END:VCALENDAR");
+  return L.map(icsFold).join("\r\n")+"\r\n";
+}
+function downloadBillsICS(){
+  if(!db.recurring.length)return false;
+  const blob=new Blob([billsICS()],{type:"text/calendar;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="freedom-engine-bills.ics";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  return true;
+}
 function billPaid(bill,mk){ return db.transactions.some(t=>t.billRef===billRefKey(bill,mk)); }
 function setBillPaid(bill,mk,paid){
   const ref=billRefKey(bill,mk);
@@ -2353,38 +2505,79 @@ function renderBudget(){
     <div class="card kpi"><div class="label">Free to save / attack debt</div><div class="val ${free<0?'neg':'pos'}">${fmt(free)}</div><div class="sub">income − bills − budgets</div></div>`;
   // bills list
   const billsSorted=[...db.recurring].sort((a,b)=>(num(a.dueDay)||1)-(num(b.dueDay)||1));
+  {const el=document.getElementById("billAlertDays"); if(el&&document.activeElement!==el)el.value=num(db.settings.billAlertDays)||3;}
   const ord=n=>{const d=n%10,t=n%100; return n+(t>=11&&t<=13?"th":d===1?"st":d===2?"nd":d===3?"rd":"th");};
-  document.getElementById("billsList").innerHTML=db.recurring.length?
-    billsSorted.map(b=>{ const paid=billPaid(b,mk), st=billStatus(b,mk), editing=editBill===b.id;
-      return `<div class="brow${paid?" paid":""}${editing?" editing":""}">
-        <div class="bmain" data-billopen="${b.id}">
-          <button class="chk ${paid?'on':''}" data-billtog="${b.id}" title="${paid?'Paid — tap to undo':'Mark paid'}">${paid?'✓':''}</button>
-          <div class="binfo">
-            <div class="bname">${esc(b.name)}</div>
-            <div class="bmeta"><span class="bdot" style="background:${catColor[b.category]||'#94a3b8'}" title="${esc(b.category)}"></span><span class="bcat">${esc(b.category)} · </span>due the ${ord(num(b.dueDay)||1)}${st.cls&&st.k!=="paid"?` · <span class="${st.cls==='bad'?'bneg':'bwarn'}">${esc(st.label)}</span>`:""}</div>
-          </div>
-          <div class="bamt">${fmt(num(b.amount))}</div>
-          <button class="aedit${editing?" on":""}" data-billedit="${b.id}" aria-label="Edit ${esc(b.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+  // ---- the floor + tier chips ----
+  const floorEl=document.getElementById("billFloor");
+  if(floorEl){
+    const tiers=["essential","flexible","luxury"].filter(t=>db.recurring.some(b=>billTier(b)===t));
+    const biz=bizTotal();
+    floorEl.innerHTML=db.recurring.length?`<div class="chiprow scrollchips">
+      ${tiers.map(t=>{const o=BILL_TIERS[t],on=billTierFilter===t;
+        return `<button class="tchip${on?" on":""}" data-btier="${t}" title="${esc(o.note)}">
+          <span class="tdot" style="background:${o.color}"></span>${o.label} <b>${fmt(tierTotal(t))}</b></button>`;}).join("")}
+      ${biz?`<button class="tchip${billTierFilter==="biz"?" on":""}" data-btier="biz" title="Marked as a business expense — worth pulling out at tax time">
+        <span class="tdot" style="background:#2563eb"></span>Business <b>${fmt(biz)}</b></button>`:""}
+      ${billTierFilter?`<button class="fclear" data-btier="">Show all</button>`:""}
+    </div>
+    <div class="floornote">Essentials are your monthly floor — <b>${fmt(monthlyFloor())}</b> to clear before anything else. Everything above it is choice.</div>`:"";
+    floorEl.querySelectorAll("[data-btier]").forEach(b=>b.onclick=()=>{
+      const v=b.dataset.btier; billTierFilter=(v&&billTierFilter!==v)?v:null; renderBudget();});
+  }
+  // ---- tabs by group ----
+  const groupsPresent=BILL_GROUPS.filter(g=>db.recurring.some(b=>billGroup(b)===g));
+  if(!groupsPresent.includes(billTab))billTab="all";
+  const tabsEl=document.getElementById("billTabs");
+  if(tabsEl) tabsEl.innerHTML=(db.recurring.length&&groupsPresent.length>1)?
+    [["all","All"]].concat(groupsPresent.map(g=>[g,g])).map(([v,l])=>{
+      const n=v==="all"?db.recurring.length:db.recurring.filter(b=>billGroup(b)===v).length;
+      return `<button class="btab${billTab===v?" on":""}" data-btab="${esc(v)}">${esc(l)}<span class="bcount">${n}</span></button>`;}).join(""):"";
+  if(tabsEl) tabsEl.querySelectorAll("[data-btab]").forEach(b=>b.onclick=()=>{billTab=b.dataset.btab;renderBudget();});
+  // ---- the list ----
+  const shown=billsSorted.filter(b=>(billTab==="all"||billGroup(b)===billTab)&&
+    (!billTierFilter||(billTierFilter==="biz"?!!b.biz:billTier(b)===billTierFilter)));
+  const shownTotal=shown.reduce((s,b)=>s+num(b.amount),0);
+  const shownPaid=shown.filter(b=>billPaid(b,mk));
+  const billRow=b=>{ const paid=billPaid(b,mk), st=billStatus(b,mk), editing=editBill===b.id;
+    const tk=billTier(b), to=BILL_TIERS[tk];
+    return `<div class="brow${paid?" paid":""}${editing?" editing":""}">
+      <div class="bmain" data-billopen="${b.id}">
+        <button class="chk ${paid?'on':''}" data-billtog="${b.id}" title="${paid?'Paid — tap to undo':'Mark paid'}">${paid?'✓':''}</button>
+        <div class="binfo">
+          <div class="bname">${esc(b.name)}${b.biz?` <span class="bizmark" title="Business expense">BIZ</span>`:""}</div>
+          <div class="bmeta"><span class="bdot" style="background:${to.color}" title="${esc(to.label)} — ${esc(to.note)}"></span><span class="bcat">${esc(billGroup(b))} · </span>due the ${ord(num(b.dueDay)||1)}${st.cls&&st.k!=="paid"?` · <span class="${st.cls==='bad'?'bneg':'bwarn'}">${esc(st.label)}</span>`:""}</div>
         </div>
-        ${editing?`<div class="bpanel">
-          <div class="formgrid">
-            <div class="field"><label>Name</label><input value="${esc(b.name)}" data-billname="${b.id}"></div>
-            <div class="field"><label>Category</label><select data-billcat="${b.id}">${db.categories.map(c=>`<option ${c===b.category?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
-            <div class="field"><label>Amount / mo</label><input type="number" value="${num(b.amount)}" data-billamt="${b.id}"></div>
-            <div class="field"><label>Due day of month</label><input type="number" min="1" max="28" value="${num(b.dueDay)||1}" data-billday="${b.id}"></div>
-          </div>
-          <div class="toolbar" style="margin:12px 0 0">
-            <div class="spacer"></div>
-            <button class="btn sm danger" data-billdel="${b.id}">Delete bill</button>
-            <button class="btn sm primary" data-billdone="1">Done</button>
-          </div>
-        </div>`:""}
-      </div>`;}).join("")+
+        <div class="bamt">${fmt(num(b.amount))}</div>
+        <button class="aedit${editing?" on":""}" data-billedit="${b.id}" aria-label="Edit ${esc(b.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+      </div>
+      ${editing?`<div class="bpanel">
+        <div class="formgrid">
+          <div class="field"><label>Name</label><input value="${esc(b.name)}" data-billname="${b.id}"></div>
+          <div class="field"><label>Spending category</label><select data-billcat="${b.id}">${db.categories.map(c=>`<option ${c===b.category?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
+          <div class="field"><label>Amount / mo</label><input type="number" value="${num(b.amount)}" data-billamt="${b.id}"></div>
+          <div class="field"><label>Due day of month</label><input type="number" min="1" max="28" value="${num(b.dueDay)||1}" data-billday="${b.id}"></div>
+          <div class="field"><label>Group <span class="muted" style="font-weight:400">tab it lives under</span></label>
+            <select data-billgrp="${b.id}">${BILL_GROUPS.map(g=>`<option value="${g}" ${billGroup(b)===g?"selected":""}>${g}</option>`).join("")}</select></div>
+          <div class="field"><label>How optional is it?</label>
+            <select data-billtier="${b.id}">${Object.entries(BILL_TIERS).map(([v,o])=>`<option value="${v}" ${tk===v?"selected":""}>${o.label}</option>`).join("")}</select></div>
+        </div>
+        <div class="muted" style="font-size:12.5px;margin-top:6px">${esc(to.label)} — ${esc(to.note)}.</div>
+        <label class="flex" style="font-size:14px;margin-top:12px;gap:9px"><input type="checkbox" data-billbiz="${b.id}" ${b.biz?"checked":""}> Business expense <span class="muted" style="font-size:12.5px">worth separating at tax time</span></label>
+        <div class="toolbar" style="margin:12px 0 0">
+          <div class="spacer"></div>
+          <button class="btn sm danger" data-billdel="${b.id}">Delete bill</button>
+          <button class="btn sm primary" data-billdone="1">Done</button>
+        </div>
+      </div>`:""}
+    </div>`; };
+  document.getElementById("billsList").innerHTML=db.recurring.length?
+    (shown.length?`<div class="${shown.length>5?"scrollrows bills":""}">${shown.map(billRow).join("")}</div>`
+      :`<div class="empty" style="padding:22px">No bills in this view — pick another tab or clear the filter.</div>`)+
       `<div class="brow sum"><div class="bmain"><span class="chk ghosted"></span>
-        <div class="binfo"><div class="bname">${paidBills.length} of ${db.recurring.length} paid</div>
-        <div class="bmeta">${billsTotal-paidBills.reduce((t,x)=>t+num(x.amount),0)>0?fmt(billsTotal-paidBills.reduce((t,x)=>t+num(x.amount),0))+" still to cover this month":"all covered this month"}</div></div>
-        <div class="bamt">${fmt(billsTotal)}</div><span style="width:32px;flex:none"></span></div></div>`
-    :`<div class="empty" style="padding:22px">No bills yet — add rent, car, insurance, phone below.</div>`;
+        <div class="binfo"><div class="bname">${shownPaid.length} of ${shown.length} paid</div>
+        <div class="bmeta">${shownTotal-shownPaid.reduce((t,x)=>t+num(x.amount),0)>0?fmt(shownTotal-shownPaid.reduce((t,x)=>t+num(x.amount),0))+" still to cover":"all covered"}${shown.length!==db.recurring.length?` · filtered from ${fmt(billsTotal)}`:""}</div></div>
+        <div class="bamt">${fmt(shownTotal)}</div><span style="width:32px;flex:none"></span></div></div>`
+    :`<div class="empty" style="padding:22px">No bills yet — hit <b>+ Bill</b> to add rent, car, insurance, phone.</div>`;
   const bl=document.getElementById("billsList");
   bl.querySelectorAll("[data-billopen]").forEach(el=>el.onclick=e=>{
     if(e.target.closest("[data-billtog],[data-billedit]"))return;
@@ -2400,6 +2593,12 @@ function renderBudget(){
     if(b){b.category=e.currentTarget.value;saveAll();}});
   bl.querySelectorAll("[data-billamt]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billamt);
     if(b){b.amount=num(e.currentTarget.value);saveAll();}});
+  bl.querySelectorAll("[data-billgrp]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billgrp);
+    if(b){b.group=e.currentTarget.value;saveAll();}});
+  bl.querySelectorAll("[data-billtier]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billtier);
+    if(b){b.tier=e.currentTarget.value;saveAll();}});
+  bl.querySelectorAll("[data-billbiz]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billbiz);
+    if(b){b.biz=e.currentTarget.checked;saveAll();}});
   bl.querySelectorAll("[data-billtog]").forEach(btn=>btn.onclick=e=>{e.stopPropagation();
     const bill=db.recurring.find(x=>x.id===e.currentTarget.dataset.billtog);if(bill){setBillPaid(bill,mk,!billPaid(bill,mk));saveAll();}});
   bl.querySelectorAll("[data-billdel]").forEach(btn=>btn.onclick=e=>{const id=e.currentTarget.dataset.billdel;
@@ -2638,7 +2837,7 @@ function logDebtPayment(d,amt,date,alsoTx){
 }
 
 /* INVESTMENTS */
-let expHolding=null;
+let expHolding=null,expDiv=null,divOpen=false;
 function recordPrice(h){
   const p=num(h.price); if(!p)return;
   if(!Array.isArray(h.hist))h.hist=[];
@@ -2720,17 +2919,84 @@ function renderInvest(){
     if(h&&await refreshHolding(h,document.getElementById("quoteStatus"))){recordPrice(h);saveAll();}});
   box.querySelectorAll("[data-hdel]").forEach(b=>b.onclick=e=>{db.holdings=db.holdings.filter(x=>x.id!==e.currentTarget.dataset.hdel);expHolding=null;saveAll();});
   const payers=db.holdings.filter(h=>num(h.divPerShare)>0&&num(h.shares)>0)
-    .map(h=>({n:h.ticker||h.name,f:divFreqOf(h),auto:!!h.divFreqAuto,each:divPerPayment(h),
-      sh:num(h.shares),yr:divAnnualFor(h),next:nextDivDate(h)}))
-    .sort((a,b)=>b.yr-a.yr);
+    .slice().sort((a,b)=>divAnnualFor(b)-divAnnualFor(a));
   const projEl=document.getElementById("divProjected");
-  if(projEl) projEl.innerHTML=payers.length?`<table class="stacktbl div5"><thead><tr><th>Holding</th><th>Pays</th><th class="amt">Each payment</th><th class="amt">Per year</th><th class="amt">Next</th></tr></thead><tbody>
-    ${payers.map(x=>`<tr><td><b>${esc(x.n)}</b></td>
-      <td><span class="catpill">${esc(x.f.label)}</span>${x.auto?` <span class="muted" style="font-size:11.5px">detected</span>`:""}</td>
-      <td class="amt">${x.f.n?fmt2(x.each):"—"}</td><td class="amt pos"><b>${fmt2(x.yr)}</b></td>
-      <td class="amt muted">${x.next?esc(shortDate(x.next)):"—"}</td></tr>`).join("")}
-    <tr class="sumrow"><td colspan="3"><b>Total</b></td><td class="amt pos"><b>${fmt2(estAnnualDiv())}</b></td><td class="amt muted">${fmt2(estAnnualDiv()/12)}/mo</td></tr></tbody></table>`
-    :`<div class="empty" style="padding:24px">Add a ticker to a holding and hit Refresh — if it pays a dividend, the amount and how often it pays fill in on their own. You can also set both yourself.</div>`;
+  if(projEl){
+    const yr=estAnnualDiv();
+    projEl.innerHTML=`
+      <button class="filthead" id="divToggle" aria-expanded="${divOpen?"true":"false"}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.2v9.6M14.4 9.6a2.4 2.4 0 00-2.4-1.4c-1.4 0-2.4.8-2.4 1.9s1 1.7 2.4 1.9 2.4.8 2.4 1.9-1 1.9-2.4 1.9a2.4 2.4 0 01-2.4-1.4"/></svg>
+        <span>${fmt2(yr)}<span class="muted" style="font-weight:500">/yr</span></span>
+        <span class="spacer"></span>
+        <span class="muted" style="font-size:13px;font-weight:500">${payers.length?`${payers.length} holding${payers.length===1?"":"s"} paying · ${fmt2(yr/12)}/mo`:"nothing paying yet"}</span>
+        <svg class="filtchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="filtbody" id="divBody" ${divOpen?"":"hidden"} style="padding:0">
+        ${payers.length?payers.map(h=>{
+          const f=divFreqOf(h), sh=num(h.shares), open=expDiv===h.id;
+          const each=divPerPayment(h), annual=divAnnualFor(h), nx=nextDivDate(h);
+          const px=num(h.price), ac=num(h.avgCost), aps=divAnnualPerShare(h);
+          const yNow=px>0?aps/px*100:null, yCost=ac>0?aps/ac*100:null;
+          return `<div class="brow${open?" editing":""}">
+            <div class="bmain" data-divopen="${h.id}">
+              <div class="binfo"><div class="bname">${esc(h.ticker||h.name||"—")}${yNow!=null?` <span class="muted" style="font-size:12.5px;font-weight:500">${yNow.toFixed(2)}%</span>`:""}</div>
+                <div class="bmeta">${esc(f.label)}${f.n?` · ${fmt2(each)} each`:""}${h.divFreqAuto?" · detected":""}${nx?` · next ${esc(shortDate(nx))}`:""}</div></div>
+              <div class="damt"><div class="dbal pos">${fmt2(annual)}</div><div class="dof">per year</div></div>
+              <button class="aedit${open?" on":""}" data-divedit="${h.id}" aria-label="Edit dividend for ${esc(h.ticker||h.name||"holding")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+            </div>
+            ${open?`<div class="bpanel">
+              <div class="hstats" style="margin-bottom:14px">
+                <div class="hstat"><div class="k">Yield now</div><div class="v pos">${yNow!=null?yNow.toFixed(2)+"%":"—"}</div></div>
+                <div class="hstat"><div class="k">Yield on cost</div><div class="v">${yCost!=null?yCost.toFixed(2)+"%":"—"}</div></div>
+                <div class="hstat"><div class="k">Each payment</div><div class="v">${f.n?fmt2(each):"—"}</div></div>
+                <div class="hstat"><div class="k">Monthly average</div><div class="v">${fmt2(annual/12)}</div></div>
+              </div>
+              <div class="formgrid">
+                <div class="field"><label>Dividend / share <span class="muted" style="font-weight:400">each payment</span></label>
+                  <input type="number" step="any" value="${num(h.divPerShare)||""}" placeholder="0.264" data-xdiv="${h.id}"></div>
+                <div class="field"><label>Pays${h.divFreqAuto?` <span class="muted" style="font-weight:400">· detected</span>`:""}</label>
+                  <select data-xfreq="${h.id}">${Object.entries(DIV_FREQ).map(([v,o2])=>`<option value="${v}" ${(h.divFreq||"quarterly")===v?"selected":""}>${o2.label}</option>`).join("")}</select></div>
+                <div class="field"><label>Last payment</label><input type="date" value="${esc(h.lastDiv||"")}" data-xlast="${h.id}"></div>
+              </div>
+              <div class="note" style="margin-top:12px;font-size:13px">
+                ${f.n?`<b>${fmtPS(h.divPerShare)}</b> per share every ${f.every} × <b>${f.n}</b> a year = <b>${fmtPS(aps)}</b> per share annually.`
+                     :`<b>${fmtPS(h.divPerShare)}</b> per share a year, paid irregularly.`}
+                <br>On ${sh} share${sh===1?"":"s"}: ${f.n?`<b>${fmt2(each)}</b> per payment, `:""}<b>${fmt2(annual)}</b>/yr.
+                ${f.n?(nx?` Next expected around <b>${esc(shortDate(nx))}</b>.`:` <span class="muted">Add a last payment date to project the schedule.</span>`):""}
+              </div>
+              <div class="toolbar" style="margin:12px 0 0">
+                <button class="btn sm" data-xref="${h.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>Refresh from ${esc(h.ticker||"ticker")}</button>
+                <div class="spacer"></div>
+                <button class="btn sm primary" data-xdone="1">Done</button>
+              </div>
+            </div>`:""}
+          </div>`;}).join("")+
+          `<div class="brow sum"><div class="bmain">
+            <div class="binfo"><div class="bname">Total</div><div class="bmeta">${fmt2(yr/12)} a month on average</div></div>
+            <div class="damt"><div class="dbal pos">${fmt2(yr)}</div><div class="dof">per year</div></div>
+            <span style="width:32px;flex:none"></span></div></div>`
+        :`<div class="empty" style="padding:24px">Add a ticker to a holding and hit Refresh — if it pays a dividend, the amount and how often it pays fill in on their own. You can also set both yourself.</div>`}
+      </div>`;
+    const dt=document.getElementById("divToggle");
+    if(dt)dt.onclick=()=>{divOpen=!divOpen;renderInvest();};
+    projEl.querySelectorAll("[data-divopen]").forEach(el=>el.onclick=e=>{
+      if(e.target.closest("[data-divedit]"))return;
+      const id=el.dataset.divopen; expDiv=expDiv===id?null:id; renderInvest();});
+    projEl.querySelectorAll("[data-divedit]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+      const id=b.dataset.divedit; expDiv=expDiv===id?null:id; renderInvest();});
+    projEl.querySelectorAll("[data-xdone]").forEach(b=>b.onclick=()=>{expDiv=null;renderInvest();});
+    projEl.querySelectorAll("[data-xdiv]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.xdiv);
+      if(h){h.divPerShare=num(e.currentTarget.value);h.divBasis="payment";saveAll();}});
+    projEl.querySelectorAll("[data-xfreq]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.xfreq);
+      if(h){h.divFreq=e.currentTarget.value;h.divFreqAuto=false;saveAll();}});
+    projEl.querySelectorAll("[data-xlast]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.xlast);
+      if(h){h.lastDiv=e.currentTarget.value;saveAll();}});
+    projEl.querySelectorAll("[data-xref]").forEach(b=>b.onclick=async e=>{
+      const btn=e.currentTarget, h=db.holdings.find(x=>x.id===btn.dataset.xref); if(!h)return;
+      btn.disabled=true;
+      if(await refreshHolding(h,document.getElementById("quoteStatus"))){recordPrice(h);saveAll();}
+      btn.disabled=false;});
+  }
   const upEl=document.getElementById("divUpcoming");
   if(upEl){ const up=upcomingDividends(120);
     upEl.innerHTML=up.length?`<div class="${up.length>5?"scrollrows":""}">${up.map(x=>`<div class="upitem">
@@ -3499,14 +3765,35 @@ function renderMarketSettings(){
 document.getElementById("addDivBtn").addEventListener("click",()=>{const date=document.getElementById("divDate").value||todayISO();const name=document.getElementById("divName").value.trim();const amt=num(document.getElementById("divAmt").value);if(!name||!amt)return;
   db.dividends.push({id:uid(),date,name,amount:amt});document.getElementById("divName").value="";document.getElementById("divAmt").value="";saveAll();});
 document.getElementById("addRecBtn").addEventListener("click",()=>{const name=document.getElementById("recName").value.trim();const category=document.getElementById("recCat").value;const amount=num(document.getElementById("recAmt").value);if(!name||!amount)return;
-  db.recurring.push({id:uid(),name,category,amount,dueDay:Math.min(28,Math.max(1,num(document.getElementById("recDay").value)||1))});
-  document.getElementById("recName").value="";document.getElementById("recAmt").value="";document.getElementById("recDay").value="";saveAll();});
+  const b={id:uid(),name,category,amount,dueDay:Math.min(28,Math.max(1,num(document.getElementById("recDay").value)||1))};
+  b.group=CAT_GROUP[category]||"Other"; b.tier=DEFAULT_TIER[b.group]||"flexible";
+  db.recurring.push(b);
+  ["recName","recAmt","recDay"].forEach(i=>{const el=document.getElementById(i); if(el)el.value="";});
+  document.getElementById("addBillPanel").style.display="none";
+  billTab="all"; billTierFilter=null; editBill=b.id; saveAll();});
 document.getElementById("markAllBillsBtn").addEventListener("click",()=>{db.recurring.forEach(b=>setBillPaid(b,budgetMonth,true));saveAll();});
+function showAddPanel(id,focusId){ const p=document.getElementById(id); if(!p)return;
+  const open=p.style.display!=="none"; p.style.display=open?"none":"block";
+  if(!open){ p.scrollIntoView({behavior:"smooth",block:"center"});
+    const f=document.getElementById(focusId); if(f)setTimeout(()=>f.focus(),260); } }
+document.getElementById("showAddBill").addEventListener("click",()=>showAddPanel("addBillPanel","recName"));
+document.getElementById("showAddBudget").addEventListener("click",()=>showAddPanel("addBudgetPanel","budLimit"));
+document.querySelectorAll("[data-hideadd]").forEach(b=>b.addEventListener("click",()=>{
+  document.getElementById(b.dataset.hideadd).style.display="none";}));
+{const el=document.getElementById("billAlertDays");
+ if(el) el.addEventListener("change",e=>{ db.settings.billAlertDays=Math.min(14,Math.max(0,num(e.target.value)));
+   persist(); e.target.value=db.settings.billAlertDays; });}
+document.getElementById("calBillsBtn").addEventListener("click",()=>{
+  const m=document.getElementById("calMsg");
+  if(!db.recurring.length){ if(m)m.textContent="Add a bill first."; return; }
+  const lead=num(db.settings.billAlertDays)||3;
+  if(downloadBillsICS()&&m) m.innerHTML=`Downloaded <b>freedom-engine-bills.ics</b> — open it and your calendar will add ${db.recurring.length} repeating reminder${db.recurring.length===1?"":"s"}, each alerting at 9am <b>${lead} day${lead===1?"":"s"}</b> before it's due. Re-export whenever you change a bill.`;});
 document.getElementById("addBudBtn").addEventListener("click",()=>{const c=document.getElementById("budCat").value;const v=num(document.getElementById("budLimit").value);if(!c||!v)return;
   db.budgets[c]=v;
   /* starts this month, so it can't inherit a balance from before it existed */
   db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]={since:monthKey(todayISO()),roll:true};
-  document.getElementById("budLimit").value=""; editBudget=c; saveAll();});
+  document.getElementById("budLimit").value=""; document.getElementById("addBudgetPanel").style.display="none";
+  editBudget=c; saveAll();});
 document.getElementById("addRuleBtn").addEventListener("click",()=>{const m=document.getElementById("ruleMatch").value.trim();const c=document.getElementById("ruleCat").value;if(!m)return;db.rules.push({m,c});document.getElementById("ruleMatch").value="";saveAll();});
 document.getElementById("saveBtn").addEventListener("click",()=>{db.updatedAt=new Date().toISOString();
   const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});const a=document.createElement("a");
