@@ -16,8 +16,13 @@
     --pos:#0ca35a; --neg:#e0463e; --debt:#e5900f; --warn:#e5900f; --goal:#0ea5a0; --invest:#7c5cf0;
     --s1:#4f46e5; --s2:#0ea5a0; --s3:#e0463e; --s4:#0ca35a; --s5:#eb6834;
     --barbg:rgba(255,255,255,.85); --barbg2:rgba(255,255,255,.97);
-    --shadow:0 1px 2px rgba(20,22,31,.04),0 6px 20px -8px rgba(20,22,31,.10);
-    --shadow-sm:0 1px 2px rgba(20,22,31,.05);
+    /* Depth is three layers doing different jobs: a crisp contact line, a close
+       ambient, and a wide soft diffuse. One flat shadow reads as a border. */
+    --shadow:0 1px 2px rgba(16,18,27,.05),0 6px 16px -6px rgba(16,18,27,.08),0 20px 44px -18px rgba(16,18,27,.16);
+    --shadow-sm:0 1px 1px rgba(16,18,27,.03),0 3px 8px -3px rgba(16,18,27,.05),0 12px 28px -16px rgba(16,18,27,.11);
+    --card-hi:inset 0 0 0 0 transparent;      /* top highlight — a no-op on white */
+    --card-grad:none;
+    --inset:inset 0 1px 2px rgba(16,18,27,.05);
     --radius:16px;
   }
   /* Dark is a selected set of steps for a dark surface, not an inverted light theme. */
@@ -30,8 +35,12 @@
     --pos:#3ecf8e; --neg:#f4736a; --debt:#f0ad3e; --warn:#f0ad3e; --goal:#2dd4bf; --invest:#a78bfa;
     --s1:#8b83ff; --s2:#2dd4bf; --s3:#f4736a; --s4:#3ecf8e; --s5:#fb923c;
     --barbg:rgba(24,26,32,.85); --barbg2:rgba(24,26,32,.97);
-    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -8px rgba(0,0,0,.55);
-    --shadow-sm:0 1px 2px rgba(0,0,0,.35);
+    --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px -8px rgba(0,0,0,.5),0 24px 60px -20px rgba(0,0,0,.6);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 8px 22px -12px rgba(0,0,0,.5);
+    /* on a dark surface the light comes from the top edge, not from underneath */
+    --card-hi:inset 0 1px 0 rgba(255,255,255,.05);
+    --card-grad:linear-gradient(180deg,#1c1e26 0%,#181a20 68%);
+    --inset:inset 0 1px 2px rgba(0,0,0,.4);
   }
   /* Shown only when scripts don't run (e.g. an iOS file preview), hidden the instant they do. */
   #nojs{padding:20px 18px 40px}
@@ -48,9 +57,20 @@
   input,select,textarea{font-family:inherit;font-size:15.5px;color:var(--ink)}
   a{color:var(--accent);text-decoration:none}
 
-  header.topbar{position:sticky;top:0;z-index:20;background:var(--barbg);backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--line)}
-  .topinner{max-width:1060px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:760;font-size:17px;white-space:nowrap;letter-spacing:-.025em}
+  /* Border only once you've scrolled — a hairline under a title that's flush with
+     the page above it is what made this feel like a toolbar bolted on top. */
+  header.topbar{position:sticky;top:0;z-index:20;background:var(--barbg);backdrop-filter:saturate(180%) blur(14px);
+    border-bottom:1px solid transparent;transition:border-color .2s ease,box-shadow .2s ease}
+  header.topbar.stuck{border-bottom-color:var(--line);box-shadow:0 1px 12px -6px rgba(0,0,0,.28)}
+  .topinner{max-width:1060px;margin:0 auto;padding:10px 18px;display:flex;align-items:center;gap:12px;min-height:60px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:760;font-size:19px;white-space:nowrap;letter-spacing:-.03em;min-width:0}
+  /* both titles occupy the same grid cell so one can cross-fade into the other */
+  .brandswap{display:grid;min-width:0}
+  .brandswap .bt{grid-area:1/1;transition:opacity .18s ease,transform .18s ease;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .brandswap .viewname{opacity:0;transform:translateY(5px);pointer-events:none}
+  header.topbar.stuck .brandswap .wordmark{opacity:0;transform:translateY(-5px)}
+  header.topbar.stuck .brandswap .viewname{opacity:1;transform:none}
   .brand .dot{width:27px;height:27px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#0ea5a0);box-shadow:0 2px 10px -2px rgba(79,70,229,.55);position:relative;flex:none}
   .brand .dot::after{content:"";position:absolute;inset:8px;border-radius:3px;background:rgba(255,255,255,.92)}
   nav.tabs{display:flex;gap:3px;overflow-x:auto;margin-left:auto;scrollbar-width:none}
@@ -65,7 +85,7 @@
   .view.active{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+  .card{background:var(--card);background-image:var(--card-grad);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--card-hi),var(--shadow-sm)}
   .pad{padding:20px}
   .grid{display:grid;gap:14px}
   .kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
@@ -87,12 +107,29 @@
   .infobtn{width:21px;height:21px;flex:none;border:1.5px solid var(--line2);background:transparent;color:var(--muted);
     border-radius:50%;font:italic 700 12px/1 Georgia,"Times New Roman",serif;display:flex;align-items:center;
     justify-content:center;padding:0;cursor:pointer;transition:background .14s,color .14s,border-color .14s;align-self:center}
+
+  .infobtn.tiny{width:18px;height:18px;font-size:10.5px;margin-left:7px;
+    display:inline-flex;vertical-align:middle;position:relative;top:-1px}
+  /* the explanation drops in below whatever it explains, full width, never inline */
+  .helptext{font-size:13px;line-height:1.5;color:var(--ink2);background:var(--raise);
+    border:1px solid var(--line);border-radius:11px;padding:10px 13px;margin:8px 0 2px;flex-basis:100%}
+  .helptext[hidden]{display:none}
+  .sectiontitle+.helptext{margin:-6px 0 12px}
+  label+.helptext{margin:6px 0 4px}
+  @media(max-width:820px){ .helptext{font-size:12.5px;padding:9px 11px} }
   .infobtn:hover{background:var(--raise);color:var(--ink);border-color:var(--muted)}
   .infobtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
   html[data-theme="dark"] .infobtn.on{color:#12131a}
   p.lead[hidden]{display:none}
   p.lead{color:var(--ink2);font-size:15.5px;margin-top:0;max-width:70ch}
   .sectiontitle{display:flex;align-items:center;gap:10px;margin:32px 0 14px;flex-wrap:wrap}
+  .sectiontitle.foldable{cursor:pointer;user-select:none;border-radius:12px;padding:4px 8px;margin-left:-8px;margin-right:-8px}
+  .sectiontitle.foldable:hover{background:var(--raise)}
+  .sectiontitle .foldchev{display:inline-flex;color:var(--muted);transition:transform .2s ease;flex:none}
+  .sectiontitle .foldchev svg{width:18px;height:18px}
+  .sectiontitle.shut{margin-bottom:0}
+  .sectiontitle.shut .foldchev{transform:rotate(-90deg)}
+  .sectiontitle.shut h2{color:var(--ink2)}
   .sectiontitle h2{font-size:17.5px;font-weight:690}
   .sectiontitle .hint{font-size:13.5px;color:var(--muted)}
 
@@ -108,23 +145,29 @@
   tr:last-child td{border-bottom:0}
   .catpill{font-size:13px;padding:4px 11px;border-radius:20px;background:var(--card);border:1px solid var(--line2);border-left-width:3px;white-space:nowrap;font-weight:550}
 
-  .btn{border:1px solid var(--line2);background:var(--card);color:var(--ink);padding:10px 17px;border-radius:11px;font-size:15px;font-weight:590;transition:all .14s;box-shadow:var(--shadow-sm)}
-  .btn:hover{border-color:var(--line2h);background:var(--raise)}
-  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 2px 8px -2px rgba(79,70,229,.45)}
+  .btn{border:1px solid var(--line2);background:var(--card);color:var(--ink);padding:10px 17px;border-radius:11px;font-size:15px;font-weight:590;transition:all .14s;box-shadow:var(--card-hi),var(--shadow-sm)}
+  .btn:hover{border-color:var(--line2h);background:var(--raise);transform:translateY(-1px)}
+  /* a press should feel like contact — the shadow collapses, the button sits down */
+  .btn:active{transform:translateY(0);box-shadow:var(--card-hi),0 1px 1px rgba(16,18,27,.05)}
+  .btn.primary{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 88%,#fff) 0%,var(--accent) 100%);
+    color:#fff;border-color:var(--accent);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 3px 12px -4px color-mix(in srgb,var(--accent) 60%,transparent)}
   .btn.primary:hover{background:var(--accent-ink);border-color:var(--accent-ink)}
+  .btn.primary:active{box-shadow:inset 0 1px 3px rgba(0,0,0,.22)}
   .btn.ghost{background:transparent;box-shadow:none}
+  .btn.ghost:active{transform:none;box-shadow:none}
   .btn.ghost:hover{background:var(--bg)}
   .btn.sm{padding:7px 13px;font-size:14px}
   .btn.danger{color:var(--neg);border-color:#f3cfcc}
 
   .field{display:flex;flex-direction:column;gap:6px}
   .field label{font-size:13.5px;font-weight:630;color:var(--ink2)}
-  .field input,.field select,textarea{padding:11px 13px;border:1px solid var(--line2);border-radius:11px;background:var(--card);width:100%;transition:border .14s,box-shadow .14s}
+  .field input,.field select,textarea{padding:11px 13px;border:1px solid var(--line2);border-radius:11px;background:var(--card);width:100%;transition:border .14s,box-shadow .14s;box-shadow:var(--inset)}
   .field input:focus,.field select:focus,textarea:focus,.miniedit:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .inline{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
   .formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;align-items:end}
 
-  .miniedit{width:118px;padding:9px 11px;border:1px solid var(--line2);border-radius:10px;text-align:right;font-variant-numeric:tabular-nums;background:var(--card);transition:border .14s,box-shadow .14s}
+  .miniedit{width:118px;padding:9px 11px;border:1px solid var(--line2);border-radius:10px;text-align:right;font-variant-numeric:tabular-nums;background:var(--card);transition:border .14s,box-shadow .14s;box-shadow:var(--inset)}
   .muted{color:var(--muted)} .pos{color:var(--pos)} .neg{color:var(--neg)}
   .flex{display:flex;align-items:center;gap:10px}
   .between{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -135,6 +178,8 @@
     .pagerow>h1.page,.pagerow>.titlerow{flex:1 1 100%;margin-bottom:0}
     .pagerow>h1.page~.field,.pagerow>.titlerow~.field{width:100%!important;max-width:none} }
   @media(max-width:600px){ .nolabel-sm>label{display:none} }
+  /* the control says "July 2026" — a "Month" label above it is a wasted line */
+  .nolabel>label{display:none}
   .stack{display:flex;flex-direction:column;gap:12px}
   .tag{font-size:11.5px;font-weight:690;padding:3px 10px;border-radius:20px;letter-spacing:.02em}
   .tag.ok{background:#e4f6ec;color:#0a9150} .tag.warn{background:#fcf0dd;color:#c07a10} .tag.bad{background:#fbe6e4;color:var(--neg)}
@@ -154,10 +199,12 @@
   .segoptions{display:flex;gap:6px;flex-wrap:wrap}
   .seg{padding:6px 13px;border:1px solid var(--line2);border-radius:20px;font-size:12.5px;background:var(--card);color:var(--ink2);font-weight:560;transition:all .14s}
   .seg:hover{border-color:var(--line2h)}
-  .seg.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .seg.active{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 88%,#fff),var(--accent));color:#fff;border-color:var(--accent);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 2px 8px -3px color-mix(in srgb,var(--accent) 55%,transparent)}
   .chk{width:30px;height:30px;border-radius:9px;border:1.5px solid var(--line2);background:var(--card);color:#fff;font-size:15px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;transition:all .15s;flex:none}
   .chk:hover{border-color:var(--pos)}
-  .chk.on{background:var(--pos);border-color:var(--pos)}
+  .chk.on{background:linear-gradient(180deg,color-mix(in srgb,var(--pos) 86%,#fff),var(--pos));border-color:var(--pos);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 2px 6px -2px color-mix(in srgb,var(--pos) 55%,transparent)}
 
   /* hero — money on hand */
   .hero{background:linear-gradient(140deg,#4f46e5 0%,#4338ca 45%,#0e9c98 100%);color:#fff;border-radius:20px;padding:26px 26px 24px;box-shadow:0 10px 34px -14px rgba(79,70,229,.6);position:relative;overflow:hidden}
@@ -170,15 +217,15 @@
   .hero .hitem .v{font-size:20px;font-weight:700;margin-top:3px;letter-spacing:-.02em}
 
   /* compact account rows — read-only until you open the ⋯ editor */
-  .arow{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--line);transition:background .12s}
+  .arow{display:flex;align-items:center;gap:12px;padding:11px 15px;border-bottom:1px solid var(--line);transition:background .12s}
   .arow:hover{background:var(--raise)}
-  .arow.editing{background:var(--accent-soft)}
+  .arow.editing{background:var(--raise)}
   .arow .glyph{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:750;color:#fff;flex:none;letter-spacing:-.02em}
   .arow .glyph.small{width:32px;height:32px;border-radius:9px;font-size:13px}
   .ainfo{flex:1;min-width:0}
   .aname{font-size:15.5px;font-weight:620;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ameta{font-size:13px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .abal{font-size:17.5px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;flex:none;letter-spacing:-.02em}
+  .ameta{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .abal{font-size:16.5px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;flex:none;letter-spacing:-.02em}
   .abal.owed{color:var(--neg)}
   .abal.roll,.abal.owed{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
   .abal em{font-style:normal;font-size:10.5px;font-weight:660;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:2px}
@@ -302,12 +349,14 @@
   html[data-theme="dark"] .themeseg button.on{color:#12131a}
 
   /* ---------- navigation: sidebar on wide screens, drawer + bottom bar on phones ---------- */
-  .iconbtn{width:42px;height:42px;flex:none;border:0;background:transparent;color:var(--ink);border-radius:11px;display:none;align-items:center;justify-content:center;padding:0}
-  .iconbtn svg{width:23px;height:23px}
+  .iconbtn{width:46px;height:46px;flex:none;border:0;background:transparent;color:var(--ink);border-radius:14px;display:none;align-items:center;justify-content:center;padding:0;
+    transition:background .15s ease}
+  .iconbtn svg{width:26px;height:26px}
+  .iconbtn:active{background:var(--raise2)}
   .iconbtn:hover{background:var(--raise)}
   #scrim{position:fixed;inset:0;background:rgba(10,11,15,.5);opacity:0;pointer-events:none;transition:opacity .22s;z-index:44}
   #scrim.on{opacity:1;pointer-events:auto}
-  .sidebar{position:fixed;top:0;left:0;bottom:0;width:236px;background:var(--card);border-right:1px solid var(--line);z-index:45;display:flex;flex-direction:column;padding:16px 12px;gap:4px;overflow-y:auto;overscroll-behavior:contain;transition:transform .24s cubic-bezier(.4,0,.2,1)}
+  .sidebar{position:fixed;top:0;left:0;bottom:0;width:236px;background:var(--card);border-right:1px solid var(--line);box-shadow:8px 0 28px -24px rgba(0,0,0,.28);z-index:45;display:flex;flex-direction:column;padding:16px 12px;gap:4px;overflow-y:auto;overscroll-behavior:contain;transition:transform .24s cubic-bezier(.4,0,.2,1)}
   .sbbrand{display:flex;align-items:center;gap:10px;font-weight:760;font-size:17px;letter-spacing:-.025em;padding:6px 8px 14px}
   .sbbrand .dot{width:27px;height:27px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#0ea5a0);position:relative;flex:none}
   .sbbrand .dot::after{content:"";position:absolute;inset:8px;border-radius:3px;background:var(--card)}
@@ -331,8 +380,8 @@
   .bb.active{color:var(--accent-ink)}
   .bb span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .bbcenter{flex:none;width:62px;height:62px;margin:-30px 8px 0;border-radius:50%;border:4px solid var(--bg);
-    background:linear-gradient(140deg,#6366f1,#4f46e5);color:#fff;display:flex;align-items:center;justify-content:center;
-    box-shadow:0 8px 22px -8px rgba(79,70,229,.75);transition:transform .16s}
+    background:linear-gradient(140deg,color-mix(in srgb,var(--accent) 80%,#fff),var(--accent));color:#fff;display:flex;align-items:center;justify-content:center;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 8px 22px -8px color-mix(in srgb,var(--accent) 75%,transparent);transition:transform .16s}
   .bbcenter svg{width:27px;height:27px}
   .bbcenter:active{transform:scale(.94)}
   .bbcenter.active{background:linear-gradient(140deg,#818cf8,#4f46e5)}
@@ -442,6 +491,7 @@
   .sumitem .v{font-size:20px;font-weight:730;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums}
   /* label/value rows that wrap instead of forcing a horizontal scroll */
   .deflist{display:flex;flex-direction:column}
+  .deflist[hidden]{display:none}
   .defrow{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 16px;
     padding:9px 0;border-top:1px solid var(--line)}
   .defrow:first-child{border-top:0;padding-top:0}
@@ -506,6 +556,18 @@
   }
   .bizmark{font-size:9.5px;font-weight:760;letter-spacing:.06em;color:#2563eb;background:rgba(37,99,235,.12);
     padding:2px 5px;border-radius:5px;vertical-align:1px}
+
+  .taxclasssel{width:auto;text-align:left;flex:none;max-width:52%}
+  @media(max-width:640px){
+    /* the dropdown was squeezing stream names down to four characters */
+    .taxstream .bmain{flex-wrap:wrap}
+    .taxstream .binfo{flex:1 1 100%}
+    .taxclasssel{max-width:none;flex:1 1 100%;margin-top:8px}
+  }
+  .bizsel{margin-top:5px;font-size:12px}
+  .bizpct{width:58px;margin-top:5px;font-size:12px;padding:4px 6px;min-height:30px}
+  .stacktbl tr.bizrow{box-shadow:inset 3px 0 0 var(--bizc)}
+  @media(max-width:820px){ .stacktbl tr.bizrow{box-shadow:inset 3px 0 0 var(--bizc)} }
   html[data-theme="dark"] .bizmark,html[data-theme="bushido"] .bizmark{color:#93c5fd;background:rgba(147,197,253,.14)}
   .brow.offmonth .bname,.brow.offmonth .bamt{color:var(--muted)}
   .brow.offmonth .bamt{font-weight:620}
@@ -522,6 +584,51 @@
   @media(max-width:820px){ .scrollrows.bills{max-height:296px} }
 
   /* ---------- bill rows ---------- */
+  /* ---------- hero carousel ---------- */
+  /* Scroll-snap does the work: real momentum on a phone, drag or arrow keys on a
+     desktop, and it degrades to a plain stack if scroll-snap isn't supported. */
+  .herowrap{position:relative;margin-bottom:22px}
+  .herotrack{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;
+    overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;gap:0}
+  .herotrack::-webkit-scrollbar{display:none}
+  .heroslide{flex:0 0 100%;scroll-snap-align:center;min-width:0}
+  .heroslide .dashhero{margin-bottom:0}
+  .herodots{display:flex;justify-content:center;gap:7px;margin-top:11px}
+  .hdot{width:7px;height:7px;border-radius:50%;border:0;padding:0;cursor:pointer;
+    background:var(--line2h);opacity:.55;transition:all .2s ease}
+  .hdot.on{opacity:1;width:20px;border-radius:20px;background:var(--accent)}
+  .dashhero.biz{background:linear-gradient(135deg,var(--bh) 0%,color-mix(in srgb,var(--bh) 55%,#0f172a) 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 16px 38px -20px color-mix(in srgb,var(--bh) 70%,transparent)}
+  @media(prefers-reduced-motion:reduce){ .herotrack{scroll-behavior:auto} }
+  /* ---------- donut ---------- */
+  .donutwrap{display:flex;align-items:center;gap:24px}
+  .donutwrap[hidden]{display:none}
+  .donutbox{position:relative;width:168px;height:168px;flex:none}
+  .donut{width:100%;height:100%;display:block;overflow:visible}
+  .dslice{transition:opacity .18s ease,stroke-width .18s ease;cursor:pointer}
+  .donutbox:has(.dslice.on) .dslice:not(.on){opacity:.32}
+  .dslice.on{stroke-width:22}
+  .dcentre{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;pointer-events:none;padding:0 26px}
+  .dcval{font-size:23px;font-weight:770;letter-spacing:-.03em;line-height:1.05;font-variant-numeric:tabular-nums}
+  .dclab{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;font-weight:700;color:var(--muted);
+    margin-top:4px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dlegend{flex:1;min-width:0;display:flex;flex-direction:column}
+  .dlrow{display:flex;align-items:center;gap:10px;width:100%;padding:8px 8px;background:transparent;border:0;
+    border-radius:10px;color:inherit;font:inherit;cursor:pointer;text-align:left}
+  .dlrow:hover{background:var(--raise)}
+  .dlrow.on{background:var(--raise2)}
+  .dlsw{width:10px;height:10px;border-radius:3px;flex:none}
+  .dlname{flex:1;min-width:0;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dlpct{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none;width:38px;text-align:right}
+  .dlamt{font-size:14.5px;font-weight:680;font-variant-numeric:tabular-nums;flex:none}
+  @media(max-width:600px){
+    /* stacking beats shrinking — a 120px donut with a squeezed list reads worse than both at full size */
+    .donutwrap{flex-direction:column;gap:14px}
+    .donutbox{width:180px;height:180px}
+    .dlegend{width:100%}
+    .dlrow{padding:9px 6px}
+  }
   /* ---------- drill-down sheet ---------- */
   /* Full height on a phone, a centred panel on a desktop. Body scroll is locked
      while it's open so the page behind doesn't drift under your thumb. */
@@ -546,6 +653,13 @@
     margin:20px 0 2px;display:flex;align-items:center;justify-content:space-between;gap:10px}
   .nwsec:first-child{margin-top:0}
   .nwsec .t{font-size:13px;font-weight:700;letter-spacing:-.01em;text-transform:none;color:var(--ink)}
+  .nwhead{display:flex;align-items:center;gap:10px;width:100%;padding:11px 0;background:transparent;border:0;
+    border-top:1px solid var(--line);color:inherit;font:inherit;cursor:pointer;text-align:left}
+  .nwhead .nwcount{font-size:13.5px;font-weight:640;flex:none}
+  .nwhead .nwlead{font-size:12.5px;color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nwhead .nwchev{width:16px;height:16px;flex:none;color:var(--muted);transition:transform .2s ease}
+  .nwhead.open .nwchev{transform:rotate(180deg)}
+  .nwhead:hover{color:var(--accent-ink)}
   .nwmove{display:flex;align-items:center;gap:9px;padding:9px 0;border-top:1px solid var(--line);font-size:13.5px}
   .nwmove .arrow{font-size:11px;font-weight:700;flex:none;width:14px}
   .nwmove .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -643,24 +757,30 @@
     .bcat{display:none} .bmain>.aedit{display:none} }
 
   /* ---------- debt cards ---------- */
-  .dcard{background:var(--card);border:1px solid var(--line);border-radius:15px;overflow:hidden;
-    box-shadow:0 1px 2px rgba(15,23,42,.05);transition:border-color .15s}
-  .dcard.editing{border-color:var(--accent)}
+  /* Income streams and debts used to be free-floating cards while bills, budgets,
+     goals and paychecks were flush rows in one card. Same idea, two looks. These
+     now match .brow exactly — one row idiom across the whole app. */
+  .stack.rowcard{gap:0;background:var(--card);background-image:var(--card-grad);border:1px solid var(--line);
+    border-radius:var(--radius);box-shadow:var(--card-hi),var(--shadow-sm);overflow:hidden}
+  .dcard{background:transparent;border:0;border-bottom:1px solid var(--line);transition:background .12s}
+  .stack:not(.rowcard)>.dcard{border:1px solid var(--line);border-radius:15px;overflow:hidden;background:var(--card)}
+  .rowcard>.dcard:last-child{border-bottom:0}
+  .dcard.editing{background:var(--raise)}
   .dcard.done{opacity:.82}
-  html[data-theme="dark"] .dcard,html[data-theme="bushido"] .dcard{box-shadow:none}
-  .dtop{display:flex;align-items:center;gap:12px;padding:13px 15px 11px;cursor:pointer}
+  .dtop{display:flex;align-items:center;gap:12px;padding:11px 15px;cursor:pointer}
   .dtop:hover{background:var(--raise)}
   .dinfo{flex:1;min-width:0}
-  .dname{font-size:16px;font-weight:640;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dname{font-size:15.5px;font-weight:620;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .dmeta{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .damt{text-align:right;flex:none}
-  .dbal{font-size:18px;font-weight:730;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-  .dof{font-size:11.5px;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums}
+  .dbal{font-size:16.5px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .dof{font-size:11px;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums}
   .dbarrow{display:flex;align-items:center;gap:12px;padding:0 15px 14px}
   .dbarrow .bar{flex:1;min-width:0}
   .dpaybtn{flex:none;min-width:74px}
   .dclear{flex:none;font-size:13px;font-weight:640;color:var(--pos);padding:0 6px}
   .dpanel{border-top:1px solid var(--line);padding:14px 15px 15px;background:var(--raise)}
+  .dcard.editing .dpanel{background:var(--raise2)}
   .tshort{display:none}
   @media(max-width:820px){
     .dtop{gap:9px;padding:12px 13px 10px}
@@ -682,8 +802,8 @@
   #setRoot,.setpane{max-width:720px}
   .setgrouplabel{font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;
     color:var(--muted);margin:0 0 8px 15px}
-  .setgroup{background:var(--card);border:1px solid var(--line);border-radius:15px;overflow:hidden;
-    margin-bottom:24px;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+  .setgroup{background:var(--card);background-image:var(--card-grad);border:1px solid var(--line);border-radius:15px;overflow:hidden;
+    margin-bottom:24px;box-shadow:var(--card-hi),var(--shadow-sm)}
   .setrow{position:relative;display:flex;align-items:center;gap:13px;width:100%;min-height:54px;
     padding:11px 15px;background:transparent;border:0;text-align:left;color:var(--ink);
     font:inherit;font-size:16px;cursor:pointer}
@@ -699,7 +819,6 @@
   .setval{color:var(--muted);font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46%;text-align:right}
   .setval.on{color:var(--pos);font-weight:580}
   .setchev{width:15px;height:15px;flex:none;color:var(--muted);opacity:.55;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
-  html[data-theme="dark"] .setgroup{box-shadow:none}
   .setlabel,.setlabel small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   @media(max-width:820px){ .setrow{font-size:15.5px;min-height:56px;gap:11px;padding:11px 13px}
     .setrow+.setrow::before{left:52px} .setgrouplabel{margin-left:16px}
@@ -708,7 +827,7 @@
   /* ---------- dashboard hero ---------- */
   .dashhero{position:relative;overflow:hidden;border-radius:20px;padding:24px 28px 20px;margin-bottom:22px;color:#fff;
     background:linear-gradient(135deg,#4f46e5 0%,#4338ca 42%,#0e9c98 100%);
-    box-shadow:0 16px 38px -20px rgba(79,70,229,.75)}
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 16px 38px -20px rgba(79,70,229,.75)}
   .dashhero::after{content:"";position:absolute;right:-80px;top:-120px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.09)}
   .dashhero::before{content:"";position:absolute;right:120px;bottom:-150px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.06)}
   .dh-top{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
@@ -723,6 +842,7 @@
   .dh-stat{flex:1 1 0;min-width:84px}
   .dh-stat .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:660;opacity:.78}
   .dh-stat .v{font-size:19px;font-weight:720;margin-top:3px;letter-spacing:-.02em;white-space:nowrap}
+  .dh-sub{font-size:10.5px;font-weight:560;opacity:.72;margin-top:2px;white-space:nowrap}
   .dh-goal{flex:1 1 140px;min-width:120px}
   .dh-gbar{height:6px;border-radius:20px;background:rgba(255,255,255,.25);margin-top:7px;overflow:hidden}
   .dh-gbar span{display:block;height:100%;border-radius:20px;background:#fff;transition:width .5s cubic-bezier(.4,0,.2,1)}
@@ -765,10 +885,12 @@
     --pos:#5fae76; --neg:#d1495b; --debt:#c9a227; --warn:#c9a227; --goal:#c9a227; --invest:#9b7fd4;
     --s1:#ec6a63; --s2:#c9a227; --s3:#d1495b; --s4:#5fae76; --s5:#e0873c;
     --barbg:rgba(22,19,26,.85); --barbg2:rgba(22,19,26,.97);
-    --shadow:0 1px 2px rgba(0,0,0,.5),0 8px 26px -8px rgba(0,0,0,.7);
-    --shadow-sm:0 1px 2px rgba(0,0,0,.45);
+    --shadow:0 1px 2px rgba(0,0,0,.55),0 10px 28px -8px rgba(0,0,0,.65),0 26px 64px -20px rgba(0,0,0,.7);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.5),0 8px 24px -12px rgba(0,0,0,.6);
+    --card-hi:inset 0 1px 0 rgba(255,255,255,.045);
+    --card-grad:linear-gradient(180deg,#191622 0%,#16131a 68%);
+    --inset:inset 0 1px 2px rgba(0,0,0,.45);
   }
-  html[data-theme="bushido"] .card{background:linear-gradient(180deg,#181520 0%,#16131a 100%)}
   html[data-theme="bushido"] .tag.ok{background:#152a1c;color:#6fc98a}
   html[data-theme="bushido"] .tag.warn{background:#2c2410;color:#e0bc4a}
   html[data-theme="bushido"] .tag.bad{background:#2e1519;color:#f08b8b}
@@ -786,9 +908,9 @@
   html[data-theme="bushido"] .brandmark .tsuba{fill:#c9a227}
 
   /* katana mark */
-  .brandmark{width:27px;height:27px;border-radius:9px;flex:none;background:linear-gradient(135deg,#4f46e5,#0ea5a0);
+  .brandmark{width:30px;height:30px;border-radius:10px;flex:none;background:linear-gradient(135deg,#4f46e5,#0ea5a0);
     display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px -2px rgba(79,70,229,.55)}
-  .brandmark svg{width:19px;height:19px}
+  .brandmark svg{width:21px;height:21px}
   .brandmark .blade{stroke:#fff;stroke-width:2.1;stroke-linecap:round;fill:none}
   .brandmark .tsuba{fill:#fff}
   html[data-theme="bushido"] .brandmark{background:linear-gradient(135deg,#c1272d,#7a1418);box-shadow:0 2px 10px -2px rgba(193,39,45,.6)}
@@ -821,6 +943,11 @@
   .kpi.tappable::before{content:"";position:absolute;right:14px;top:16px;width:7px;height:7px;border-right:2px solid var(--muted);border-top:2px solid var(--muted);transform:rotate(45deg);opacity:0;transition:opacity .15s,transform .15s}
   .kpi.tappable:hover::before{opacity:.85;transform:rotate(45deg) translate(2px,-2px)}
   .kpi.tappable:active{transform:translateY(0) scale(.995)}
+
+  /* Any class rule that sets a display beats the browser's own [hidden] rule, so
+     hiding something by attribute silently fails. This has now bitten four
+     separate components — one global guard ends the whole category. */
+  [hidden]{display:none !important}
 </style>
 </head>
 <body>
@@ -853,10 +980,19 @@
   <nav id="sbnav"></nav>
   <div class="sbfoot" id="sbfoot"></div>
 </aside>
-<header class="topbar">
+<header class="topbar" id="topbar">
   <div class="topinner">
-    <button class="iconbtn" id="menuBtn" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <div class="brand"><span class="brandmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="blade" d="M20.5 3.5 L11 13"/><circle class="tsuba" cx="9.9" cy="14.1" r="1.7"/><path class="blade" d="M8.8 15.2 L5 19"/></svg></span> <span id="viewTitle">Freedom Engine</span></div>
+    <button class="iconbtn" id="menuBtn" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <!-- Two titles in one slot. The wordmark shows while the page's own big title
+         is on screen; once you scroll past it the view name takes over, so the
+         header always says something and never repeats what's directly below it. -->
+    <div class="brand">
+      <span class="brandmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="blade" d="M20.5 3.5 L11 13"/><circle class="tsuba" cx="9.9" cy="14.1" r="1.7"/><path class="blade" d="M8.8 15.2 L5 19"/></svg></span>
+      <span class="brandswap">
+        <span class="bt wordmark" id="brandWord">Freedom Engine</span>
+        <span class="bt viewname" id="viewTitle"></span>
+      </span>
+    </div>
   </div>
 </header>
 <nav class="bottombar" id="bottombar"></nav>
@@ -864,26 +1000,29 @@
 <main>
   <!-- DASHBOARD -->
   <section class="view active" id="view-dash">
+    <h1 class="page">Home</h1>
+    <p class="lead">Net worth is the number everything else feeds into. The rest of this screen is what's moving it this month.</p>
     <div id="startCard"></div>
     <div id="dashHero"></div>
     <div class="between pagerow" style="margin-bottom:14px">
       <h2 style="font-size:17.5px" id="dashMonthLabel">This month</h2>
-      <div class="field nolabel-sm" style="width:auto"><label>Month</label><select id="monthSel"></select></div>
+      <div class="field nolabel" style="width:auto"><label>Month</label><select id="monthSel" aria-label="Month"></select></div>
     </div>
     <div class="grid kpis" id="kpiRow"></div>
-    <div class="sectiontitle"><h2>Spending this month</h2><span class="hint" id="spendHint"></span></div>
-    <div class="card pad" id="spendByCat"></div>
-    <div class="sectiontitle"><h2>Coming up</h2><span class="hint">next 14 days</span></div>
-    <div class="card" id="comingUp" style="margin-bottom:8px"></div>
+    <div class="sectiontitle" data-sect="spend"><h2>Spending this month</h2><span class="hint" id="spendHint"></span></div>
+    <div data-sectbody="spend"><div class="card pad" id="spendByCat"></div></div>
 
-    <div class="sectiontitle"><h2>Net worth over time</h2><span class="hint" id="nwHint"></span></div>
-    <div class="card pad" id="nwChart"></div>
+    <div class="sectiontitle" data-sect="coming"><h2>Coming up</h2><span class="hint">next 14 days</span></div>
+    <div data-sectbody="coming"><div class="card" id="comingUp" style="margin-bottom:8px"></div></div>
 
-    <div class="sectiontitle"><h2>Income vs spending</h2><span class="hint">last 6 months, from your transactions</span></div>
-    <div class="card pad" id="ioChart"></div>
+    <div class="sectiontitle" data-sect="nw"><h2>Net worth over time</h2><span class="hint" id="nwHint"></span></div>
+    <div data-sectbody="nw"><div class="card pad" id="nwChart"></div></div>
 
-    <div class="sectiontitle"><h2>Recent transactions</h2><span class="hint" id="recentHint"></span></div>
-    <div class="card" id="recentTx"></div>
+    <div class="sectiontitle" data-sect="io"><h2>Income vs spending</h2><span class="hint">last 6 months, from your transactions</span></div>
+    <div data-sectbody="io"><div class="card pad" id="ioChart"></div></div>
+
+    <div class="sectiontitle" data-sect="recent"><h2>Recent transactions</h2><span class="hint" id="recentHint"></span></div>
+    <div data-sectbody="recent"><div class="card" id="recentTx"></div></div>
   </section>
 
   <!-- ACCOUNTS -->
@@ -923,7 +1062,7 @@
     </div>
 
     <div class="sectiontitle"><h2>Your streams</h2><span class="spacer"></span><button class="btn sm primary" id="addIncomeBtn">+ Stream</button></div>
-    <div class="stack" id="incomeList"></div>
+    <div class="stack rowcard" id="incomeList"></div>
 
     <div class="sectiontitle"><h2>Actual paychecks</h2><span class="hint">what really landed</span><span class="spacer"></span>
       <span class="flex" style="gap:8px"><button class="btn sm ghost" id="scanStubBtn"><span class="lgonly">Scan / paste a stub</span><span class="smonly">Scan stub</span></button>
@@ -934,7 +1073,7 @@
 
   <!-- EXPENSES -->
   <section class="view" id="view-expenses">
-    <h1 class="page">Expenses</h1>
+    <h1 class="page">Spending</h1>
     <p class="lead">Import a CSV from your bank (look for "Export" / "Download transactions"), or add expenses by hand. Everything gets sorted into categories automatically.</p>
     <div class="card pad" style="margin-bottom:16px">
       <div class="toolbar">
@@ -1088,6 +1227,53 @@
     <div class="card pad" id="forecastBox"></div>
   </section>
 
+  <!-- TAX -->
+  <section class="view" id="view-tax">
+    <h1 class="page">Tax</h1>
+    <p class="lead">Nothing is withheld from 1099 work, so a share of every payment already belongs to the IRS. This holds it back before you can spend it, and tells you what each quarter costs.</p>
+
+    <div class="card" id="taxHero"></div>
+
+    <div class="sectiontitle" data-sect="taxq"><h2>Quarterly payments</h2><span class="hint">federal estimated tax</span></div>
+    <div data-sectbody="taxq"><div class="card" id="taxQuarters"></div></div>
+
+    <div class="sectiontitle" data-sect="taxbreak"><h2>How this was worked out</h2><span class="hint" id="taxYearHint"></span></div>
+    <div data-sectbody="taxbreak"><div class="card pad" id="taxBreak"></div></div>
+
+    <div class="sectiontitle" data-sect="taxset"><h2>Your numbers</h2><span class="hint">every rate is editable</span></div>
+    <div data-sectbody="taxset"><div class="card pad" id="taxSettings"></div></div>
+
+    <div class="sectiontitle" data-sect="taxstreams"><h2>Where your income is taxed</h2></div>
+    <div data-sectbody="taxstreams"><div class="card" id="taxStreams"></div></div>
+
+    <div class="sectiontitle" data-sect="taxledger"><h2>Reserve ledger</h2><span class="spacer"></span>
+      <button class="btn sm" id="addReserveBtn">+ Set aside</button></div>
+    <div data-sectbody="taxledger"><div class="card" id="taxLedger"></div></div>
+  </section>
+
+  <!-- BUSINESS -->
+  <section class="view" id="view-business">
+    <h1 class="page">Business</h1>
+    <p class="lead">Tag a transaction or a bill to a business and it leaves your personal spending and lands in that business's books instead. What the business pays you comes back as income.</p>
+
+    <div class="sectiontitle"><h2>Your businesses</h2><span class="spacer"></span>
+      <button class="btn sm primary" id="showAddBiz">+ Business</button></div>
+    <div class="card" id="addBizPanel" hidden></div>
+    <div class="card" id="bizList"></div>
+
+    <div id="bizDetailWrap" hidden>
+      <div class="sectiontitle"><h2 id="bizDetailTitle">Profit &amp; loss</h2><span class="spacer"></span>
+        <span class="flex" style="gap:8px">
+          <select id="bizYear" class="miniedit" style="width:auto;text-align:left"></select>
+          <button class="btn sm" id="bizExport">Export CSV</button></span></div>
+      <div class="card pad" id="bizPL"></div>
+      <div class="sectiontitle"><h2>Schedule C</h2><span class="hint">line items for your accountant</span></div>
+      <div class="card" id="bizSched"></div>
+      <div class="sectiontitle"><h2>Tagged transactions</h2><span class="hint" id="bizTxHint"></span></div>
+      <div class="card" id="bizTxList"></div>
+    </div>
+  </section>
+
   <!-- CREDIT & DEBT -->
   <section class="view" id="view-credit">
     <h1 class="page">Credit &amp; Debt</h1>
@@ -1114,7 +1300,7 @@
     </div>
 
     <div class="sectiontitle"><h2>Debt payoff</h2><span class="hint">smallest first = quick wins</span><span class="spacer"></span><button class="btn sm" id="addDebtBtn">+ Add debt</button></div>
-    <div class="stack" id="debtList"></div>
+    <div class="stack rowcard" id="debtList"></div>
     <div class="card pad" style="margin-top:12px">
       <b style="font-size:13.5px">Add a debt</b>
       <div class="formgrid" style="margin-top:10px">
@@ -1367,6 +1553,10 @@ function seed(){
     snapshots:[],
     goal:{target:0,deadline:""},
     goals:[],
+    businesses:[],
+    tax:{enabled:true,mode:"guided",flatRate:28,filing:"single",stateName:"Georgia",
+      seRate:15.3,seOn:true,fedRate:22,stateRate:5.39,qbi:false,creditW2:true,otherCredits:0,
+      reserve:[],paid:[]},
     settings:{burnOverride:null,taxEnabled:false,taxRate:20,passiveYield:4}
   };
 }
@@ -1445,6 +1635,38 @@ function normalize(){
     if(!GOAL_KINDS[g.kind])g.kind="custom"; if(g.done===undefined)g.done=false;
     if(g.created===undefined)g.created=todayISO(); });
   if(db.settings&&db.settings.passiveYield===undefined) db.settings.passiveYield=4;
+  /* businesses + tax */
+  if(!Array.isArray(db.businesses)) db.businesses=[];
+  db.businesses.forEach((b,i)=>{ if(!b.color)b.color=BIZ_COLORS[i%BIZ_COLORS.length];
+    if(!BIZ_KINDS[b.kind])b.kind="sole";
+    if(b.drawPct===undefined)b.drawPct=100;
+    if(b.linkProfit===undefined)b.linkProfit=true;
+    if(b.active===undefined)b.active=true;
+    if(!b.created)b.created=todayISO(); });
+  const T=db.tax=db.tax||{};
+  if(T.enabled===undefined)T.enabled=true;
+  if(!T.mode)T.mode="guided";
+  if(T.flatRate===undefined)T.flatRate=28;
+  if(!T.filing)T.filing="single";
+  if(!T.stateName)T.stateName="Georgia";
+  if(T.seRate===undefined)T.seRate=15.3;
+  if(T.seOn===undefined)T.seOn=true;
+  if(T.fedRate===undefined)T.fedRate=22;
+  if(T.stateRate===undefined)T.stateRate=5.39;
+  if(T.qbi===undefined)T.qbi=false;
+  if(T.creditW2===undefined)T.creditW2=true;
+  if(T.otherCredits===undefined)T.otherCredits=0;
+  if(!Array.isArray(T.reserve))T.reserve=[];
+  if(!Array.isArray(T.paid))T.paid=[];
+  /* income streams gain an explicit tax class; the old non-taxable tick maps to exempt */
+  (db.income||[]).forEach(s=>{ if(!s.taxClass) s.taxClass=s.notax?"exempt":((s.model==="daily"||s.model==="onetime")?"se":"w2");
+    s.notax=(s.taxClass==="exempt"); });
+  /* bills carried a yes/no business flag; it becomes a link to a specific business */
+  (db.recurring||[]).forEach(b=>{
+    if(b.biz===true&&!b.bizId&&db.businesses.length) b.bizId=db.businesses[0].id;
+    b.biz=!!(b.bizId&&db.businesses.some(x=>x.id===b.bizId));
+    if(b.bizId&&!db.businesses.some(x=>x.id===b.bizId)) delete b.bizId; });
+  (db.transactions||[]).forEach(t=>{ if(t.bizId&&!db.businesses.some(x=>x.id===t.bizId)) delete t.bizId; });
   if(!db.monthBudgets||typeof db.monthBudgets!=='object') db.monthBudgets={};
   if(!db.budgetStart) db.budgetStart=monthKey(todayISO());
   (db.recurring||[]).forEach(b=>{ if(!b.dueDay)b.dueDay=1; });
@@ -2027,8 +2249,16 @@ function monthsWithData(){ const s=new Set(db.transactions.map(t=>monthKey(t.dat
    left out of every income, spending, budget and burn figure. */
 const NEUTRAL_CATS=["Transfer"];
 const isNeutral=t=>NEUTRAL_CATS.includes(t&&t.category);
-function monthTotals(mk){ let inc=0,exp=0; for(const t of db.transactions){ if(monthKey(t.date)!==mk||isNeutral(t))continue; if(t.amount>0)inc+=t.amount; else exp+=-t.amount; } return {inc,exp,surplus:inc-exp}; }
-function avgMonthlyBurn(){ const bm={}; for(const t of db.transactions){ if(t.amount<0&&!isNeutral(t)){const k=monthKey(t.date);bm[k]=(bm[k]||0)+(-t.amount);} }
+/* Business money is kept out of personal totals — a lens you bought for a shoot
+   isn't personal spending, and the revenue isn't personal income. What the
+   business hands you shows up separately as a draw. personalAmt() splits a
+   mixed-use purchase so only your share lands here. */
+function monthTotals(mk){ let inc=0,exp=0,biz=0;
+  for(const t of db.transactions){ if(monthKey(t.date)!==mk||isNeutral(t))continue;
+    const a=personalAmt(t); if(isBizTx(t)) biz+=Math.abs(bizAmt(t));
+    if(a>0)inc+=a; else exp+=-a; }
+  return {inc,exp,biz,surplus:inc-exp}; }
+function avgMonthlyBurn(){ const bm={}; for(const t of db.transactions){ const a=personalAmt(t); if(a<0&&!isNeutral(t)){const k=monthKey(t.date);bm[k]=(bm[k]||0)+(-a);} }
   const ms=Object.keys(bm).sort().reverse().slice(0,3); if(!ms.length)return null; return ms.reduce((s,m)=>s+bm[m],0)/ms.length; }
 function effectiveBurn(){ if(db.settings.burnOverride!=null&&db.settings.burnOverride!=="")return +db.settings.burnOverride;
   const a=avgMonthlyBurn(); if(a!=null)return Math.round(a);
@@ -2133,7 +2363,14 @@ function streamExtrasMonthly(s){ return (s.extras||[]).reduce((t,e)=>t+extraMont
 function streamMonthly(s){ if(s.active===false)return 0; return streamBaseMonthly(s)+streamExtrasMonthly(s); }
 function onetimeExtras(s,fromISO,toISO){ let sum=0;
   for(const e of (s.extras||[])){ if(e.cadence==="onetime"){ const d=e.date||s.start||fromISO; if(d>=fromISO&&d<=toISO)sum+=num(e.amount); } } return sum; }
-function monthlyIncomeEstimate(){ return db.income.reduce((s,x)=>s+streamMonthly(x),0); }
+/* What a business hands you is income, just not income with a payday. Averaged
+   over the months elapsed so one big invoice doesn't read as a permanent raise. */
+function bizDrawMonthly(){
+  if(!Array.isArray(db.businesses)||!db.businesses.length) return 0;
+  const months=Math.max(1,new Date().getMonth()+1);
+  return allBizDraw(todayISO().slice(0,4))/months;
+}
+function monthlyIncomeEstimate(){ return db.income.reduce((s,x)=>s+streamMonthly(x),0)+bizDrawMonthly(); }
 function projectIncome(fromISO,toISO){
   let total=0,totalNet=0; const parts=[];
   for(const s of db.income){ const amt=scheduledPay(s,fromISO,toISO), net=netOf(s,amt);
@@ -2151,8 +2388,9 @@ function divTrailing12(){ const cut=dayOf(todayISO()); cut.setFullYear(cut.getFu
 const divTotal=()=>db.dividends.reduce((s,d)=>s+num(d.amount),0);
 
 /* ---------- render pieces ---------- */
-const catColor={Income:"#0ca35a","Rent/Mortgage":"#7c3aed",Electric:"#eab308","Gas (Utility)":"#f97316",Water:"#0891b2",Trash:"#78716c",Internet:"#2563eb",Phone:"#db2777","Car Payment":"#d97706","Auto & Gas":"#ea580c",Insurance:"#0e9c98",Subscriptions:"#4f46e5",Food:"#15a34a",Household:"#8b5cf6",Shopping:"#0d9488",Health:"#e11d48",Entertainment:"#a855f7","Debt Payment":"#dc2626",Savings:"#059669",Transfer:"#6b7280",Fees:"#64748b",Misc:"#64748b",Uncategorized:"#94a3b8",Rent:"#7c3aed","Transport/Gas":"#ea580c"};
-function runwayMonths(){ const b=effectiveBurn(); return b>0?totalCash()/b:0; }
+const catColor={Income:"#0ca35a","Rent/Mortgage":"#7c3aed",Electric:"#d19b00","Gas (Utility)":"#f97316",Water:"#1d7a94",Trash:"#78716c",Internet:"#2563eb",Phone:"#db2777","Car Payment":"#d97706","Auto & Gas":"#ea580c",Insurance:"#0891b2",Subscriptions:"#0369a1",Food:"#15a34a",Household:"#8b5cf6",Shopping:"#0d9488",Health:"#e11d48",Entertainment:"#a855f7","Debt Payment":"#dc2626",Savings:"#059669",Transfer:"#6b7280",Fees:"#64748b",Misc:"#64748b",Uncategorized:"#94a3b8",Rent:"#7c3aed","Transport/Gas":"#ea580c"};
+/* runway on money that is actually yours — the tax reserve is already spent */
+function runwayMonths(){ const b=effectiveBurn(); return b>0?spendableCash()/b:0; }
 function runwayText(){ const m=runwayMonths(); if(!isFinite(m)||m<=0)return "0 mo"; return m>=1?m.toFixed(1).replace(".0","")+" mo":(m*30).toFixed(0)+" days"; }
 
 const KPI_ICONS={
@@ -2212,6 +2450,37 @@ function renderComingUp(){
       <div class="upmain"><div class="upname">Net over 14 days</div><div class="upwhen">${items.length} item${items.length===1?"":"s"}${items.length>5?" · scroll for the rest":""}</div></div>
       <div class="upamt ${net>=0?"pos":"neg"}">${net>=0?"+":""}${fmt(net)}</div></div>`;
 }
+/* View preferences used to be scattered module variables, so the filter panel,
+   the bills view, the goal sort and every collapse state reset on reload while
+   the dashboard sections remembered. One store, saved with everything else. */
+function pref(k,d){ const p=(db.settings&&db.settings.ui)||{}; return p[k]===undefined?d:p[k]; }
+function setPref(k,v){ db.settings.ui=db.settings.ui||{}; db.settings.ui[k]=v; persist(); }
+
+let heroIdx=0, heroWired=false;
+/* Keeps the dots in step with wherever the scroll actually is, and restores the
+   card you were on after a re-render so logging something doesn't snap you back. */
+function wireHero(n){
+  const track=document.getElementById("heroTrack"), dots=document.getElementById("heroDots");
+  if(!track)return;
+  const w=()=>track.clientWidth||1;
+  if(heroIdx>0) track.scrollLeft=heroIdx*w();
+  let t=null;
+  track.onscroll=()=>{ if(t)return; t=requestAnimationFrame(()=>{ t=null;
+    const i=Math.round(track.scrollLeft/w());
+    if(i!==heroIdx&&i>=0&&i<n){ heroIdx=i;
+      dots.querySelectorAll(".hdot").forEach((d,k)=>d.classList.toggle("on",k===i)); } });};
+  dots.querySelectorAll("[data-hdot]").forEach(d=>d.onclick=()=>{
+    const i=+d.dataset.hdot; heroIdx=i; track.scrollTo({left:i*w(),behavior:"smooth"});});
+  if(!heroWired){ heroWired=true;
+    addEventListener("keydown",e=>{
+      if(currentView!=="dash")return;
+      const tr=document.getElementById("heroTrack"); if(!tr)return;
+      if(e.key==="ArrowRight"||e.key==="ArrowLeft"){
+        const total=tr.querySelectorAll(".heroslide").length;
+        const nx=Math.max(0,Math.min(total-1,heroIdx+(e.key==="ArrowRight"?1:-1)));
+        if(nx!==heroIdx){ heroIdx=nx; tr.scrollTo({left:nx*tr.clientWidth,behavior:"smooth"}); } }});
+  }
+}
 function renderDashHero(){
   const el=document.getElementById("dashHero"); if(!el)return;
   const snaps=(db.snapshots||[]).slice().sort((a,b)=>a.m.localeCompare(b.m));
@@ -2237,7 +2506,7 @@ function renderDashHero(){
     const nwg=act.filter(g=>g.kind==="networth").sort((a,b)=>num(a.target)-num(b.target));
     return nwg.find(g=>num(g.target)>nw)||nwg[0]||act.sort((a,b)=>goalPct(b)-goalPct(a))[0]||null; })();
   const gp=heroGoal?goalPct(heroGoal):null;
-  el.innerHTML=`<div class="dashhero">
+  const personal=`<div class="dashhero">
     <div class="dh-top">
       <button class="dh-tap" data-nwopen="1" aria-label="Open net worth detail">
         <div class="dh-greet">${esc(when)}</div>
@@ -2251,7 +2520,7 @@ function renderDashHero(){
     </div>
     <div class="dh-rule"></div>
     <div class="dh-stats">
-      <div class="dh-stat"><div class="k">On hand</div><div class="v">${fmt(totalCash())}</div></div>
+      <div class="dh-stat"><div class="k">On hand</div><div class="v">${fmt(spendableCash())}</div>${taxHeld()>0?`<div class="dh-sub">${fmt(taxHeld())} held for tax</div>`:""}</div>
       <div class="dh-stat"><div class="k">Invested</div><div class="v">${fmt(investTotal())}</div></div>
       <div class="dh-stat"><div class="k">Owed</div><div class="v">${fmt(totalDebt())}</div></div>
       <div class="dh-stat"><div class="k">Runway</div><div class="v">${runwayText()}</div></div>
@@ -2261,22 +2530,125 @@ function renderDashHero(){
         <div class="dh-gbar"><span style="width:${gp.toFixed(1)}%"></span></div></button>`:""}
     </div>
   </div>`;
+  /* One card per business behind the personal one. Native horizontal scroll with
+     snap points, so it swipes on a phone and drags or arrows on a desktop —
+     no gesture library, no JS animation to fight the browser over. */
+  const y=todayISO().slice(0,4);
+  const bizCards=bizList().filter(b=>b.active!==false).map(b=>{
+    const pl=bizPL(b.id,y), draw=bizDraw(b.id,y);
+    const margin=pl.rev>0?pl.profit/pl.rev*100:null;
+    return `<div class="dashhero biz" style="--bh:${b.color}">
+      <div class="dh-top">
+        <button class="dh-tap" data-go="business" aria-label="Open ${esc(b.name)}">
+          <div class="dh-greet">${esc(BIZ_KINDS[b.kind].label)} · ${esc(y)}</div>
+          <div class="dh-label">${esc(b.name)}</div>
+          <div class="dh-val">${fmt(pl.profit)}</div>
+          <div class="dh-delta">net profit${margin!=null?` · ${Math.round(margin)}% margin`:""}</div>
+          <span class="dh-more">Open the books
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" style="width:11px;height:11px"><path d="M9 6l6 6-6 6"/></svg></span>
+        </button>
+      </div>
+      <div class="dh-rule"></div>
+      <div class="dh-stats">
+        <div class="dh-stat"><div class="k">Revenue</div><div class="v">${fmt(pl.rev)}</div></div>
+        <div class="dh-stat"><div class="k">Expenses</div><div class="v">${fmt(pl.exp)}</div></div>
+        <div class="dh-stat"><div class="k">Pays you</div><div class="v">${b.linkProfit?fmt(draw):"—"}</div>${b.linkProfit&&num(b.drawPct)<100?`<div class="dh-sub">${num(b.drawPct)}% of profit</div>`:""}</div>
+        <div class="dh-stat"><div class="k">Tagged</div><div class="v">${pl.count}</div></div>
+      </div>
+    </div>`;});
+  const cards=[personal,...bizCards];
+  el.innerHTML=cards.length>1
+    ? `<div class="herowrap">
+         <div class="herotrack" id="heroTrack">${cards.map(c=>`<div class="heroslide">${c}</div>`).join("")}</div>
+         <div class="herodots" id="heroDots">${cards.map((_,i)=>`<button class="hdot${i===heroIdx?" on":""}" data-hdot="${i}" aria-label="Card ${i+1}"></button>`).join("")}</div>
+       </div>`
+    : personal;
+  if(cards.length>1) wireHero(cards.length);
 }
+/* ---------- spending donut ----------
+   Part-to-whole at a glance, which is the one job a donut does well. Capped at six
+   slices with the tail folded into Other, because past that adjacent hues blur —
+   and every slice is named with its amount in the list underneath, so identity and
+   close comparisons never depend on telling two colours apart. */
+const DONUT_MAX=6;
+let donutSel=null;
+/* Category colours are semantic and shared with the pills everywhere else, but a
+   couple of them sit outside the readable lightness band on one surface or the
+   other. This pulls each into band while keeping its hue. */
+const _okCache={};
+function chartColor(hex){
+  const dark=document.documentElement.getAttribute("data-theme")==="dark"||
+    (document.documentElement.getAttribute("data-theme")==="bushido")||
+    (!document.documentElement.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme:dark)").matches);
+  const key=hex+(dark?"d":"l"); if(_okCache[key])return _okCache[key];
+  const lo=dark?0.55:0.46, hi=dark?0.76:0.72;
+  const f=v=>v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4);
+  const g=v=>v<=0.0031308?12.92*v:1.055*Math.pow(v,1/2.4)-0.055;
+  const r0=f(parseInt(hex.slice(1,3),16)/255),g0=f(parseInt(hex.slice(3,5),16)/255),b0=f(parseInt(hex.slice(5,7),16)/255);
+  const l=Math.cbrt(0.4122214708*r0+0.5363325363*g0+0.0514459929*b0),
+        m=Math.cbrt(0.2119034982*r0+0.6806995451*g0+0.1073969566*b0),
+        sX=Math.cbrt(0.0883024619*r0+0.2817188376*g0+0.6299787005*b0);
+  const L=0.2104542553*l+0.7936177850*m-0.0040720468*sX,
+        A=1.9779984951*l-2.4285922050*m+0.4505937099*sX,
+        B=0.0259040371*l+0.7827717662*m-0.8086757660*sX;
+  const C=Math.hypot(A,B), H=Math.atan2(B,A);
+  if(L>=lo&&L<=hi){ _okCache[key]=hex; return hex; }
+  /* a deliberate grey stays grey — forcing chroma onto it would invent identity */
+  const L2=Math.min(hi,Math.max(lo,L)), A2=C*Math.cos(H), B2=C*Math.sin(H);
+  const l2=(L2+0.3963377774*A2+0.2158037573*B2)**3,
+        m2=(L2-0.1055613458*A2-0.0638541728*B2)**3,
+        s2=(L2-0.0894841775*A2-1.2914855480*B2)**3;
+  const cc=v=>Math.max(0,Math.min(255,Math.round(g(Math.max(0,Math.min(1,v)))*255)));
+  const R=cc(4.0767416621*l2-3.3077115913*m2+0.2309699292*s2),
+        G=cc(-1.2684380046*l2+2.6097574011*m2-0.3413193965*s2),
+        Bl=cc(-0.0041960863*l2-0.7034186147*m2+1.7076147010*s2);
+  const out="#"+[R,G,Bl].map(x=>x.toString(16).padStart(2,"0")).join("");
+  _okCache[key]=out; return out;
+}
+function donutSlices(spendCats){
+  const all=Object.entries(spendCats).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  if(all.length<=DONUT_MAX) return {slices:all.map(([c,v])=>({c,v,color:catColor[c]||"#94a3b8"})),folded:0};
+  const head=all.slice(0,DONUT_MAX-1), tail=all.slice(DONUT_MAX-1);
+  return {slices:[...head.map(([c,v])=>({c,v,color:catColor[c]||"#94a3b8"})),
+    {c:"Other",v:tail.reduce((a,b)=>a+b[1],0),color:"#8a90a0",other:tail.map(t=>t[0])}],folded:tail.length};
+}
+function donutSVG(slices,total){
+  const R=54, r=36, cx=64, cy=64, GAP=slices.length>1?2.2:0;   /* 2px surface gap between segments */
+  const circ=2*Math.PI*((R+r)/2), stroke=R-r;
+  let at=-90;
+  const arcs=slices.map((s,i)=>{
+    const frac=total>0?s.v/total:0, deg=frac*360;
+    const dash=Math.max(0,circ*frac-GAP);
+    const el=`<circle class="dslice${donutSel===s.c?" on":""}" data-slice="${esc(s.c)}" cx="${cx}" cy="${cy}" r="${(R+r)/2}"
+      fill="none" stroke="${chartColor(s.color)}" stroke-width="${stroke}"
+      stroke-dasharray="${dash.toFixed(2)} ${(circ-dash).toFixed(2)}"
+      stroke-dashoffset="${(-circ*(at+90)/360).toFixed(2)}"
+      transform="rotate(-90 ${cx} ${cy})"><title>${esc(s.c)} — ${fmt(s.v)} (${Math.round(frac*100)}%)</title></circle>`;
+    at+=deg; return el;});
+  const sel=donutSel?slices.find(s=>s.c===donutSel):null;
+  const centreVal=sel?sel.v:total, centreLab=sel?sel.c:"total";
+  return `<svg class="donut" viewBox="0 0 128 128" role="img" aria-label="Spending by category">
+      <circle cx="${cx}" cy="${cy}" r="${(R+r)/2}" fill="none" stroke="var(--track)" stroke-width="${stroke}"/>
+      ${arcs.join("")}
+    </svg>
+    <div class="dcentre"><div class="dcval">${fmt(centreVal)}</div><div class="dclab">${esc(centreLab)}</div></div>`;
+}
+
 let curMonth=null;
 function renderDash(){
-  renderStart(); renderDashHero(); renderComingUp();
+  renderStart(); renderDashHero(); renderComingUp(); applySections();
   const months=monthsWithData(); if(!curMonth||!months.includes(curMonth))curMonth=months[0];
   document.getElementById("monthSel").innerHTML=months.map(m=>`<option value="${m}" ${m===curMonth?"selected":""}>${prettyMonth(m)}</option>`).join("");
   const mt=monthTotals(curMonth), g=db.goal, cash=totalCash();
   {const el=document.getElementById("dashMonthLabel");
    if(el)el.textContent=(curMonth===monthKey(todayISO()))?"This month":prettyMonth(curMonth);}
-  const spendCats={}; for(const t of db.transactions){ if(monthKey(t.date)===curMonth&&t.amount<0&&!isNeutral(t))spendCats[t.category]=(spendCats[t.category]||0)+(-t.amount); }
+  const spendCats={}; for(const t of db.transactions){ const a=personalAmt(t); if(monthKey(t.date)===curMonth&&a<0&&!isNeutral(t))spendCats[t.category]=(spendCats[t.category]||0)+(-a); }
   const entriesCount=Object.keys(spendCats).length;
   const C={pos:cssVar("--pos","#0ca35a"),neg:cssVar("--neg","#e0463e"),acc:cssVar("--accent","#4f46e5"),goal:cssVar("--goal","#0ea5a0"),warn:cssVar("--warn","#e5900f"),inv:cssVar("--invest","#7c5cf0")};
   // The hero already carries net worth / on hand / owed / runway, so these cards
   // cover this month's activity and the things you can act on instead of repeating it.
   const pcNet=db.paychecks.filter(p=>monthKey(p.date)===curMonth).reduce((a,p)=>a+num(p.net),0);
-  const gotIn=pcNet+db.transactions.filter(t=>monthKey(t.date)===curMonth&&t.amount>0&&!t.billRef&&!isNeutral(t)).reduce((a,t)=>a+t.amount,0);
+  const gotIn=pcNet+db.transactions.filter(t=>monthKey(t.date)===curMonth&&t.amount>0&&!t.billRef&&!isNeutral(t)).reduce((a,t)=>a+personalAmt(t),0);
   const prev=(()=>{const [y,m]=curMonth.split("-").map(Number);const d=new Date(y,m-1,1);d.setMonth(d.getMonth()-1);return monthOf(d);})();
   const prevSpend=monthTotals(prev).exp;
   const dayOfMonth=curMonth===monthKey(todayISO())?new Date().getDate():31;
@@ -2291,8 +2663,10 @@ function renderDash(){
   const dStart=db.debts.reduce((a,d)=>a+debtOrig(d),0), dNow=totalDebt(), dPaid=debtPaidLogged(), dN=debtPayCount();
   const goalPct=num(g.target)?Math.min(100,Math.round(cash/num(g.target)*100)):null;
   const kpis=[
-    {go:"income",label:"Income this month",val:fmt(gotIn||monthlyIncomeNet()),cls:"pos",icon:"income",c:C.pos,
-     sub:gotIn?`${db.paychecks.filter(p=>monthKey(p.date)===curMonth).length} paycheck(s) logged`:"estimated — none logged yet"},
+    {go:"income",label:"Income this month",val:fmt((gotIn||monthlyIncomeNet())+bizDrawMonthly()),cls:"pos",icon:"income",c:C.pos,
+     sub:(()=>{const d=bizDrawMonthly(), pc=db.paychecks.filter(p=>monthKey(p.date)===curMonth).length;
+       const base=gotIn?`${pc} paycheck${pc===1?"":"s"} logged`:"estimated — none logged yet";
+       return d>0.5?`${base} · ${fmt(d)}/mo from business`:base;})()},
     {go:"expenses",label:"Spending this month",val:fmt(mt.exp),cls:"",icon:"spend",c:C.warn,
      sub:pace==null?`${entriesCount} categories`:`${Math.abs(pace)}% ${pace>=0?"ahead of":"behind"} last month's pace`},
     {go:"budget",label:"Left to spend",val:budCats.length?fmt(avail):"—",cls:avail<0?"neg":"pos",icon:"cash",c:C.goal,
@@ -2301,19 +2675,39 @@ function renderDash(){
      sub:db.recurring.length?`${billsPaid.length} of ${db.recurring.filter(b=>billDueIn(b,curMonth)).length} paid · ${fmt(billsLeft)} to go`:"add your bills"},
     {go:"credit",label:"Payments logged",val:db.debts.length?fmt(dPaid):"—",cls:"pos",icon:"net",c:C.neg,
      sub:!db.debts.length?"add your debts":dN?`${dN} payment${dN===1?"":"s"} · ${fmt(dNow)} still owed`:`${fmt(dNow)} owed — log a payment to track this`},
-    {go:"goals",label:"Cash goal",val:goalPct!=null?goalPct+"%":"—",cls:"",icon:"clock",c:C.inv,
-     sub:goalPct!=null?`${fmt(cash)} of ${fmt(num(g.target))}`:"set a target in Goals"}
+    /* was reading the pre-multi-goal single target; now it reports the thing the
+       whole app is for, falling back to whichever goal is closest to done */
+    (()=>{ const st=freedomState(), nx=st.next;
+      if(st.need.thrive>0) return {go:"goals",label:"Freedom",val:nx?Math.round(nx.pct)+"%":"100%",cls:"",icon:"clock",c:C.inv,
+        sub:nx?`to ${nx.label} · ${fmt(nx.gap)}/mo to cover`:"every tier covered"};
+      const act=db.goals.filter(x=>!x.done&&num(x.target)>0).sort((a,b2)=>goalPct(b2)-goalPct(a));
+      const gg=act[0];
+      return {go:"goals",label:gg?esc(gg.name):"Goals",val:gg?Math.round(goalPct(gg))+"%":"—",cls:"",icon:"clock",c:C.inv,
+        sub:gg?`${fmtK(goalNow(gg))} of ${fmtK(num(gg.target))}`:"set a goal to track this"};})()
   ];
   document.getElementById("kpiRow").innerHTML=kpis.map(k=>`<div class="card kpi tappable" data-go="${k.go}" style="--kpic:${k.c}"><div class="kpitop">${kpiIcon(k.icon,k.c)}<div class="label">${k.label}</div></div><div class="val ${k.cls}">${k.val}</div><div class="sub">${k.sub}</div></div>`).join("");
   const cats={}; for(const t of db.transactions){ if(monthKey(t.date)===curMonth&&t.amount<0&&!isNeutral(t))cats[t.category]=(cats[t.category]||0)+(-t.amount); }
   const entries=Object.entries(cats).sort((a,b)=>b[1]-a[1]); const max=entries.length?entries[0][1]:1;
   document.getElementById("spendHint").textContent=entries.length?`${fmt(mt.exp)} across ${entries.length} categories`:"";
-  document.getElementById("spendByCat").innerHTML=entries.length?
-    `<div class="${entries.length>5?"scrolllist":""}">`+entries.map(([c,v])=>`
-    <div style="margin-bottom:12px"><div class="between" style="margin-bottom:5px"><span class="catpill" style="border-left-color:${catColor[c]||'#ccc'}">${esc(c)}</span><b>${fmt(v)}</b></div>
-    <div class="bar"><span style="width:${(v/max*100).toFixed(1)}%;background:${catColor[c]||'#64748b'}"></span></div></div>`).join("")+`</div>`+
-    (entries.length>5?`<div class="scrollhint">scroll for ${entries.length-5} more</div>`:"")
-    :`<div class="empty">No spending logged for ${prettyMonth(curMonth)} yet. Import a CSV in Spending, or check off bills in Budget.</div>`;
+  {
+    const box=document.getElementById("spendByCat");
+    const {slices,folded}=donutSlices(spendCats);
+    const total=slices.reduce((a,b)=>a+b.v,0);
+    if(donutSel&&!slices.some(x=>x.c===donutSel)) donutSel=null;
+    box.innerHTML=slices.length?`<div class="donutwrap">
+        <div class="donutbox">${donutSVG(slices,total)}</div>
+        <div class="dlegend">${slices.map(s=>{
+          const pctv=total>0?s.v/total*100:0;
+          return `<button class="dlrow${donutSel===s.c?" on":""}" data-slice="${esc(s.c)}">
+            <span class="dlsw" style="background:${chartColor(s.color)}"></span>
+            <span class="dlname">${esc(s.c)}${s.other?`<span class="muted" style="font-weight:500"> · ${s.other.length} more</span>`:""}</span>
+            <span class="dlpct">${pctv<1?"<1":Math.round(pctv)}%</span>
+            <span class="dlamt">${fmt(s.v)}</span></button>`;}).join("")}</div>
+      </div>`
+      :`<div class="empty">No spending logged for ${prettyMonth(curMonth)} yet. Import a CSV in Spending, or check off bills in Budget.</div>`;
+    box.querySelectorAll("[data-slice]").forEach(n=>n.addEventListener("click",e=>{
+      const c=e.currentTarget.dataset.slice; donutSel=donutSel===c?null:c; renderDash();}));
+  }
   const cutD=new Date(); cutD.setDate(cutD.getDate()-30); const cut=isoOf(cutD);
   const sorted=[...db.transactions].sort((a,b)=>b.date.localeCompare(a.date));
   let recent=sorted.filter(t=>t.date>=cut).slice(0,30);
@@ -2327,6 +2721,9 @@ function renderDash(){
 /* INCOME */
 let horizon="3";
 let expStream=null,editPay=null,addPayOpen=false;
+/* extras are the exception, not the rule — most streams have none, so the block
+   stays shut until you go looking for it */
+let exOpen=false;
 function renderIncome(){
   const from=todayISO();
   const est=monthlyIncomeNet();
@@ -2395,8 +2792,8 @@ function renderIncome(){
   il.querySelectorAll("[data-idone]").forEach(b=>b.onclick=()=>{expStream=null;renderIncome();});
   if(expStream&&il.querySelector("#iedit-"+expStream))setTimeout(()=>{try{renderIncomeEditor(expStream);}catch(e){}},0);
   db.income.forEach(s=>{ const nm=il.querySelector(`[data-iname="${s.id}"]`); if(nm)nm.onchange=e=>{s.name=e.target.value;saveAll();}; });
-  il.querySelectorAll("[data-idel]").forEach(b=>b.onclick=e=>{const id=e.currentTarget.dataset.idel;
-    db.income=db.income.filter(x=>x.id!==id); if(expStream===id)expStream=null; saveAll();});
+  il.querySelectorAll("[data-idel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{const id=b.dataset.idel;
+    db.income=db.income.filter(x=>x.id!==id); if(expStream===id)expStream=null; saveAll();}));
 }
 function readEditorInto(s){ const g=id=>document.getElementById(id);
   if(g("e-type"))s.type=g("e-type").value;
@@ -2442,8 +2839,15 @@ function renderIncomeEditor(id){
           :`<br><span class="muted">Set a <b>first paycheck date</b> above and it'll count your paychecks and predict paydays.</span>`}</div>`;})():""}
   ${gig?`<div class="note" style="margin-top:10px;border-color:#bfe3d9;background:#f0faf7">📅 <b>Gig estimate:</b> ~${gig.weeks.toFixed(1)} weeks × ${gig.dpw} days/wk ≈ <b>${gig.gigDays} work days</b> → <b>${fmt(netOf(s,gig.total))}</b> total for this gig${taxNote(s)} (base + extras, ${s.start} → ${s.end})</div>`:""}
   <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
-    <b style="font-size:13.5px">Extras — per diem, reimbursements, bonuses</b>
-    <div class="muted" style="font-size:12px;margin:2px 0 10px">Anything on top of base pay. Per diem is usually per day or per week; a gas reimbursement might be per week; a kit fee might be per day.</div>
+    <button class="filthead" id="exToggle" aria-expanded="${exOpen?"true":"false"}">
+      <b style="font-size:13.5px">Extras</b>
+      <span class="fcount"${extras.length?"":" hidden"}>${extras.length}</span>
+      <span class="muted" style="font-size:12.5px">${extras.length?`${fmt(streamExtrasMonthly(s))}/mo on top of base pay`:"per diem, reimbursements, bonuses"}</span>
+      <span class="spacer"></span>
+      <svg class="filtchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="filtbody" id="exBody" ${exOpen?"":"hidden"} style="padding:12px 0 0">
+    <div class="muted" style="font-size:12px;margin:0 0 10px">Anything on top of base pay. Per diem is usually per day or per week; a gas reimbursement might be per week; a kit fee might be per day.</div>
     ${extras.length?`<table><thead><tr><th>Item</th><th>Type</th><th>Rate</th><th class="amt">≈ /mo</th><th></th></tr></thead><tbody>
       ${extras.map((e,i)=>`<tr><td>${esc(e.label)}</td><td><span class="catpill">${esc(e.type)}</span></td><td class="muted">${fmt(num(e.amount))} / ${e.cadence}${e.cadence==='day'?` × ${num(e.days)} days`:''}</td><td class="amt pos">${fmt(extraMonthly(e,s))}</td><td><button class="btn ghost sm" data-exdel="${i}">✕</button></td></tr>`).join("")}
       </tbody></table>`:`<div class="muted" style="font-size:12.5px;margin-bottom:8px">None yet.</div>`}
@@ -2456,12 +2860,15 @@ function renderIncomeEditor(id){
       <div class="field"><label>Date (if one-time)</label><input id="ex-date" type="date"></div>
       <button class="btn" id="ex-add">Add item</button>
     </div>
+    </div>
   </div>`;
+  {const et=document.getElementById("exToggle");
+   if(et)et.onclick=()=>{exOpen=!exOpen; setPref("exOpen",exOpen); renderIncomeEditor(id);};}
   const commit=()=>{ persist(); renderDash(); renderIncome(); renderPaychecks(); renderBudget(); renderIncomeEditor(id); };
   document.getElementById("e-model").onchange=()=>{ const nm=document.getElementById("e-model").value; readEditorInto(s); s.model=nm; if(!s.payFreq)s.payFreq=(nm==="daily"||nm==="hourly")?"weekly":"monthly"; setTimeout(commit,0); };
   ["e-type","e-freq","e-start","e-end","e-rate","e-units","e-firstpay"].forEach(fid=>{const el=document.getElementById(fid); if(el)el.addEventListener("change",()=>{ readEditorInto(s); setTimeout(commit,0); });});
   document.getElementById("e-save").onclick=()=>{ readEditorInto(s); commit(); };
-  box.querySelectorAll("[data-exdel]").forEach(b=>b.onclick=e=>{ s.extras.splice(+e.currentTarget.dataset.exdel,1); persist(); renderDash(); renderIncome(); renderPaychecks(); renderBudget(); renderIncomeEditor(id); });
+  box.querySelectorAll("[data-exdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{ s.extras.splice(+b.dataset.exdel,1); persist(); renderDash(); renderIncome(); renderPaychecks(); renderBudget(); renderIncomeEditor(id); }));
   document.getElementById("ex-add").onclick=()=>{
     const label=document.getElementById("ex-label").value.trim()||"Extra";
     const ex={label,type:document.getElementById("ex-type").value,cadence:document.getElementById("ex-cadence").value,
@@ -2547,16 +2954,20 @@ function renderPaychecks(){
       const step={weekly:7,biweekly:14,semimonthly:15,monthly:30,annual:365}[(st&&st.payFreq)||"biweekly"]||14;
       const d=dayOf(p.date); d.setDate(d.getDate()+step);
       const copy={id:uid(),date:isoOf(d),source:p.source,gross:num(p.gross),net:num(p.net)};
-      db.paychecks.push(copy); editPay=copy.id; saveAll();});
+      db.paychecks.push(copy); autoReserve(copy); editPay=copy.id; saveAll();});
   }
-  box.querySelectorAll("[data-pcdel]").forEach(b=>b.onclick=e=>{e.stopPropagation();
-    db.paychecks=db.paychecks.filter(x=>x.id!==e.currentTarget.dataset.pcdel); editPay=null; saveAll();});
+  box.querySelectorAll("[data-pcdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{
+    const id=b.dataset.pcdel;
+    db.paychecks=db.paychecks.filter(x=>x.id!==id);
+    /* the set-aside came from this paycheck — it goes with it */
+    db.tax.reserve=(db.tax.reserve||[]).filter(r=>r.payId!==id);
+    editPay=null; saveAll();}));
   const cancel=document.getElementById("pc-cancel");
   if(cancel)cancel.onclick=()=>{addPayOpen=false;renderPaychecks();};
   const add=document.getElementById("pc-add");
   if(add)add.onclick=()=>{ const date=document.getElementById("pc-date").value||todayISO();
     const p={id:uid(),date:normalizeDate(date),source:document.getElementById("pc-source").value.trim(),gross:num(document.getElementById("pc-gross").value),net:num(document.getElementById("pc-net").value)};
-    if(!p.gross&&!p.net)return; db.paychecks.push(p); addPayOpen=false; saveAll(); };
+    if(!p.gross&&!p.net)return; db.paychecks.push(p); autoReserve(p); addPayOpen=false; saveAll(); };
 
 }
 function toggleStubPanel(){ const p=document.getElementById("stubPanel"); if(p.style.display==="none"){ p.style.display="block"; renderStubPanel(); } else { p.style.display="none"; p.innerHTML=""; } }
@@ -2727,7 +3138,10 @@ function renderTx(){
     </div>`:"";
   document.getElementById("txTable").innerHTML=list.length?`<table class="stacktbl tx5"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="amt">Amount</th><th></th></tr></thead><tbody>${list.map(t=>{
     const an=acctName(t.acctId);
-    return `<tr><td><input type="date" class="txdate" value="${esc(t.date)}" data-txdate="${t.id}" title="Change the date">${an?`<span class="tacct">${esc(an)}</span>`:""}</td><td><input class="txdesc" value="${esc(t.desc)}" data-txdesc="${t.id}"></td><td><select class="catsel" data-id="${t.id}">${catOpts(t.category)}</select></td><td class="amt ${t.amount<0?'neg':'pos'}"><input type="number" step="0.01" class="txamt ${t.amount<0?'neg':'pos'}" value="${num(t.amount).toFixed(2)}" data-txamt="${t.id}"></td><td><button class="btn ghost sm" data-del="${t.id}">✕</button></td></tr>`;}).join("")}</tbody></table>`
+    /* Business tagging lives on the row itself. A percentage handles the normal
+       freelance case — gear that's mostly for work but not entirely. */
+    const bz=bizOf(t.bizId), share=t.bizPct===undefined?100:num(t.bizPct);
+    return `<tr${bz?` class="bizrow" style="--bizc:${bz.color}"`:""}><td><input type="date" class="txdate" value="${esc(t.date)}" data-txdate="${t.id}" title="Change the date">${an?`<span class="tacct">${esc(an)}</span>`:""}</td><td><input class="txdesc" value="${esc(t.desc)}" data-txdesc="${t.id}">${bz?`<span class="bizmark" title="${esc(bz.name)}${share<100?` — ${share}% business`:""}">${esc(bz.name)}${share<100?` ${share}%`:""}</span>`:""}</td><td><select class="catsel" data-id="${t.id}">${catOpts(t.category)}</select>${bizList().length?`<select class="catsel bizsel" data-txbiz="${t.id}" title="Business"><option value="">Personal</option>${bizList().map(b=>`<option value="${b.id}" ${t.bizId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>${bz?`<input type="number" class="bizpct" min="0" max="100" step="5" value="${share}" data-txbizpct="${t.id}" title="How much of this is business">`:""}`:""}</td><td class="amt ${t.amount<0?'neg':'pos'}"><input type="number" step="0.01" class="txamt ${t.amount<0?'neg':'pos'}" value="${num(t.amount).toFixed(2)}" data-txamt="${t.id}"></td><td><button class="btn ghost sm" data-del="${t.id}">✕</button></td></tr>`;}).join("")}</tbody></table>`
     :`<div class="empty">${db.transactions.length?"Nothing matches those filters — clear one above.":"No transactions yet."}</div>`;
   document.querySelectorAll(".catsel[data-id]").forEach(s=>s.onchange=e=>{const t=db.transactions.find(x=>x.id===e.target.dataset.id);if(!t)return;const cat=e.target.value;t.category=cat;
     const kw=merchantKey(t.desc); const ln=document.getElementById("learnNote");
@@ -2747,7 +3161,16 @@ function renderTx(){
     if(t){t.desc=e.target.value;saveAll();}});
   document.querySelectorAll("[data-txamt]").forEach(i=>i.onchange=e=>{const t=db.transactions.find(x=>x.id===e.target.dataset.txamt);
     if(t){t.amount=num(e.target.value);saveAll();}});
-  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=e=>{db.transactions=db.transactions.filter(x=>x.id!==e.target.dataset.del);saveAll();});
+  document.querySelectorAll("[data-txbiz]").forEach(sel=>sel.onchange=e=>{
+    const t=db.transactions.find(x=>x.id===e.target.dataset.txbiz); if(!t)return;
+    if(e.target.value){ t.bizId=e.target.value; if(t.bizPct===undefined)t.bizPct=100; }
+    else { delete t.bizId; delete t.bizPct; }
+    saveAll();});
+  document.querySelectorAll("[data-txbizpct]").forEach(i=>i.onchange=e=>{
+    const t=db.transactions.find(x=>x.id===e.target.dataset.txbizpct);
+    if(t){t.bizPct=Math.max(0,Math.min(100,num(e.target.value)));saveAll();}});
+  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{
+    db.transactions=db.transactions.filter(x=>x.id!==b.dataset.del);saveAll();}));
 }
 function merchantKey(desc){ const c=(desc||"").toLowerCase().replace(/[^a-z ]+/g," ").replace(/\s+/g," ").trim();
   const stop=["the","and","llc","inc","co","pos","ach","debit","credit","card","payment","purchase","recurring","online","store","www","com"];
@@ -2768,7 +3191,7 @@ function budgetedFor(cat,m){
   return num(db.budgets[cat]);
 }
 function spentFor(cat,m){
-  let t=0; for(const x of db.transactions){ if(x.amount<0&&!isNeutral(x)&&x.category===cat&&monthKey(x.date)===m) t+=-x.amount; }
+  let t=0; for(const x of db.transactions){ const a=personalAmt(x); if(a<0&&!isNeutral(x)&&x.category===cat&&monthKey(x.date)===m) t+=-a; }
   return t;
 }
 function budgetStartMonth(){
@@ -3011,7 +3434,7 @@ function renderBudget(){
   const inView=b=>billView==="all"||billDueIn(b,mk)||editBill===b.id||payBill===b.id;
   document.querySelectorAll("[data-bview]").forEach(bt=>{
     bt.classList.toggle("active",bt.dataset.bview===billView);
-    bt.onclick=()=>{billView=bt.dataset.bview;renderBudget();};});
+    bt.onclick=()=>{billView=bt.dataset.bview;setPref("billView",billView);renderBudget();};});
   const pool=db.recurring.filter(inView);
   const groupsPresent=BILL_GROUPS.filter(g=>pool.some(b=>billGroup(b)===g));
   if(billTab!=="all"&&!groupsPresent.includes(billTab))billTab="all";
@@ -3077,7 +3500,11 @@ function renderBudget(){
         ${b.debtId?(()=>{const dd=db.debts.find(x=>x.id===b.debtId);
           return `<div class="note" style="margin-top:12px;font-size:13px">Tied to <b>${esc(dd?dd.name:"a debt")}</b> in Debt payoff${b.estimated?` — the amount is an <b>estimated minimum</b> (2% of the balance, $25 floor). Type your real payment and it stops guessing.`:"."}</div>`;})():""}
         ${f.n>1?`<div class="note" style="margin-top:12px;font-size:13px"><b>${fmt(num(b.amount))}</b> every ${esc(f.every)} works out to <b>${fmt(billMonthly(b))}</b> a month — that's what counts toward your floor, so it's money you're setting aside rather than a surprise. Next due <b>${esc(shortDate(nextBillDate(b)))}</b>.</div>`:""}
-        <label class="flex" style="font-size:14px;margin-top:12px;gap:9px"><input type="checkbox" data-billbiz="${b.id}" ${b.biz?"checked":""}> Business expense <span class="muted" style="font-size:12.5px">worth separating at tax time</span></label>
+        ${bizList().length?`<div class="formgrid" style="margin-top:12px">
+          <div class="field"><label>Business</label><select data-billbizid="${b.id}"><option value="">Personal</option>${bizList().map(x=>`<option value="${x.id}" ${b.bizId===x.id?"selected":""}>${esc(x.name)}</option>`).join("")}</select></div>
+          ${b.bizId?`<div class="field"><label>How much is business (%)</label><input type="number" min="0" max="100" step="5" data-billbizpct="${b.id}" value="${b.bizPct===undefined?100:num(b.bizPct)}"></div>`:""}
+        </div>`
+        :`<label class="flex" style="font-size:14px;margin-top:12px;gap:9px"><input type="checkbox" data-billbiz="${b.id}" ${b.biz?"checked":""}> Business expense <span class="muted" style="font-size:12.5px">add a business on the Business screen to track it properly</span></label>`}
         <div class="toolbar" style="margin:12px 0 0">
           <div class="spacer"></div>
           <button class="btn sm danger" data-billdel="${b.id}">Delete bill</button>
@@ -3128,6 +3555,14 @@ function renderBudget(){
     if(b){b.tier=e.currentTarget.value;saveAll();}});
   bl.querySelectorAll("[data-billbiz]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billbiz);
     if(b){b.biz=e.currentTarget.checked;saveAll();}});
+  document.querySelectorAll("[data-billbizid]").forEach(sel=>sel.onchange=e=>{
+    const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billbizid); if(!b)return;
+    if(e.currentTarget.value){ b.bizId=e.currentTarget.value; b.biz=true; if(b.bizPct===undefined)b.bizPct=100; }
+    else { delete b.bizId; b.biz=false; }
+    saveAll();});
+  document.querySelectorAll("[data-billbizpct]").forEach(i=>i.onchange=e=>{
+    const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billbizpct);
+    if(b){b.bizPct=Math.max(0,Math.min(100,num(e.currentTarget.value)));saveAll();}});
   bl.querySelectorAll("[data-billpay]").forEach(btn=>btn.onclick=e=>{e.stopPropagation();
     const id=btn.dataset.billpay; payBill=payBill===id?null:id; editBill=null; renderBudget();
     const f=document.getElementById("bp-amt"); if(f){f.focus();f.select();}});
@@ -3341,14 +3776,14 @@ function renderCredit(){
   dl.querySelectorAll("[data-dpayamt]").forEach(i=>i.onchange=e=>{const d=findDebt(e.currentTarget.dataset.dpayamt);if(d){d.payment=num(e.currentTarget.value);
     const a=db.accounts.find(x=>x.debtId===d.id); if(a)a.payment=d.payment; saveAll();}});
   dl.querySelectorAll("[data-dkind]").forEach(i=>i.onchange=e=>{const d=findDebt(e.currentTarget.dataset.dkind);if(d){d.kind=e.currentTarget.value;saveAll();}});
-  dl.querySelectorAll("[data-ddel]").forEach(b=>b.onclick=e=>{const id=b.dataset.ddel; if(!id)return;
+  dl.querySelectorAll("[data-ddel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{const id=b.dataset.ddel; if(!id)return;
     const i=db.debts.findIndex(x=>x.id===id); if(i<0)return;
     const gone=db.debts[i];
     if(gone.billId){ db.recurring=db.recurring.filter(b=>b.id!==gone.billId);
       db.transactions=db.transactions.filter(t=>!(t.billRef&&String(t.billRef).split("|")[0]===gone.billId)); }
     db.debts.splice(i,1);
     db.accounts.forEach(a=>{if(a.debtId===id)a.debtId="";});
-    if(payOpen===id)payOpen=null; if(editDebt===id)editDebt=null; saveAll();});
+    if(payOpen===id)payOpen=null; if(editDebt===id)editDebt=null; saveAll();}));
   dl.querySelectorAll("[data-dpay]").forEach(b=>b.onclick=e=>{e.stopPropagation(); const id=b.dataset.dpay;
     if(payOpen===id){payOpen=null;}else{payOpen=id;editDebt=null;}
     renderCredit(); const f=document.getElementById("pay-amt"); if(f)f.focus();});
@@ -3365,14 +3800,14 @@ function renderCredit(){
     if(amt<=0){document.getElementById("pay-amt").focus();return;}
     logDebtPayment(d,amt,date,document.getElementById("pay-tx").checked);
     mirror(d); payOpen=null; editDebt=d.id; histOpen=d.id; saveAll();});
-  dl.querySelectorAll("[data-dpaydel]").forEach(b=>b.onclick=e=>{
+  dl.querySelectorAll("[data-dpaydel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{
     const [did,pid]=b.dataset.dpaydel.split("|");
     const d=findDebt(did); if(!d||!Array.isArray(d.payments))return;
     const i=d.payments.findIndex(p=>p.id===pid); if(i<0)return;
     const p=d.payments[i];
     d.balance=Math.min(debtOrig(d),num(d.balance)+num(p.amount));
     if(p.txId)db.transactions=db.transactions.filter(t=>t.id!==p.txId);
-    d.payments.splice(i,1); mirror(d); saveAll();});
+    d.payments.splice(i,1); mirror(d); saveAll();}));
 }
 /* Original loan amount. Falls back to the balance so a debt entered without one
    still reads sensibly instead of showing a 0% bar against a $0 total. */
@@ -3497,7 +3932,7 @@ function renderInvest(){
   box.querySelectorAll("[data-hac]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hac);if(h){h.avgCost=num(e.currentTarget.value);saveAll();}});
   box.querySelectorAll("[data-href]").forEach(b=>b.onclick=async e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.href);
     if(h&&await refreshHolding(h,document.getElementById("quoteStatus"))){recordPrice(h);saveAll();}});
-  box.querySelectorAll("[data-hdel]").forEach(b=>b.onclick=e=>{db.holdings=db.holdings.filter(x=>x.id!==e.currentTarget.dataset.hdel);expHolding=null;saveAll();});
+  box.querySelectorAll("[data-hdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{db.holdings=db.holdings.filter(x=>x.id!==b.dataset.hdel);expHolding=null;saveAll();}));
   const payers=db.holdings.filter(h=>num(h.divPerShare)>0&&num(h.shares)>0)
     .slice().sort((a,b)=>divAnnualFor(b)-divAnnualFor(a));
   const projEl=document.getElementById("divProjected");
@@ -3558,7 +3993,7 @@ function renderInvest(){
         :`<div class="empty" style="padding:24px">Add a ticker to a holding and hit Refresh — if it pays a dividend, the amount and how often it pays fill in on their own. You can also set both yourself.</div>`}
       </div>`;
     const dt=document.getElementById("divToggle");
-    if(dt)dt.onclick=()=>{divOpen=!divOpen;renderInvest();};
+    if(dt)dt.onclick=()=>{divOpen=!divOpen;setPref("divOpen",divOpen);renderInvest();};
     projEl.querySelectorAll("[data-divopen]").forEach(el=>el.onclick=e=>{
       if(e.target.closest("[data-divedit]"))return;
       const id=el.dataset.divopen; expDiv=expDiv===id?null:id; renderInvest();});
@@ -3593,7 +4028,7 @@ function renderInvest(){
     <div class="card kpi"><div class="label">Est. monthly</div><div class="val">${fmt(divTrailing12()?divTrailing12()/12:estAnnualDiv()/12)}</div><div class="sub">${divTrailing12()?"average of what you logged":"projected from your holdings"}</div></div>`;
   const divs=[...db.dividends].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
   document.getElementById("divTable").innerHTML=divs.length?`<table><thead><tr><th>Date</th><th>Holding</th><th class="amt">Amount</th><th></th></tr></thead><tbody>${divs.map(d=>`<tr><td>${d.date}</td><td>${esc(d.name)}</td><td class="amt pos">${fmt2(num(d.amount))}</td><td><button class="btn ghost sm" data-divdel="${d.id}">✕</button></td></tr>`).join("")}</tbody></table>`:`<div class="empty">No dividends logged yet.</div>`;
-  document.querySelectorAll("[data-divdel]").forEach(b=>b.onclick=e=>{db.dividends=db.dividends.filter(x=>x.id!==e.target.dataset.divdel);saveAll();});
+  document.querySelectorAll("[data-divdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{db.dividends=db.dividends.filter(x=>x.id!==b.dataset.divdel);saveAll();}));
   document.getElementById("divDate").value=document.getElementById("divDate").value||todayISO();
   renderMarketSettings();
 }
@@ -3639,7 +4074,7 @@ function renderForecast(){
   const goal=num(db.goal.target), gap=f.end-goal;
   box.innerHTML=`
     <div class="grid kpis" style="margin-bottom:16px">
-      <div class="card kpi"><div class="label">Projected on ${target}</div><div class="val ${f.end>=goal?"pos":""}">${fmt(f.end)}</div><div class="sub">starting from ${fmt(totalCash())} today</div></div>
+      <div class="card kpi"><div class="label">Projected on ${target}</div><div class="val ${f.end>=goal?"pos":""}">${fmt(f.end)}</div><div class="sub">starting from ${fmt(spendableCash())} today</div></div>
       <div class="card kpi"><div class="label">vs your ${fmt(goal)} goal</div><div class="val ${gap>=0?"pos":"neg"}">${gap>=0?"+":""}${fmt(gap)}</div><div class="sub">${gap>=0?"on track to clear it":"short at this pace"}</div></div>
       <div class="card kpi"><div class="label">Lowest point</div><div class="val ${f.lowest.v<0?"neg":""}">${fmt(f.lowest.v)}</div><div class="sub">around ${f.lowest.d}</div></div>
     </div>
@@ -3662,8 +4097,8 @@ function renderHistoryList(){
       <button class="btn ghost sm" data-hsdel="${esc(s.m)}" title="Remove this entry" style="flex:none">&#10005;</button>
     </div></div>`).join("")}</div>`
     :`<div class="muted" style="font-size:14px">No entries yet.</div>`;
-  el.querySelectorAll("[data-hsdel]").forEach(b=>b.onclick=e=>{const m=e.currentTarget.dataset.hsdel;
-    db.snapshots=db.snapshots.filter(s=>s.m!==m); saveAll();});
+  el.querySelectorAll("[data-hsdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{const m=b.dataset.hsdel;
+    db.snapshots=db.snapshots.filter(s=>s.m!==m); saveAll();}));
 }
 
 /* GOALS & CASH */
@@ -3816,10 +4251,198 @@ function renderCash(){
   box.querySelectorAll("[data-cakind]").forEach(i=>i.onchange=e=>{const a=db.accounts.find(x=>x.id===e.target.dataset.cakind);
     if(a){ a.kind=e.target.value; if(!kindOf(a).holder&&hasKids(a.id)) kidsOf(a.id).forEach(k=>k.parentId=null);
       if(!isLiab(a)&&a.debtId)a.debtId=""; saveAll(); }});
-  box.querySelectorAll("[data-cadel]").forEach(b=>b.onclick=e=>{const id=e.currentTarget.dataset.cadel;
-    db.accounts=db.accounts.filter(x=>x.id!==id&&x.parentId!==id);editAcct=null;saveAll();});
+  box.querySelectorAll("[data-cadel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{const id=b.dataset.cadel;
+    db.accounts=db.accounts.filter(x=>x.id!==id&&x.parentId!==id);editAcct=null;saveAll();}));
   renderAddPanel();
 }
+/* ======================= BUSINESSES & TAX =======================
+   Two things the budgeting-app market doesn't do, and both matter when you're
+   1099: keeping business money separate from personal money, and admitting that
+   a quarter of what lands in your account already belongs to the IRS. */
+
+/* IRS Schedule C line items, so an export means something to an accountant. */
+const SCHED_C={
+  advertising:{line:"8",label:"Advertising"},
+  car:{line:"9",label:"Car & truck"},
+  commissions:{line:"10",label:"Commissions & fees"},
+  contract:{line:"11",label:"Contract labor"},
+  depletion:{line:"12",label:"Depletion"},
+  depreciation:{line:"13",label:"Depreciation (gear)"},
+  benefits:{line:"14",label:"Employee benefits"},
+  bizinsurance:{line:"15",label:"Insurance (not health)"},
+  interest:{line:"16b",label:"Interest"},
+  legal:{line:"17",label:"Legal & professional"},
+  office:{line:"18",label:"Office expense"},
+  pension:{line:"19",label:"Pension & profit-sharing"},
+  rentlease:{line:"20a",label:"Rent — equipment lease"},
+  rentprop:{line:"20b",label:"Rent — other business property"},
+  repairs:{line:"21",label:"Repairs & maintenance"},
+  supplies:{line:"22",label:"Supplies"},
+  taxeslic:{line:"23",label:"Taxes & licenses"},
+  travel:{line:"24a",label:"Travel"},
+  meals:{line:"24b",label:"Meals (50%)"},
+  utilities:{line:"25",label:"Utilities"},
+  wages:{line:"26",label:"Wages"},
+  other:{line:"27a",label:"Other expenses"}
+};
+/* first guess only — every one of these is editable per transaction */
+const CAT_TO_SCHED={"Auto & Gas":"car","Car Payment":"car",Insurance:"bizinsurance",Subscriptions:"office",
+  Internet:"utilities",Phone:"utilities",Electric:"utilities","Gas (Utility)":"utilities",Water:"utilities",
+  Shopping:"supplies",Household:"supplies",Entertainment:"meals",Food:"meals",Fees:"legal",
+  "Rent/Mortgage":"rentprop",Misc:"other",Uncategorized:"other"};
+const BIZ_KINDS={sole:{label:"Sole proprietor / 1099",note:"Schedule C on your personal return. Most freelancers start here."},
+  llc:{label:"Single-member LLC",note:"Still Schedule C for tax unless you've elected otherwise."},
+  scorp:{label:"S corporation",note:"Files its own return and pays you a salary — the estimate here won't fit. Talk to a CPA."},
+  partnership:{label:"Partnership / multi-member LLC",note:"Files its own return. This tool tracks the books, not the filing."},
+  other:{label:"Other",note:""}};
+const BIZ_COLORS=["#0369a1","#7c3aed","#0891b2","#ea580c","#15a34a","#db2777"];
+
+const bizList=()=>db.businesses||[];
+const bizOf=id=>bizList().find(b=>b.id===id)||null;
+const bizName=id=>{const b=bizOf(id);return b?b.name:"";};
+const bizColor=id=>{const b=bizOf(id);return b?b.color:"#8a90a0";};
+/* how much of a transaction belongs to the business — gear that's 70% work is
+   the normal case for a freelancer, not an edge case */
+const bizShare=t=>t&&t.bizId?Math.max(0,Math.min(100,t.bizPct===undefined?100:num(t.bizPct)))/100:0;
+const isBizTx=t=>!!(t&&t.bizId&&bizOf(t.bizId));
+/* the personal side of a mixed purchase — what still counts as your spending */
+const personalAmt=t=>num(t.amount)*(1-bizShare(t));
+const bizAmt=t=>num(t.amount)*bizShare(t);
+
+function bizTx(id,year){
+  return db.transactions.filter(t=>t.bizId===id&&!isNeutral(t)&&(!year||String(t.date).slice(0,4)===String(year)));
+}
+/* Revenue, expenses and profit for one business over a year. Bills tagged to the
+   business count as expenses too, amortised the same way they are everywhere. */
+function bizPL(id,year){
+  const y=year||todayISO().slice(0,4);
+  const tx=bizTx(id,y);
+  let rev=0,exp=0; const byCat={},bySched={};
+  tx.forEach(t=>{ const a=bizAmt(t);
+    if(a>0) rev+=a;
+    else { const v=-a; exp+=v; const c=t.category||"Uncategorized";
+      byCat[c]=(byCat[c]||0)+v;
+      const sc=t.sched||CAT_TO_SCHED[c]||"other"; bySched[sc]=(bySched[sc]||0)+v; } });
+  const bills=db.recurring.filter(b=>b.bizId===id);
+  const months=(y===todayISO().slice(0,4))?(new Date().getMonth()+1):12;
+  bills.forEach(b=>{ const v=billMonthly(b)*months*((b.bizPct===undefined?100:num(b.bizPct))/100);
+    exp+=v; const c=b.category||"Other"; byCat[c]=(byCat[c]||0)+v;
+    const sc=b.sched||CAT_TO_SCHED[c]||"other"; bySched[sc]=(bySched[sc]||0)+v; });
+  return {rev,exp,profit:rev-exp,byCat,bySched,count:tx.length,billCount:bills.length,year:y};
+}
+/* What a business actually hands you. Reinvested profit stays in the business. */
+function bizDraw(id,year){ const b=bizOf(id); if(!b||!b.linkProfit) return 0;
+  const p=bizPL(id,year).profit; return p>0?p*(num(b.drawPct)/100):p; }
+const allBizDraw=year=>bizList().reduce((s,b)=>s+bizDraw(b.id,year),0);
+const allBizProfit=year=>bizList().reduce((s,b)=>s+bizPL(b.id,year).profit,0);
+
+/* ---------- tax ----------
+   An estimate built from rates you can see and change, not a filing. Self-
+   employment tax runs on net profit; the federal bracket is marginal, not
+   effective, which is deliberately conservative — better to over-reserve. */
+const TAX_CLASS={
+  w2:{label:"W-2 — tax already withheld",note:"Your employer takes it out before you're paid, so nothing extra is reserved."},
+  se:{label:"1099 / self-employed",note:"Nothing is withheld. This is the income the reserve is calculated on."},
+  exempt:{label:"Not taxable",note:"A roommate's share of rent, a reimbursement, a gift."}
+};
+const taxCfg=()=>db.tax;
+function streamTaxClass(s){
+  if(!s) return "w2";
+  if(s.taxClass&&TAX_CLASS[s.taxClass]) return s.taxClass;
+  if(s.notax) return "exempt";
+  return (s.model==="daily"||s.model==="onetime")?"se":"w2";
+}
+/* Gross self-employment income for a year: 1099 streams actually paid, plus
+   business revenue net of business expenses. */
+function seIncome(year){
+  const y=year||todayISO().slice(0,4);
+  const fromPay=db.paychecks.filter(p=>String(p.date).slice(0,4)===y).reduce((s,p)=>{
+    const st=db.income.find(x=>x.name&&p.source&&x.name.toLowerCase()===String(p.source).toLowerCase());
+    return s+(streamTaxClass(st)==="se"?num(p.gross)||num(p.net):0);},0);
+  const fromBiz=Math.max(0,allBizProfit(y));
+  return {fromPay,fromBiz,total:fromPay+fromBiz};
+}
+function w2Withheld(year){
+  const y=year||todayISO().slice(0,4);
+  return db.paychecks.filter(p=>String(p.date).slice(0,4)===y).reduce((s,p)=>{
+    const st=db.income.find(x=>x.name&&p.source&&x.name.toLowerCase()===String(p.source).toLowerCase());
+    return s+(streamTaxClass(st)==="w2"?Math.max(0,num(p.gross)-num(p.net)):0);},0);
+}
+/* The estimate. Every line is shown on screen so you can check it against
+   whatever your accountant says and change the rates that are wrong. */
+function taxEstimate(year){
+  const c=taxCfg(), y=year||todayISO().slice(0,4);
+  const inc=seIncome(y);
+  const net=Math.max(0,inc.total);
+  /* SE tax applies to 92.35% of net earnings — the other 7.65% is the employer
+     half you'd never have been taxed on as an employee */
+  const seBase=net*0.9235;
+  const se=c.seOn===false?0:seBase*(num(c.seRate)/100);
+  const halfSE=se/2;                                   // deductible above the line
+  const qbi=c.qbi?Math.max(0,(net-halfSE))*0.20:0;     // 20% pass-through deduction
+  const fedBase=Math.max(0,net-halfSE-qbi);
+  const fed=fedBase*(num(c.fedRate)/100);
+  const state=Math.max(0,net-halfSE)*(num(c.stateRate)/100);
+  const gross=se+fed+state;
+  const credit=c.creditW2===false?0:w2Withheld(y);
+  const owed=Math.max(0,gross-credit-num(c.otherCredits));
+  const rate=net>0?owed/net*100:0;
+  return {year:y,inc,net,se,halfSE,qbi,fed,state,gross,credit,owed,rate,
+    fedBase,seBase,paid:taxPaid(y),reserved:taxReserved(y)};
+}
+const taxReserveLedger=y=>(db.tax.reserve||[]).filter(r=>!y||String(r.date).slice(0,4)===String(y));
+const taxPayments=y=>(db.tax.paid||[]).filter(r=>!y||String(r.date).slice(0,4)===String(y));
+const taxReserved=y=>taxReserveLedger(y).reduce((s,r)=>s+num(r.amount),0);
+const taxPaid=y=>taxPayments(y).reduce((s,r)=>s+num(r.amount),0);
+/* money set aside and not yet handed over — carved out of what you can spend */
+const taxHeld=()=>Math.max(0,taxReserved(todayISO().slice(0,4))-taxPaid(todayISO().slice(0,4)));
+const taxShortfall=()=>{const e=taxEstimate(); return Math.max(0,e.owed-e.reserved);};
+/* Cash minus what's already earmarked for the IRS. This is the number that
+   should drive runway and "can I afford it", not the raw balance. */
+const spendableCash=()=>Math.max(0, totalCash()-(db.tax.enabled===false?0:taxHeld()));
+
+/* US federal estimated-tax due dates, shifted off weekends. */
+function quarterDue(y,q){
+  const base=[[4,15],[6,15],[9,15],[1,15]][q-1];
+  const yr=q===4?+y+1:+y;
+  const d=new Date(yr,base[0]-1,base[1],12);
+  while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()+1);
+  return isoOf(d);
+}
+function nextQuarter(){
+  const y=+todayISO().slice(0,4), t=todayISO();
+  for(const [yy,q] of [[y,1],[y,2],[y,3],[y,4],[y+1,1]]){
+    const due=quarterDue(yy,q); if(due>=t) return {year:yy,q,due,days:daysBetween(t,due)};
+  }
+  return null;
+}
+/* Quarterly targets are the year's estimate split four ways, less what you've
+   already paid — so a missed quarter rolls into the next one instead of vanishing. */
+function quarterPlan(year){
+  const y=year||todayISO().slice(0,4), e=taxEstimate(y);
+  const per=e.owed/4;
+  return [1,2,3,4].map(q=>{
+    const due=quarterDue(y,q);
+    const paid=taxPayments(y).filter(p=>+p.q===q).reduce((s,p)=>s+num(p.amount),0);
+    return {q,due,target:per,paid,left:Math.max(0,per-paid),done:paid>=per-0.005,past:due<todayISO()};
+  });
+}
+/* The percentage to hold back from the next 1099 payment. */
+function reserveRateFor(stream){
+  const c=taxCfg();
+  if(c.mode==="flat") return num(c.flatRate);
+  if(stream&&stream.taxRate!==undefined&&stream.taxRate!=="") return num(stream.taxRate);
+  const e=taxEstimate();
+  return e.rate>0?Math.round(e.rate*10)/10:(num(c.seRate)+num(c.fedRate)+num(c.stateRate));
+}
+function reserveFromPaycheck(p){
+  if(db.tax.enabled===false) return 0;
+  const st=db.income.find(x=>x.name&&p.source&&x.name.toLowerCase()===String(p.source).toLowerCase());
+  if(streamTaxClass(st)!=="se") return 0;
+  const base=num(p.gross)||num(p.net);
+  return base*reserveRateFor(st)/100;
+}
+
 /* ============================ GOALS ENGINE ============================
    A goal is a target with a way to read your current position. Most kinds read
    it straight off the rest of the app — a cash goal watches your accounts, a
@@ -3974,7 +4597,7 @@ function freedomState(){
    Net worth is the culmination of every other screen, so the dashboard leads with
    it and this sheet shows the whole chain: what you own, what you owe, what moved
    since last month, and the milestones you've set along the way. */
-let nwOpen=false, hsFormOpen=false;
+let nwOpen=false, hsFormOpen=false, nwOpenList={};
 function openNW(){ nwOpen=true; document.body.classList.add("sheetopen");
   const sh=document.getElementById("nwSheet"); sh.hidden=false; renderNWSheet();
   const sc=sh.querySelector(".sheetscroll"); if(sc)sc.scrollTop=0; }
@@ -4032,13 +4655,21 @@ function renderNWSheet(){
      ref:nextG?num(nextG.target):null,refColor:cssVar("--goal","#0ea5a0"),
      refLabel:nextG?`${esc(nextG.name)} ${fmt(num(nextG.target))}`:null})
     :`<div class="empty" style="padding:18px 0">One point saved so far. The line appears once there are two months to join up.</div>`;
-  const listOf=(rows,neg)=>rows.length?`<div class="deflist tight">${rows.map(r=>
-      /* "Chase · Savings" already says Savings — repeating the kind underneath is
-         a wasted line, so only show it when it adds something */
-      ((sub)=>`<div class="defrow"><span class="k">${esc(r.name)}${sub?`<br><span style="font-size:11.5px;opacity:.75">${esc(sub)}</span>`:""}</span>
+  /* Ten holdings and six debts is a long scroll for something you open to check a
+     number. Each side collapses to a one-line summary and scrolls past six rows. */
+  const listOf=(rows,neg,key,label)=>{
+    if(!rows.length) return `<div class="empty" style="padding:12px 0">Nothing here yet.</div>`;
+    const open=!!nwOpenList[key], total=rows.reduce((a,b)=>a+b.v,0);
+    const top=rows[0];
+    return `<button class="nwhead${open?" open":""}" data-nwlist="${key}" aria-expanded="${open?"true":"false"}">
+        <span class="nwcount">${rows.length} ${rows.length===1?label.one:label.many}</span>
+        <span class="nwlead">${open?"":`biggest: ${esc(top.name)} ${neg?"−":""}${fmtK(top.v)}`}</span>
+        <svg class="nwchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="deflist tight${rows.length>6?" scrollrows bills":""}" ${open?"":"hidden"}>${rows.map(r=>((sub)=>`<div class="defrow"><span class="k">${esc(r.name)}${sub?`<br><span style="font-size:11.5px;opacity:.75">${esc(sub)}</span>`:""}</span>
        <span class="v ${neg?"neg":""}">${neg?"−":""}${fmt(r.v)}</span></div>`)(
-        r.name.toLowerCase().endsWith(String(r.kind).toLowerCase())?"":r.kind)).join("")}</div>`
-    :`<div class="empty" style="padding:12px 0">Nothing here yet.</div>`;
+        r.name.toLowerCase().endsWith(String(r.kind).toLowerCase())?"":r.kind)).join("")}</div>`;
+  };
   el.innerHTML=`
     ${nextG?`<div class="gbarwrap">
       <div class="between" style="font-size:13px;margin-bottom:6px"><span class="muted">Next milestone · ${esc(nextG.name)}</span>
@@ -4061,10 +4692,10 @@ function renderNWSheet(){
       </div>`:""}
 
     <div class="nwsec"><span class="t">What you own</span><span class="pos">${fmt(P.A)}</span></div>
-    ${listOf(P.assets,false)}
+    ${listOf(P.assets,false,"assets",{one:"holding",many:"things you own"})}
 
     <div class="nwsec"><span class="t">What you owe</span><span class="neg">${fmt(P.L)}</span></div>
-    ${listOf(P.liabs,true)}
+    ${listOf(P.liabs,true,"liabs",{one:"debt",many:"debts"})}
 
     <div class="nwsec"><span class="t">History</span>
       <button class="btn sm ghost" id="hsFormBtn">${hsFormOpen?"Close":"+ Past month"}</button></div>
@@ -4080,6 +4711,8 @@ function renderNWSheet(){
     </div>
     <div id="hsList"></div>`;
   renderHistoryList();
+  el.querySelectorAll("[data-nwlist]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.nwlist; nwOpenList[k]=!nwOpenList[k]; setPref("nwLists",nwOpenList); renderNWSheet();});
   const fb=document.getElementById("hsFormBtn");
   if(fb) fb.onclick=()=>{hsFormOpen=!hsFormOpen; renderNWSheet();
     if(hsFormOpen){const m=document.getElementById("hs-month"); if(m)m.focus();}};
@@ -4087,8 +4720,341 @@ function renderNWSheet(){
   if(add) add.onclick=addHistoryEntry;
 }
 
+/* ---------- BUSINESS SCREEN ---------- */
+let openBiz=null, addBizOpen=false, bizYear=null, bizDetail=null;
+function renderBusiness(){
+  const list=document.getElementById("bizList"); if(!list)return;
+  const y=bizYear||todayISO().slice(0,4);
+  /* add panel */
+  const ap=document.getElementById("addBizPanel");
+  ap.hidden=!addBizOpen;
+  if(addBizOpen){
+    ap.innerHTML=`<div class="pad">
+      <div style="font-size:15px;font-weight:620;margin-bottom:2px">New business</div>
+      <div class="muted" style="font-size:13px;margin-bottom:12px">You don't need a separate bank account. Tag transactions to it and the books build themselves.</div>
+      <div class="formgrid">
+        <div class="field"><label>Name</label><input id="nbName" placeholder="L Roy Media"></div>
+        <div class="field"><label>Type</label><select id="nbKind">${Object.entries(BIZ_KINDS).map(([v,o])=>`<option value="${v}">${o.label}</option>`).join("")}</select></div>
+        <button class="btn primary" id="nbAdd">Add business</button>
+        <button class="btn ghost" id="nbCancel">Cancel</button>
+      </div>
+      <div class="muted" id="nbNote" style="font-size:12.5px;margin-top:10px"></div>
+    </div>`;
+    const ks=document.getElementById("nbKind"), nn=document.getElementById("nbNote");
+    const sync=()=>nn.textContent=BIZ_KINDS[ks.value].note; ks.onchange=sync; sync();
+    document.getElementById("nbCancel").onclick=()=>{addBizOpen=false;renderBusiness();};
+    document.getElementById("nbAdd").onclick=()=>{
+      const n=document.getElementById("nbName");
+      const name=n.value.trim(); if(!name){n.focus();return;}
+      const b={id:uid(),name,kind:ks.value,drawPct:100,linkProfit:true,active:true,
+        color:BIZ_COLORS[db.businesses.length%BIZ_COLORS.length],created:todayISO(),note:""};
+      db.businesses.push(b); addBizOpen=false; openBiz=b.id; bizDetail=b.id; saveAll();};
+  } else ap.innerHTML="";
+
+  /* the list */
+  list.innerHTML=bizList().length?bizList().map(b=>{
+    const pl=bizPL(b.id,y), open=openBiz===b.id, draw=bizDraw(b.id,y);
+    return `<div class="brow${open?" editing":""}">
+      <div class="bmain" data-bizopen="${b.id}">
+        <span class="tdot" style="background:${b.color};width:10px;height:10px;flex:none"></span>
+        <div class="binfo"><div class="bname">${esc(b.name)}</div>
+          <div class="bmeta">${esc(BIZ_KINDS[b.kind].label)} · ${fmtK(pl.rev)} in · ${fmtK(pl.exp)} out${b.linkProfit?` · ${num(b.drawPct)}% to you`:` · <span class="bwarn">kept separate</span>`}</div></div>
+        <div class="bamt ${pl.profit>=0?"pos":"neg"}">${fmtK(pl.profit)}</div>
+      </div>
+      ${open?`<div class="bpanel">
+        <div class="deflist tight">
+          <div class="defrow"><span class="k">Revenue ${esc(y)}</span><span class="v pos">${fmt(pl.rev)}</span></div>
+          <div class="defrow"><span class="k">Expenses</span><span class="v neg">−${fmt(pl.exp)}</span></div>
+          <div class="defrow"><span class="k"><b>Net profit</b></span><span class="v ${pl.profit>=0?"pos":"neg"}"><b>${fmt(pl.profit)}</b></span></div>
+          <div class="defrow"><span class="k">Counts as your income</span><span class="v">${fmt(draw)}</span></div>
+        </div>
+        <div class="formgrid" style="margin-top:12px">
+          <div class="field"><label>Name</label><input data-bizname="${b.id}" value="${esc(b.name)}"></div>
+          <div class="field"><label>Type</label><select data-bizkind="${b.id}">${Object.entries(BIZ_KINDS).map(([v,o])=>`<option value="${v}" ${b.kind===v?"selected":""}>${o.label}</option>`).join("")}</select></div>
+        </div>
+        <label class="flex" style="gap:9px;font-size:14px;margin-top:12px"><input type="checkbox" data-bizlink="${b.id}" ${b.linkProfit?"checked":""}>
+          <span>Profit counts toward my personal income and net worth<br><span class="muted" style="font-size:12.5px">Turn this off to keep the business completely separate — useful once it has its own bank account.</span></span></label>
+        ${b.linkProfit?`<div class="field" style="margin-top:12px;max-width:320px"><label>How much of the profit you actually take</label>
+          <div class="flex" style="gap:10px;align-items:center">
+            <input type="range" min="0" max="100" step="5" data-bizdraw="${b.id}" value="${num(b.drawPct)}" style="flex:1">
+            <b style="width:52px;text-align:right;font-variant-numeric:tabular-nums">${num(b.drawPct)}%</b></div>
+          <span class="muted" style="font-size:12px">The rest stays in the business. ${fmt(draw)} of ${fmt(Math.max(0,pl.profit))} comes to you.</span></div>`:""}
+        <div class="field" style="margin-top:12px"><label>Note <span class="muted">(optional)</span></label><input data-biznote="${b.id}" value="${esc(b.note||"")}" placeholder="EIN, accountant, anything you'll forget"></div>
+        <div class="toolbar" style="margin-top:12px">
+          <button class="btn sm" data-bizview="${b.id}">Open the books</button>
+          <div class="spacer"></div>
+          <button class="btn ghost sm danger" data-bizdel="${b.id}">Delete</button>
+          <button class="btn sm" data-bizclose="1">Done</button>
+        </div>
+      </div>`:""}
+    </div>`;}).join("")
+    :`<div class="empty" style="padding:26px 16px">No businesses yet. Add one and a <b>Business</b> picker appears on every transaction and bill.</div>`;
+
+  list.querySelectorAll("[data-bizopen]").forEach(n=>n.onclick=e=>{
+    if(e.target.closest("button")||e.target.closest("select")||e.target.closest("input"))return;
+    const id=n.dataset.bizopen; openBiz=openBiz===id?null:id; renderBusiness();});
+  list.querySelectorAll("[data-bizclose]").forEach(n=>n.onclick=()=>{openBiz=null;renderBusiness();});
+  list.querySelectorAll("[data-bizview]").forEach(n=>n.onclick=()=>{bizDetail=n.dataset.bizview;renderBizDetail();
+    document.getElementById("bizDetailWrap").scrollIntoView({behavior:"smooth",block:"start"});});
+  list.querySelectorAll("[data-bizdel]").forEach(n=>n.onclick=()=>armConfirm(n,()=>{
+    const id=n.dataset.bizdel;
+    /* untag rather than orphan — the transactions themselves stay */
+    db.transactions.forEach(t=>{ if(t.bizId===id){delete t.bizId;delete t.bizPct;} });
+    db.recurring.forEach(b=>{ if(b.bizId===id){delete b.bizId;b.biz=false;} });
+    db.businesses=db.businesses.filter(x=>x.id!==id);
+    if(bizDetail===id)bizDetail=null; openBiz=null; saveAll();}));
+  const bind=(attr,fn)=>list.querySelectorAll("["+attr+"]").forEach(n=>{
+    const h=()=>{const b=bizOf(n.getAttribute(attr)); if(b){fn(b,n);saveAll();}};
+    n.oninput=n.type==="range"?h:null; n.onchange=h;});
+  bind("data-bizname",(b,n)=>b.name=n.value.trim()||b.name);
+  bind("data-bizkind",(b,n)=>b.kind=n.value);
+  bind("data-bizlink",(b,n)=>b.linkProfit=n.checked);
+  bind("data-bizdraw",(b,n)=>b.drawPct=num(n.value));
+  bind("data-biznote",(b,n)=>b.note=n.value);
+  renderBizDetail();
+}
+function renderBizDetail(){
+  const wrap=document.getElementById("bizDetailWrap"); if(!wrap)return;
+  const b=bizOf(bizDetail);
+  wrap.hidden=!b; if(!b)return;
+  const years=[...new Set([todayISO().slice(0,4),...db.transactions.filter(t=>t.bizId===b.id).map(t=>String(t.date).slice(0,4))])].sort().reverse();
+  const y=(years.includes(bizYear)?bizYear:years[0])||todayISO().slice(0,4);
+  const ysel=document.getElementById("bizYear");
+  ysel.innerHTML=years.map(x=>`<option ${x===y?"selected":""}>${x}</option>`).join("");
+  ysel.onchange=()=>{bizYear=ysel.value;renderBusiness();};
+  document.getElementById("bizDetailTitle").textContent=b.name+" — profit & loss";
+  const pl=bizPL(b.id,y);
+  const cats=Object.entries(pl.byCat).sort((a,c)=>c[1]-a[1]);
+  document.getElementById("bizPL").innerHTML=`
+    <div class="grid kpis" style="margin-bottom:14px">
+      <div class="card kpi"><div class="label">Revenue</div><div class="val pos">${fmt(pl.rev)}</div><div class="sub">${pl.count} tagged transaction${pl.count===1?"":"s"}</div></div>
+      <div class="card kpi"><div class="label">Expenses</div><div class="val neg">${fmt(pl.exp)}</div><div class="sub">${cats.length} categor${cats.length===1?"y":"ies"}${pl.billCount?` · ${pl.billCount} bill${pl.billCount===1?"":"s"}`:""}</div></div>
+      <div class="card kpi"><div class="label">Net profit</div><div class="val ${pl.profit>=0?"pos":""}">${fmt(pl.profit)}</div><div class="sub">${b.linkProfit?`${fmt(bizDraw(b.id,y))} counts as your income`:"kept separate from personal"}</div></div>
+    </div>
+    ${cats.length?`<div class="deflist tight">${cats.map(([c,v])=>
+      `<div class="defrow"><span class="k">${esc(c)}</span><span class="v neg">−${fmt(v)}</span></div>`).join("")}</div>`
+      :`<div class="empty" style="padding:14px 0">No expenses tagged to this business yet.</div>`}`;
+  /* Schedule C */
+  const sc=Object.entries(pl.bySched).sort((a,c)=>c[1]-a[1]);
+  document.getElementById("bizSched").innerHTML=sc.length?`<div class="deflist tight" style="padding:4px 16px 10px">
+      ${sc.map(([k,v])=>`<div class="defrow"><span class="k">Line ${esc(SCHED_C[k]?SCHED_C[k].line:"27a")} · ${esc(SCHED_C[k]?SCHED_C[k].label:k)}</span><span class="v">${fmt(v)}</span></div>`).join("")}
+      <div class="defrow"><span class="k"><b>Total expenses</b></span><span class="v"><b>${fmt(pl.exp)}</b></span></div>
+    </div>`
+    :`<div class="empty" style="padding:20px 16px">Tag expenses to this business and they map to Schedule C lines here.</div>`;
+  /* tagged transactions */
+  const tx=bizTx(b.id,y).slice().sort((a,c)=>c.date.localeCompare(a.date));
+  const hint=document.getElementById("bizTxHint"); if(hint)hint.textContent=tx.length?`${tx.length} in ${y}`:"";
+  document.getElementById("bizTxList").innerHTML=tx.length?`<div class="${tx.length>6?"scrollrows bills":""}">${tx.map(t=>{
+    const share=Math.round(bizShare(t)*100);
+    return `<div class="brow"><div class="bmain" style="cursor:default">
+      <div class="binfo"><div class="bname">${esc(t.desc||"—")}</div>
+        <div class="bmeta">${esc(shortDate(t.date))} · ${esc(t.category||"Uncategorized")}${share<100?` · ${share}% business`:""}</div></div>
+      <div class="bamt ${bizAmt(t)>=0?"pos":""}">${fmt2(bizAmt(t))}</div></div></div>`;}).join("")}</div>`
+    :`<div class="empty" style="padding:22px 16px">Nothing tagged yet. On any transaction in Spending, pick this business.</div>`;
+  document.getElementById("bizExport").onclick=()=>exportBizCSV(b,y);
+}
+/* A CSV an accountant can actually use — Schedule C line on every row. */
+function exportBizCSV(b,y){
+  const tx=bizTx(b.id,y).slice().sort((a,c)=>a.date.localeCompare(c.date));
+  const rows=[["Date","Description","Category","Schedule C line","Schedule C label","Business %","Full amount","Business amount"]];
+  tx.forEach(t=>{ const sc=t.sched||CAT_TO_SCHED[t.category]||"other", o=SCHED_C[sc]||SCHED_C.other;
+    rows.push([t.date,t.desc||"",t.category||"",o.line,o.label,Math.round(bizShare(t)*100)+"%",
+      num(t.amount).toFixed(2),bizAmt(t).toFixed(2)]); });
+  db.recurring.filter(x=>x.bizId===b.id).forEach(x=>{ const sc=x.sched||CAT_TO_SCHED[x.category]||"other", o=SCHED_C[sc]||SCHED_C.other;
+    const months=(y===todayISO().slice(0,4))?(new Date().getMonth()+1):12;
+    rows.push([y+"-12-31",x.name+" (recurring bill)",x.category||"",o.line,o.label,
+      (x.bizPct===undefined?100:num(x.bizPct))+"%","", (-billMonthly(x)*months*((x.bizPct===undefined?100:num(x.bizPct))/100)).toFixed(2)]); });
+  const pl=bizPL(b.id,y);
+  rows.push([],["Revenue",pl.rev.toFixed(2)],["Expenses",pl.exp.toFixed(2)],["Net profit",pl.profit.toFixed(2)]);
+  const csv=rows.map(r=>r.map(c=>`"${String(c==null?"":c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv"}), a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=`${b.name.replace(/[^\w]+/g,"-").toLowerCase()}-${y}-schedule-c.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ---------- TAX SCREEN ---------- */
+let taxLedgerOpen=false, addReserveOpen=false;
+function renderTax(){
+  const e=taxEstimate(), c=taxCfg(), nq=nextQuarter();
+  const heroEl=document.getElementById("taxHero"); if(!heroEl)return;
+  const held=taxHeld(), short=Math.max(0,e.owed-e.reserved), pct=e.owed>0?Math.min(100,e.reserved/e.owed*100):0;
+  heroEl.innerHTML=`<div class="freedom">
+    <div class="frhead"><div class="frlabel">Held for tax · ${esc(e.year)}</div>
+      <div class="frbig" style="color:var(--debt)">${fmt(held)}</div>
+      <div class="frsub">${e.owed>0
+        ? (short>0?`${fmt(short)} short of the ${fmt(e.owed)} estimated for the year`:`fully covered — ${fmt(e.reserved-e.owed)} over`)
+        : `No self-employed income logged yet this year.`}</div></div>
+    <div class="gbarwrap" style="margin:16px 0 4px">
+      <div class="gbar"><span style="width:${pct.toFixed(1)}%;background:var(--debt)"></span>
+        ${[25,50,75].map(m=>`<i style="left:${m}%"></i>`).join("")}</div>
+      <div class="gbarnums"><span>${fmt(e.reserved)} set aside</span><span class="muted">${fmt(e.owed)} estimated</span></div>
+    </div>
+    ${(()=>{const u=unreservedPay(e.year); if(!u.length||db.tax.enabled===false)return "";
+      const amt=u.reduce((s2,p)=>s2+reserveFromPaycheck(p),0);
+      return `<div class="note warn" style="margin:14px 0 0">${u.length} paycheck${u.length===1?"":"s"} logged before the reserve was switched on has nothing held against ${u.length===1?"it":"them"}.
+        <button class="btn sm" id="taxCatchUp" style="margin-left:6px">Set aside ${fmt(amt)}</button></div>`;})()}
+    ${nq?`<div class="frtiers" style="margin-top:10px"><div class="frtier" style="cursor:default">
+      <div class="frtop"><span class="frname">Q${nq.q} ${esc(String(nq.year))} due ${esc(shortDate(nq.due))}</span>
+        <span class="frright"><span class="frgap">${nq.days===0?"today":nq.days===1?"tomorrow":"in "+nq.days+" days"}</span></span></div>
+    </div></div>`:""}
+  </div>`;
+
+  const cu=document.getElementById("taxCatchUp");
+  if(cu) cu.onclick=()=>{ catchUpReserve(e.year); saveAll(); };
+
+  /* quarters */
+  const qs=quarterPlan(e.year);
+  document.getElementById("taxQuarters").innerHTML=e.owed>0?qs.map(q=>`
+    <div class="brow${q.done?" paid":""}">
+      <div class="bmain" style="cursor:default">
+        <button class="chk ${q.done?"on":""}" data-qpay="${q.q}" title="${q.done?"Paid":"Log a payment for this quarter"}">${q.done?"✓":""}</button>
+        <div class="binfo"><div class="bname">Q${q.q}</div>
+          <div class="bmeta">due ${esc(shortDate(q.due))}${q.paid?` · ${fmt(q.paid)} paid`:q.past?` · <span class="bneg">past due</span>`:""}</div></div>
+        <div class="bamt">${fmt(q.done?q.paid:q.left)}</div>
+      </div>
+    </div>`).join("")
+    :`<div class="empty" style="padding:22px 16px">Once 1099 income or business profit is logged, the four quarterly targets appear here.</div>`;
+  document.querySelectorAll("[data-qpay]").forEach(b=>b.onclick=()=>{
+    const q=+b.dataset.qpay, plan=qs.find(x=>x.q===q);
+    if(plan.done){ db.tax.paid=db.tax.paid.filter(p=>!(+p.q===q&&String(p.date).slice(0,4)===e.year)); saveAll(); return; }
+    db.tax.paid.push({id:uid(),date:todayISO(),amount:+plan.left.toFixed(2),q,year:e.year});
+    saveAll();});
+
+  /* the arithmetic, shown */
+  const yh=document.getElementById("taxYearHint"); if(yh)yh.textContent=e.year;
+  const row=(k,v,cls,sub)=>`<div class="defrow"><span class="k">${k}${sub?`<br><span style="font-size:11.5px;opacity:.7">${sub}</span>`:""}</span><span class="v ${cls||""}">${v}</span></div>`;
+  document.getElementById("taxBreak").innerHTML=`
+    <div class="deflist tight">
+      ${row("1099 income paid to you",fmt(e.inc.fromPay),"","from paychecks on streams marked self-employed")}
+      ${row("Business profit",fmt(e.inc.fromBiz),"","revenue less expenses across your businesses")}
+      ${row("<b>Net self-employment income</b>","<b>"+fmt(e.net)+"</b>","")}
+      ${row("Self-employment tax",fmt(e.se),"neg",`${num(c.seRate)}% on ${fmt(e.seBase)} — 92.35% of net, the standard base`)}
+      ${row("Federal income tax",fmt(e.fed),"neg",`${num(c.fedRate)}% marginal on ${fmt(e.fedBase)}${c.qbi?" after the 20% QBI deduction":""}`)}
+      ${row(esc(c.stateName)+" state tax",fmt(e.state),"neg",`${num(c.stateRate)}% of net less half your SE tax`)}
+      ${row("<b>Estimated for the year</b>","<b class='neg'>"+fmt(e.gross)+"</b>","")}
+      ${e.credit>0?row("Less W-2 already withheld","−"+fmt(e.credit),"pos","tax your employer already sent in"):""}
+      ${num(c.otherCredits)?row("Less other credits","−"+fmt(num(c.otherCredits)),"pos"):""}
+      ${row("<b>What you owe</b>","<b class='neg'>"+fmt(e.owed)+"</b>","")}
+      ${row("Effective rate on 1099 income",e.rate.toFixed(1)+"%","","this is the percentage held back from each payment")}
+      ${row("Paid so far",fmt(e.paid),"pos")}
+    </div>
+    <div class="note warn" style="margin-top:14px">An estimate from the rates above, not a filing. It uses your <b>marginal</b> federal rate on all of it, which over-reserves slightly on purpose — being short in April is worse than being early. Confirm the numbers with a CPA who knows film-industry 1099 work.</div>`;
+
+  /* editable assumptions */
+  const f=(id,label,val,sub,step)=>`<div class="field"><label>${label}</label>
+    <input id="${id}" type="number" step="${step||"0.01"}" value="${val}">${sub?`<span class="muted" style="font-size:12px">${sub}</span>`:""}</div>`;
+  document.getElementById("taxSettings").innerHTML=`
+    <label class="flex" style="gap:9px;font-size:14px;margin-bottom:12px"><input type="checkbox" id="taxOn" ${c.enabled!==false?"checked":""}>
+      <span>Hold back tax automatically<br><span class="muted" style="font-size:12.5px">Carves the estimate out of money on hand and runway so you never spend it twice.</span></span></label>
+    <div class="segoptions" id="taxModeSeg" style="margin-bottom:14px">
+      <button class="seg${c.mode!=="flat"?" active":""}" data-taxmode="guided">Work it out</button>
+      <button class="seg${c.mode==="flat"?" active":""}" data-taxmode="flat">Flat rate</button>
+    </div>
+    <div class="formgrid">
+      ${c.mode==="flat"
+        ? f("txFlat","Hold back (%)",num(c.flatRate),"applied to every 1099 payment","0.1")
+        : `${f("txSE","Self-employment tax (%)",num(c.seRate),"15.3% — Social Security and Medicare, both halves","0.1")}
+           ${f("txFed","Federal marginal rate (%)",num(c.fedRate),"22% covers roughly $48k–$103k single in 2026","1")}
+           ${f("txState",esc(c.stateName)+" rate (%)",num(c.stateRate),"Georgia's flat rate is 5.39% for 2026","0.01")}
+           ${f("txCred","Other credits ($)",num(c.otherCredits),"anything already paid or credited","1")}`}
+    </div>
+    ${c.mode!=="flat"?`<label class="flex" style="gap:9px;font-size:14px;margin-top:12px"><input type="checkbox" id="txQbi" ${c.qbi?"checked":""}>
+      <span>Take the 20% qualified business income deduction<br><span class="muted" style="font-size:12.5px">Most sole proprietors under the income threshold qualify. Ask your CPA before relying on it.</span></span></label>
+    <label class="flex" style="gap:9px;font-size:14px;margin-top:10px"><input type="checkbox" id="txCredW2" ${c.creditW2!==false?"checked":""}>
+      <span>Count W-2 withholding against what you owe<br><span class="muted" style="font-size:12.5px">${fmt(w2Withheld(e.year))} withheld so far this year across your W-2 paychecks.</span></span></label>`:""}`;
+
+  /* per-stream classification */
+  document.getElementById("taxStreams").innerHTML=db.income.length?db.income.map(st=>{
+    const k=streamTaxClass(st);
+    return `<div class="brow taxstream"><div class="bmain" style="cursor:default">
+      <span class="tdot" style="background:${k==="se"?"var(--debt)":k==="exempt"?"var(--muted)":"var(--pos)"};flex:none"></span>
+      <div class="binfo"><div class="bname">${esc(st.name)}</div>
+        <div class="bmeta">${fmt(streamMonthly(st))}/mo · ${esc(TAX_CLASS[k].note)}</div></div>
+      <select class="miniedit taxclasssel" data-taxclass="${st.id}">
+        ${Object.entries(TAX_CLASS).map(([v,o])=>`<option value="${v}" ${k===v?"selected":""}>${o.label}</option>`).join("")}
+      </select></div></div>`;}).join("")
+    :`<div class="empty" style="padding:20px 16px">Add income streams and mark which ones are 1099.</div>`;
+  document.querySelectorAll("[data-taxclass]").forEach(sel=>sel.onchange=()=>{
+    const st=db.income.find(x=>x.id===sel.dataset.taxclass); if(!st)return;
+    st.taxClass=sel.value; st.notax=(sel.value==="exempt"); saveAll();});
+
+  /* ledger */
+  const led=taxReserveLedger(e.year).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const pays=taxPayments(e.year).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById("taxLedger").innerHTML=`
+    ${addReserveOpen?`<div class="pad" style="border-bottom:1px solid var(--line)">
+      <div class="formgrid">
+        <div class="field"><label>Amount</label><input id="trAmt" type="number" step="any" placeholder="500"></div>
+        <div class="field"><label>Date</label><input id="trDate" type="date" value="${todayISO()}"></div>
+        <div class="field"><label>Note</label><input id="trNote" placeholder="cash gig"></div>
+        <button class="btn primary" id="trAdd">Set aside</button>
+        <button class="btn ghost" id="trCancel">Cancel</button>
+      </div></div>`:""}
+    ${(led.length||pays.length)?`<div class="${led.length+pays.length>5?"scrollrows bills":""}">
+      ${pays.map(p=>`<div class="brow"><div class="bmain" style="cursor:default">
+        <span class="tdot" style="background:var(--pos);flex:none"></span>
+        <div class="binfo"><div class="bname">Paid the IRS${p.q?` · Q${p.q}`:""}</div><div class="bmeta">${esc(shortDate(p.date))}</div></div>
+        <div class="bamt pos">−${fmt(p.amount)}</div>
+        <button class="btn ghost sm" data-txpdel="${p.id}" style="flex:none">&#10005;</button></div></div>`).join("")}
+      ${led.map(r=>`<div class="brow"><div class="bmain" style="cursor:default">
+        <span class="tdot" style="background:var(--debt);flex:none"></span>
+        <div class="binfo"><div class="bname">${esc(r.source||r.note||"Set aside")}</div>
+          <div class="bmeta">${esc(shortDate(r.date))}${r.auto?" · automatic":""}${r.note&&r.source?" · "+esc(r.note):""}</div></div>
+        <div class="bamt">${fmt(r.amount)}</div>
+        <button class="btn ghost sm" data-trdel="${r.id}" style="flex:none">&#10005;</button></div></div>`).join("")}
+    </div>`:`<div class="empty" style="padding:22px 16px">Nothing set aside yet. Log a 1099 paycheck and the reserve fills itself.</div>`}`;
+  document.querySelectorAll("[data-trdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{
+    db.tax.reserve=db.tax.reserve.filter(r=>r.id!==b.dataset.trdel); saveAll();}));
+  document.querySelectorAll("[data-txpdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{
+    db.tax.paid=db.tax.paid.filter(r=>r.id!==b.dataset.txpdel); saveAll();}));
+  const ta=document.getElementById("trAdd");
+  if(ta) ta.onclick=()=>{ const a=num(document.getElementById("trAmt").value); if(!a){document.getElementById("trAmt").focus();return;}
+    db.tax.reserve.push({id:uid(),date:document.getElementById("trDate").value||todayISO(),amount:a,
+      note:document.getElementById("trNote").value.trim(),source:"Manual"});
+    addReserveOpen=false; saveAll();};
+  const tc=document.getElementById("trCancel"); if(tc)tc.onclick=()=>{addReserveOpen=false;renderTax();};
+
+  /* settings wiring */
+  const on=(id,fn)=>{const el=document.getElementById(id); if(el)el.onchange=fn;};
+  on("taxOn",e2=>{db.tax.enabled=e2.target.checked;saveAll();});
+  on("txFlat",e2=>{db.tax.flatRate=num(e2.target.value);saveAll();});
+  on("txSE",e2=>{db.tax.seRate=num(e2.target.value);saveAll();});
+  on("txFed",e2=>{db.tax.fedRate=num(e2.target.value);saveAll();});
+  on("txState",e2=>{db.tax.stateRate=num(e2.target.value);saveAll();});
+  on("txCred",e2=>{db.tax.otherCredits=num(e2.target.value);saveAll();});
+  on("txQbi",e2=>{db.tax.qbi=e2.target.checked;saveAll();});
+  on("txCredW2",e2=>{db.tax.creditW2=e2.target.checked;saveAll();});
+  document.querySelectorAll("[data-taxmode]").forEach(b=>b.onclick=()=>{db.tax.mode=b.dataset.taxmode;saveAll();});
+}
+
 /* ---------- the freedom card ---------- */
 let freeOpen=null, freeYieldEdit=false;
+/* A 1099 paycheck arrives with nothing withheld, so the moment one is logged the
+   app carves out its share. The entry is a normal ledger line you can edit or
+   delete — nothing is hidden and no money actually moves. */
+/* Paychecks logged before the reserve existed have nothing set aside against
+   them. Rather than silently backfilling — which would move a number the user
+   never asked to move — the Tax screen offers to catch up and says how much. */
+function unreservedPay(year){
+  const y=year||todayISO().slice(0,4);
+  return db.paychecks.filter(p=>String(p.date).slice(0,4)===y)
+    .filter(p=>{ const st=db.income.find(x=>x.name&&p.source&&x.name.toLowerCase()===String(p.source).toLowerCase());
+      return streamTaxClass(st)==="se" && !(db.tax.reserve||[]).some(r=>r.payId===p.id); });
+}
+function catchUpReserve(year){
+  const list=unreservedPay(year); let n=0,total=0;
+  list.forEach(p=>{ const r=autoReserve(p); if(r){n++;total+=r.amount;} });
+  return {n,total};
+}
+function autoReserve(p){
+  if(!p||db.tax.enabled===false) return null;
+  const amt=reserveFromPaycheck(p);
+  if(amt<=0.005) return null;
+  db.tax.reserve=(db.tax.reserve||[]).filter(r=>r.payId!==p.id);
+  const r={id:uid(),date:p.date,amount:+amt.toFixed(2),payId:p.id,
+    source:p.source||"1099 income",auto:true};
+  db.tax.reserve.push(r); return r;
+}
 function renderFreedom(){
   const el=document.getElementById("freedomCard"); if(!el)return;
   const st=freedomState(), p=st.passive, next=st.next;
@@ -4208,7 +5174,7 @@ function renderGoalsList(){
       g.done=true; g.doneDate=todayISO(); openGoal=null; saveAll();});
     root.querySelectorAll("[data-goalreopen]").forEach(b=>b.onclick=()=>{
       const g=db.goals.find(x=>x.id===b.dataset.goalreopen); if(!g)return; g.done=false; g.doneDate=""; saveAll();});
-    root.querySelectorAll("[data-goaldel]").forEach(b=>armConfirm(b,()=>{
+    root.querySelectorAll("[data-goaldel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{
       db.goals=db.goals.filter(x=>x.id!==b.dataset.goaldel); saveAll();}));
   }
 }
@@ -4337,7 +5303,7 @@ function renderGoals(){
   const cash=totalCash();
   const set=(id,fn)=>{const el=document.getElementById(id);if(el)fn(el);};
   set("runwayValG",el=>el.textContent=runwayText());
-  set("runwaySubG",el=>el.textContent=`${fmt(cash)} cash ÷ ${fmt(effectiveBurn())}/mo of spending`);
+  set("runwaySubG",el=>el.textContent=`${fmt(spendableCash())} spendable ÷ ${fmt(effectiveBurn())}/mo of spending${taxHeld()>0?` · ${fmt(taxHeld())} held for tax`:""}`);
   set("burnInputG",el=>el.value=(db.settings.burnOverride!=null&&db.settings.burnOverride!=="")?db.settings.burnOverride:"");
   const a=avgMonthlyBurn();
   set("burnHintG",el=>el.textContent=db.settings.burnOverride?"":(a!=null?` auto: ~${fmt(Math.round(a))}/mo from imports`:" no data yet — using estimate"));
@@ -4364,8 +5330,8 @@ function renderCats(){
     return `<tr><td><span class="catpill" style="border-left-color:${catColor[c]||'#94a3b8'}">${esc(c)}</span></td>
       <td class="muted" style="font-size:13px">${lock?"built in":u?`used ${u}×`:"unused"}</td>
       <td class="amt">${lock||u?"":`<button class="btn ghost sm" data-catdel="${esc(c)}">✕</button>`}</td></tr>`;}).join("")}</tbody></table>`;
-  el.querySelectorAll("[data-catdel]").forEach(b=>b.onclick=e=>{const c=e.currentTarget.dataset.catdel;
-    db.categories=db.categories.filter(x=>x!==c); saveAll();});
+  el.querySelectorAll("[data-catdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{const c=b.dataset.catdel;
+    db.categories=db.categories.filter(x=>x!==c); saveAll();}));
 }
 function renderRules(){
   renderSetRoot();
@@ -4375,7 +5341,7 @@ function renderRules(){
     `<div class="deflist rulelist">${db.rules.map((r,i)=>`<div class="defrow"><span class="k"><code>${esc(r.m)}</code></span>
       <span class="v"><span class="catpill">${esc(r.c)}</span><button class="btn ghost sm" data-ruledel="${i}" aria-label="Remove rule">✕</button></span></div>`).join("")}</div>`
     :`<div class="empty" style="padding:14px 0">No rules yet — recategorize a transaction in Spending and it learns one.</div>`;
-  document.querySelectorAll("[data-ruledel]").forEach(b=>b.onclick=e=>{db.rules.splice(+e.target.dataset.ruledel,1);saveAll();});
+  document.querySelectorAll("[data-ruledel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{db.rules.splice(+b.dataset.ruledel,1);saveAll();}));
   document.getElementById("ruleCat").innerHTML=db.categories.map(c=>`<option>${c}</option>`).join("");
 }
 
@@ -4390,12 +5356,15 @@ const ICONS={
  goals:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>',
  credit:'<path d="M3 17l5.5-6 4 4L21 6"/><path d="M15 6h6v6"/>',
  invest:'<rect x="3" y="12" width="4.5" height="9" rx="1.2"/><rect x="9.75" y="7" width="4.5" height="14" rx="1.2"/><rect x="16.5" y="3" width="4.5" height="18" rx="1.2"/>',
- data:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8.9 19a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'
+ data:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8.9 19a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+ tax:'<path d="M9 3h6l1 4H8l1-4z"/><path d="M6 7h12l1.2 12.2A2 2 0 0 1 17.2 21H6.8a2 2 0 0 1-2-1.8L6 7z"/><path d="M12 11v6M9.5 12.5h5M9.5 15.5h5"/>',
+ business:'<path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/><path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/>'
 };
 const VIEWS=[
  {id:"dash",label:"Home"},{id:"accounts",label:"Accounts"},{id:"income",label:"Income"},
  {id:"expenses",label:"Spending"},{id:"budget",label:"Budget"},{id:"goals",label:"Goals"},
- {id:"credit",label:"Debt"},{id:"invest",label:"Invest"},{id:"data",label:"Settings"}
+ {id:"credit",label:"Debt"},{id:"invest",label:"Invest"},{id:"tax",label:"Tax"},
+ {id:"business",label:"Business"},{id:"data",label:"Settings"}
 ];
 const viewLabel=id=>{const v=VIEWS.find(x=>x.id===id);return v?v.label:id;};
 const icon=id=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[id]||""}</svg>`;
@@ -4408,8 +5377,9 @@ function setView(id){
   if(!VIEWS.some(v=>v.id===id))id="dash";
   currentView=id;
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+id));
-  const t=document.getElementById("viewTitle"); if(t)t.textContent=id==="dash"?"Freedom Engine":viewLabel(id);
+  const t=document.getElementById("viewTitle"); if(t)t.textContent=viewLabel(id);
   renderNav(); closeDrawer(); window.scrollTo(0,0);
+  syncHeader();
 }
 function renderNav(){
   const sb=document.getElementById("sbnav");
@@ -4424,14 +5394,155 @@ function renderNav(){
       `<button class="bb${sl[3]===currentView?" active":""}" data-go="${sl[3]}">${icon(sl[3])}<span>${esc(viewLabel(sl[3]))}</span></button>`;
   }
   const f=document.getElementById("sbfoot");
-  if(f) f.innerHTML=`${fmt(totalCash())} on hand · ${fmt(totalDebt())} owed`;
+  if(f) f.innerHTML=`${fmt(spendableCash())} on hand · ${fmt(totalDebt())} owed`;
 }
+/* The header carries the wordmark while the page's own big title is visible, and
+   swaps to the view name once that title scrolls away — so it always says
+   something useful and never duplicates the heading right underneath it. */
+/* Dashboard sections fold away. Which ones are shut is a preference, so it lives
+   in settings and survives a reload rather than resetting every visit. */
+function sectShut(){ return (db.settings&&db.settings.dashShut)||{}; }  // kept separate: it predates the ui store and users have state in it
+function applySections(){
+  const shut=sectShut();
+  document.querySelectorAll("[data-sect]").forEach(t=>{
+    const k=t.dataset.sect, off=!!shut[k];
+    t.classList.add("foldable"); t.classList.toggle("shut",off);
+    t.setAttribute("role","button"); t.setAttribute("tabindex","0");
+    t.setAttribute("aria-expanded",off?"false":"true");
+    if(!t.querySelector(".foldchev")){
+      const sp=document.createElement("span"); sp.className="spacer"; t.appendChild(sp);
+      const c=document.createElement("span"); c.className="foldchev";
+      c.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+      t.appendChild(c);
+    }
+    const body=document.querySelector(`[data-sectbody="${k}"]`);
+    if(body) body.hidden=off;
+  });
+}
+function toggleSection(k){
+  db.settings.dashShut=db.settings.dashShut||{};
+  db.settings.dashShut[k]=!db.settings.dashShut[k];
+  applySections(); persist();
+}
+document.addEventListener("click",e=>{ if(e.target.closest(".infobtn"))return;
+  const t=e.target.closest("[data-sect]"); if(t)toggleSection(t.dataset.sect); });
+document.addEventListener("keydown",e=>{ if(e.key!=="Enter"&&e.key!==" ")return;
+  const t=e.target.closest&&e.target.closest("[data-sect]"); if(t){e.preventDefault();toggleSection(t.dataset.sect);} });
+function syncHeader(){
+  const bar=document.getElementById("topbar"); if(!bar)return;
+  const view=document.querySelector(".view.active"); if(!view)return;
+  const h=view.querySelector("h1.page");
+  /* fall back to plain scroll position on a screen with no big title */
+  const past=h?(h.getBoundingClientRect().bottom<=bar.offsetHeight):(window.scrollY>24);
+  bar.classList.toggle("stuck",past);
+}
+let headerTick=false;
+addEventListener("scroll",()=>{ if(headerTick)return; headerTick=true;
+  requestAnimationFrame(()=>{headerTick=false;syncHeader();}); },{passive:true});
+addEventListener("resize",syncHeader);
 function openDrawer(){ document.getElementById("sidebar").classList.add("open"); document.getElementById("scrim").classList.add("on"); }
 function closeDrawer(){ const sb=document.getElementById("sidebar"); if(sb)sb.classList.remove("open"); const sc=document.getElementById("scrim"); if(sc)sc.classList.remove("on"); }
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-go]"); if(b){ setView(b.dataset.go); } });
 
 /* Each screen's intro paragraph explains it once and then costs vertical space
    forever. Tuck it behind a small (i) beside the title — clear, one tap, no clutter. */
+/* ---------- explanatory text behind an (i) ----------
+   Every screen already tucks its intro behind a small (i). The same reasoning
+   applies to the sentence under a card heading, the long hint beside a section
+   title, and the paragraph under a checkbox: useful once, clutter forever.
+
+   This is a sweep rather than 40 hand-edits, because most of that text lives
+   inside innerHTML that gets rebuilt on every render. It's idempotent — already
+   converted nodes are marked and skipped. */
+const HELP_MIN=34;                    // shorter than this reads faster than a tap
+const helpSkip=el=>el.closest(".note,.helptext,.empty,.frpanel .note");
+function mkInfo(target,text,where){
+  if(!text||!text.trim())return null;
+  const b=document.createElement("button");
+  b.type="button"; b.className="infobtn tiny"; b.textContent="i";
+  b.setAttribute("aria-label","What this means"); b.setAttribute("aria-expanded","false");
+  const tip=document.createElement("div");
+  tip.className="helptext"; tip.hidden=true; tip.innerHTML=text;
+  b.onclick=ev=>{ ev.stopPropagation(); ev.preventDefault();
+    const show=tip.hidden; tip.hidden=!show;
+    b.classList.toggle("on",show); b.setAttribute("aria-expanded",show?"true":"false"); };
+  target.appendChild(b);
+  where.parentNode.insertBefore(tip,where.nextSibling);
+  return b;
+}
+function collapseHelp(root){
+  const scope=root||document;
+
+  /* 1. long hints beside a section title */
+  scope.querySelectorAll(".sectiontitle > .hint:not([data-helped])").forEach(h=>{
+    const t=h.textContent.trim(); const sec=h.parentElement;
+    if(t.length<HELP_MIN||helpSkip(h))return;
+    h.dataset.helped="1";
+    const head=sec.querySelector("h2,h1"); if(!head)return;
+    h.remove(); mkInfo(head,esc(t),sec);
+  });
+
+  /* 2. an explanatory line directly under a heading inside a card */
+  scope.querySelectorAll(".muted:not([data-helped])").forEach(m=>{
+    if(helpSkip(m))return;
+    const tag=m.tagName;
+    if(tag!=="P"&&tag!=="DIV")return;
+    const t=m.textContent.trim();
+    if(t.length<HELP_MIN)return;
+    const prev=m.previousElementSibling; if(!prev)return;
+    const isHead=/^H[1-4]$/.test(prev.tagName)||prev.tagName==="B"||
+      (prev.tagName==="DIV"&&+getComputedStyle(prev).fontWeight>=600&&prev.textContent.trim().length<44);
+    if(!isHead)return;
+    m.dataset.helped="1"; m.hidden=true;
+    m.classList.add("helptext");
+    const b=document.createElement("button");
+    b.type="button"; b.className="infobtn tiny"; b.textContent="i";
+    b.setAttribute("aria-label","What this means"); b.setAttribute("aria-expanded","false");
+    b.onclick=ev=>{ ev.stopPropagation(); ev.preventDefault();
+      const show=m.hidden; m.hidden=!show;
+      b.classList.toggle("on",show); b.setAttribute("aria-expanded",show?"true":"false"); };
+    prev.appendChild(b);
+  });
+
+  /* 3. the paragraph under a checkbox label */
+  scope.querySelectorAll("label .muted:not([data-helped])").forEach(m=>{
+    if(helpSkip(m))return;
+    const t=m.textContent.trim(); if(t.length<HELP_MIN)return;
+    const label=m.closest("label"); if(!label)return;
+    m.dataset.helped="1";
+    /* the <br> before it goes too, or the label keeps a blank second line */
+    const br=m.previousElementSibling;
+    if(br&&br.tagName==="BR")br.remove();
+    const holder=m.parentElement;
+    m.remove(); m.hidden=true; m.classList.add("helptext");
+    mkInfoFromNode(holder,m,label);
+  });
+}
+/* Panels that render on demand — an income stream's editor, a goal's panel, the
+   add-account form — appear long after the last full render, so a one-shot sweep
+   misses them. Watching for new nodes covers every one without hunting them down.
+   The guard stops the sweep's own insertions from retriggering it. */
+let sweeping=false, sweepQueued=false;
+function watchHelp(){
+  const root=document.querySelector("main"); if(!root||!window.MutationObserver)return;
+  new MutationObserver(()=>{
+    if(sweeping||sweepQueued)return;
+    sweepQueued=true;
+    requestAnimationFrame(()=>{ sweepQueued=false; sweeping=true;
+      try{ collapseHelp(); }catch(e){} sweeping=false; });
+  }).observe(root,{childList:true,subtree:true});
+}
+function mkInfoFromNode(target,tip,after){
+  const b=document.createElement("button");
+  b.type="button"; b.className="infobtn tiny"; b.textContent="i";
+  b.setAttribute("aria-label","What this means"); b.setAttribute("aria-expanded","false");
+  b.onclick=ev=>{ ev.stopPropagation(); ev.preventDefault();
+    const show=tip.hidden; tip.hidden=!show;
+    b.classList.toggle("on",show); b.setAttribute("aria-expanded",show?"true":"false"); };
+  target.appendChild(b);
+  after.parentNode.insertBefore(tip,after.nextSibling);
+}
+
 function collapseLeads(){
   document.querySelectorAll(".view").forEach(v=>{
     const h=v.querySelector("h1.page"); if(!h)return;
@@ -4449,7 +5560,7 @@ function collapseLeads(){
     row.appendChild(b);
   });
 }
-function renderAll(){ captureSnapshot(); renderNav(); renderSlotPicker(); syncTheme(); renderCats();renderDash();renderTrends();renderIncome();renderPaychecks();renderTx();renderBudget();renderGoals();renderForecast();renderNWSheet();renderCash();renderCredit();renderInvest();renderRules(); }
+function renderAll(){ captureSnapshot(); renderNav(); renderSlotPicker(); syncTheme(); renderCats();renderDash();renderTrends();renderIncome();renderPaychecks();renderTx();renderBudget();renderGoals();renderForecast();renderNWSheet();renderTax();renderBusiness();renderCash();renderCredit();renderInvest();renderRules(); try{collapseHelp();}catch(e){} }
 
 /* ---------- events ---------- */
 document.getElementById("menuBtn").addEventListener("click",openDrawer);
@@ -4459,7 +5570,7 @@ document.getElementById("monthSel").addEventListener("change",e=>{curMonth=e.tar
 document.getElementById("budgetMonthSel").addEventListener("change",e=>{budgetMonth=e.target.value;renderBudget();});
 document.getElementById("csvFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>handleCSV(r.result);r.readAsText(f);e.target.value="";});
 document.getElementById("txSearch").addEventListener("input",renderTx);
-document.getElementById("filtToggle").addEventListener("click",()=>setFiltOpen(!filtOpen));
+document.getElementById("filtToggle").addEventListener("click",()=>{setFiltOpen(!filtOpen);setPref("filtOpen",filtOpen);});
 ["acct","cat","when","dir","sort"].forEach(k=>{const el=document.getElementById("f-"+k);
   if(el)el.addEventListener("change",e=>{txFilter[k]=e.target.value;renderTx();});});
 ["min","max"].forEach(k=>{const el=document.getElementById("f-"+k);
@@ -4473,7 +5584,7 @@ document.getElementById("mt-add").addEventListener("click",()=>{const desc=docum
 document.getElementById("addIncomeBtn").addEventListener("click",()=>{
   const s={id:uid(),name:"New stream",type:"Gig",model:"monthly",rate:0,units:0,amount:0,start:todayISO(),end:"",date:todayISO(),active:true};
   db.income.push(s);saveAll();setTimeout(()=>openIncomeEditor(s.id),50);});
-document.getElementById("horizonSeg").addEventListener("click",e=>{const b=e.target.closest("[data-h]");if(!b)return;horizon=b.dataset.h;
+document.getElementById("horizonSeg").addEventListener("click",e=>{const b=e.target.closest("[data-h]");if(!b)return;horizon=b.dataset.h;setPref("horizon",horizon);
   document.querySelectorAll("#horizonSeg .seg").forEach(x=>x.classList.toggle("active",x===b));renderIncome();});
 document.getElementById("taxToggle").addEventListener("change",e=>{db.settings.taxEnabled=e.target.checked;saveAll();});
 document.getElementById("taxRate").addEventListener("change",e=>{db.settings.taxRate=num(e.target.value);saveAll();});
@@ -4494,10 +5605,16 @@ document.addEventListener("click",e=>{ if(e.target.closest("[data-nwclose]")) cl
   else if(e.target.closest("[data-nwopen]")) openNW(); });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&nwOpen)closeNW(); });
 /* ---- goals ---- */
+document.getElementById("showAddBiz").addEventListener("click",()=>{
+  addBizOpen=!addBizOpen; openBiz=null; renderBusiness();
+  if(addBizOpen){const n=document.getElementById("nbName"); if(n)n.focus();}});
+document.getElementById("addReserveBtn").addEventListener("click",()=>{
+  addReserveOpen=!addReserveOpen; renderTax();
+  if(addReserveOpen){const a=document.getElementById("trAmt"); if(a)a.focus();}});
 document.getElementById("showAddGoal").addEventListener("click",()=>{
   addGoalOpen=!addGoalOpen; openGoal=null; logGoal=null; renderAddGoal();
   if(addGoalOpen){const n=document.getElementById("ngName"); if(n)n.focus();}});
-document.getElementById("goalSort").addEventListener("change",e=>{goalSort=e.target.value;renderGoalsList();});
+document.getElementById("goalSort").addEventListener("change",e=>{goalSort=e.target.value;setPref("goalSort",goalSort);renderGoalsList();});
 /* One delegated listener beats rewiring a dozen inputs on every keystroke, and it
    survives the panel being rebuilt underneath it. */
 document.getElementById("goalsList").addEventListener("change",e=>{
@@ -5079,7 +6196,7 @@ function forecastTo(toISO){
   db.income.forEach(s=>{ const ds=payDates(s,start,toISO); if(ds)ds.forEach(d=>{pay[d]=(pay[d]||0)+netOf(s,perPaycheck(s));});
     else { const amt=scheduledPay(s,start,toISO); if(amt>0){ const days=Math.max(1,Math.round(daysBetween(start,toISO)));
       for(let k=1;k<=days;k++){ const d=new Date(start+"T12:00:00"); d.setDate(d.getDate()+k); pay[isoOf(d)]=(pay[isoOf(d)]||0)+netOf(s,amt)/days; } } } });
-  let bal=totalCash(); const pts=[],labels=[],events=[];
+  let bal=spendableCash(); const pts=[],labels=[],events=[];
   const cur=new Date(start+"T12:00:00"), end=new Date(toISO+"T12:00:00");
   let guard=0,lowest={v:bal,d:start};
   const total=Math.max(1,Math.round(daysBetween(start,toISO)));
@@ -5185,6 +6302,18 @@ try{ loadSyncCfg(); }catch(e){}
 try{ syncTheme(); }catch(e){}
 try{ envSetup(); }catch(e){}
 try{ collapseLeads(); }catch(e){}
+/* put every remembered view preference back before the first paint */
+try{
+  filtOpen=pref("filtOpen",false); setFiltOpen(filtOpen);
+  billView=pref("billView","month");
+  goalSort=pref("goalSort","pct");
+  divOpen=pref("divOpen",false);
+  nwOpenList=pref("nwLists",{})||{};
+  horizon=pref("horizon","3");
+  document.querySelectorAll("#horizonSeg .seg").forEach(x=>x.classList.toggle("active",x.dataset.h===horizon));
+  renderAll();
+}catch(e){}
+try{ applySections(); syncHeader(); collapseHelp(); watchHelp(); }catch(e){}
 try{ renderAll(); }catch(e){
   const m=document.querySelector("main");
   if(m) m.insertAdjacentHTML("afterbegin",`<div class="storagewarn"><b>Something went wrong drawing the page.</b> ${esc(e.message)}<br>Your saved data is intact — try reloading, or use Settings → Load backup.</div>`);
