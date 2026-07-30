@@ -438,6 +438,22 @@
   .sumrow2{display:flex;flex-wrap:wrap;gap:10px 26px;align-items:flex-end}
   .sumitem .k{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:660}
   .sumitem .v{font-size:20px;font-weight:730;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums}
+  /* label/value rows that wrap instead of forcing a horizontal scroll */
+  .deflist{display:flex;flex-direction:column}
+  .defrow{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 16px;
+    padding:9px 0;border-top:1px solid var(--line)}
+  .defrow:first-child{border-top:0;padding-top:0}
+  .defrow:last-child{padding-bottom:0}
+  .defrow .k{font-size:13.5px;color:var(--muted);flex:0 0 auto}
+  .defrow .v{font-size:14px;font-weight:560;text-align:right;flex:1 1 auto;min-width:0;word-break:break-word}
+  @media(max-width:560px){ .defrow .v{text-align:left;flex:1 1 100%} }
+  .rulelist .defrow{align-items:center;gap:6px 12px}
+  .rulelist .k{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .rulelist .v{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+  @media(max-width:560px){ .rulelist .v{justify-content:flex-start} }
+  .projctl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;
+    border-top:1px solid var(--line);padding-top:12px}
+  @media(max-width:820px){ .projctl{gap:8px;margin-top:14px} .projctl .segoptions{gap:5px} .projctl .seg{padding:6px 11px} }
   .tacct{font-size:11.5px;color:var(--muted);display:block;margin-top:1px}
   .txdate,.txdesc,.txamt{border:1px solid transparent;background:transparent;color:inherit;font:inherit;
     border-radius:8px;padding:5px 6px;margin:-5px -6px;min-height:0;width:100%;max-width:100%}
@@ -484,6 +500,17 @@
   .bizmark{font-size:9.5px;font-weight:760;letter-spacing:.06em;color:#2563eb;background:rgba(37,99,235,.12);
     padding:2px 5px;border-radius:5px;vertical-align:1px}
   html[data-theme="dark"] .bizmark,html[data-theme="bushido"] .bizmark{color:#93c5fd;background:rgba(147,197,253,.14)}
+  .brow.offmonth .bname,.brow.offmonth .bamt{color:var(--muted)}
+  .brow.offmonth .bamt{font-weight:620}
+  .bamt.roll{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15}
+  .bamt em{font-style:normal;font-size:10.5px;font-weight:640;color:var(--muted);margin-top:2px}
+  .bpay{flex:none;min-width:52px;padding:0 10px}
+  .bprog{height:3px;background:var(--line);margin:0 15px 10px;border-radius:20px;overflow:hidden}
+  .bprog span{display:block;height:100%;background:var(--warn);border-radius:20px;transition:width .4s cubic-bezier(.4,0,.2,1)}
+  .bpart{color:var(--warn);font-weight:620}
+  @media(max-width:820px){ .bprog{margin:0 13px 9px} }
+  #billViewSeg{display:inline-flex}
+  @media(max-width:820px){ #billViewSeg{display:flex;width:100%} #billViewSeg .seg{flex:1;text-align:center} }
   .scrollrows.bills{max-height:330px}
   @media(max-width:820px){ .scrollrows.bills{max-height:296px} }
 
@@ -754,31 +781,34 @@
 
   <!-- INCOME -->
   <section class="view" id="view-income">
-    <div class="between pagerow" style="margin-bottom:8px"><h1 class="page">Income</h1><button class="btn sm" id="addIncomeBtn">+ Add income stream</button></div>
+    <h1 class="page">Income</h1>
     <p class="lead">Add every source you're earning from — a steady job, a production gig, one-off freelance work. The projection adds them all up over the window you pick.</p>
 
     <div class="grid kpis" id="incomeKpis" style="margin-bottom:8px"></div>
 
-    <div class="sectiontitle"><h2>Projected income</h2><span class="hint">estimate over a window</span></div>
+    <div class="sectiontitle"><h2>Projected income</h2></div>
     <div class="card pad">
-      <div class="between" style="flex-wrap:wrap;gap:12px;margin-bottom:14px">
-        <div class="segoptions" id="horizonSeg">
-          <button class="seg" data-h="1">Next 1 mo</button>
-          <button class="seg active" data-h="3">Next 3 mo</button>
-          <button class="seg" data-h="6">Next 6 mo</button>
-          <button class="seg" data-h="12">Next 12 mo</button>
-          <button class="seg" data-h="goal">Through goal date</button>
-        </div>
-        <label class="flex" style="font-size:13px;gap:6px;white-space:nowrap"><input type="checkbox" id="taxToggle"> Show after taxes <input id="taxRate" class="miniedit" style="width:52px;text-align:center"> %</label>
-        <div class="muted" id="taxExemptNote" style="font-size:12.5px;flex:1 1 100%;margin-top:2px"></div>
-      </div>
       <div id="projBox"></div>
+      <div class="projctl">
+        <div class="segoptions" id="horizonSeg">
+          <button class="seg" data-h="1">1 mo</button>
+          <button class="seg active" data-h="3">3 mo</button>
+          <button class="seg" data-h="6">6 mo</button>
+          <button class="seg" data-h="12">1 yr</button>
+          <button class="seg" data-h="goal">To goal</button>
+        </div>
+        <span class="spacer"></span>
+        <label class="flex" style="font-size:13px;gap:6px;white-space:nowrap"><input type="checkbox" id="taxToggle"> After taxes <input id="taxRate" class="miniedit" style="width:46px;text-align:center"> %</label>
+      </div>
+      <div class="muted" id="taxExemptNote" style="font-size:12.5px;margin-top:8px"></div>
     </div>
 
-    <div class="sectiontitle"><h2>Your streams</h2></div>
+    <div class="sectiontitle"><h2>Your streams</h2><span class="spacer"></span><button class="btn sm primary" id="addIncomeBtn">+ Stream</button></div>
     <div class="stack" id="incomeList"></div>
 
-    <div class="sectiontitle"><h2>Actual paychecks</h2><span class="hint">what really landed</span><span class="spacer"></span><button class="btn sm" id="scanStubBtn">📄 Scan / paste a stub</button></div>
+    <div class="sectiontitle"><h2>Actual paychecks</h2><span class="hint">what really landed</span><span class="spacer"></span>
+      <span class="flex" style="gap:8px"><button class="btn sm ghost" id="scanStubBtn"><span class="lgonly">Scan / paste a stub</span><span class="smonly">Scan stub</span></button>
+      <button class="btn sm primary" id="showAddPaycheck">+ Paycheck</button></span></div>
     <div class="card pad" id="stubPanel" style="display:none;margin-bottom:14px"></div>
     <div class="card pad" id="paycheckBox"></div>
   </section>
@@ -864,8 +894,13 @@
       <button class="btn sm ghost" id="markAllBillsBtn"><span class="lgonly">Mark all paid</span><span class="smonly">All paid</span></button>
       <button class="btn sm primary" id="showAddBill">+ Bill</button></span></div>
     <div id="billFloor"></div>
+    <div class="segoptions" id="billViewSeg" style="margin-bottom:10px">
+      <button class="seg active" data-bview="month">This month</button>
+      <button class="seg" data-bview="all">All bills</button>
+    </div>
     <div class="tabrow" id="billTabs"></div>
     <div class="card" id="billsList"></div>
+    <div id="billHidden" style="margin-top:8px"></div>
     <div id="calMsg" class="muted" style="font-size:13px;margin-top:8px"></div>
     <div class="card pad" id="addBillPanel" style="margin-top:12px;display:none">
       <b style="font-size:13.5px">Add a bill</b>
@@ -873,6 +908,7 @@
         <div class="field"><label>Bill name</label><input id="recName" placeholder="Rent"></div>
         <div class="field"><label>Category</label><select id="recCat"></select></div>
         <div class="field"><label>Amount / mo</label><input id="recAmt" type="number" placeholder="1450"></div>
+        <div class="field"><label>How often</label><select id="recFreq"></select></div>
         <div class="field"><label>Due day of month</label><input id="recDay" type="number" min="1" max="28" placeholder="1"></div>
         <div class="field"><label>Calendar reminder <span class="muted" style="font-weight:400">days before</span></label><input id="billAlertDays" type="number" min="0" max="14" placeholder="3"></div>
         <button class="btn primary" id="addRecBtn">Add bill</button>
@@ -1120,7 +1156,15 @@ const fmt = n => (n<0?"-":"")+"$"+Math.abs(Math.round(n)).toLocaleString();
 const fmt2 = n => (n<0?"-":"")+"$"+Math.abs(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const monthKey = d => (d||"").slice(0,7);
 const prettyMonth = k => { const [y,m]=k.split("-"); return new Date(+y,+m-1,1).toLocaleDateString(undefined,{month:"long",year:"numeric"}); };
-const todayISO = () => new Date().toISOString().slice(0,10);
+/* toISOString() converts to UTC first, so after ~8pm Eastern it reports tomorrow.
+   Every date in this app is a calendar date in YOUR timezone, never a UTC instant. */
+/* "2026-07-29" parses as UTC midnight, which is the 28th in any western timezone.
+   Anchoring to local noon makes date maths immune to offsets and DST. */
+const dayOf = iso => new Date(String(iso).slice(0,10)+"T12:00:00");
+const isoOf = d => { const x=(d instanceof Date)?d:(/^\d{4}-\d{2}-\d{2}/.test(String(d))?dayOf(d):new Date(d));
+  return isNaN(x)?"":(x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0")); };
+const monthOf = d => isoOf(d).slice(0,7);
+const todayISO = () => isoOf(new Date());
 /* "2026-08-05" is too wide for a stat tile and reads like a serial number. */
 const shortDate = iso => { if(!iso)return "—"; const [y,m,d]=iso.split("-").map(Number);
   return new Date(y,m-1,d).toLocaleDateString(undefined,{month:"short",day:"numeric"}); };
@@ -1142,7 +1186,7 @@ function uid(){
   return "id"+Date.now().toString(36)+(_uidc++).toString(36)+Math.random().toString(36).slice(2,10);
 }
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const daysBetween = (a,b) => (new Date(b)-new Date(a))/86400000;
+const daysBetween = (a,b) => Math.round((dayOf(b)-dayOf(a))/86400000);
 const num = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
 
 /* ---------- seed (Lawrence's numbers, all editable) ---------- */
@@ -1295,7 +1339,9 @@ function normalize(){
   /* Early bank syncs glued the org name onto a name that already contained it,
      giving "USAA USAA Classic Checking". Collapse a repeated leading run of words. */
   (db.accounts||[]).forEach(a=>{ a.name=dedupeName(a.name); });
-  (db.debts||[]).forEach(x=>{ x.name=dedupeName(x.name); });
+  (db.debts||[]).forEach(x=>{ x.name=dedupeName(x.name);
+    if(x.kind==="loan")x.kind="personal";
+    if(!DEBT_KINDS[x.kind])x.kind="other"; });
   (db.income||[]).forEach(s=>{ if(!Array.isArray(s.extras)) s.extras=[];
     if(!s.payFreq) s.payFreq=(s.model==="daily"||s.model==="hourly")?"weekly":"monthly";
     if(s.model==="daily" && !s.dwk){ if(num(s.units)>7) s.units=Math.max(1,Math.round(num(s.units)/4.333)); s.dwk=true; } });
@@ -1363,7 +1409,7 @@ function showToast(undone){
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),5000);
 }
 let _renderQueued=false;
-function saveAll(){ syncLinkedDebts(); persist(); if(_renderQueued)return; _renderQueued=true; setTimeout(()=>{ _renderQueued=false; renderAll(); },0); }
+function saveAll(){ syncLinkedDebts(); try{ syncDebtBills(); }catch(e){} persist(); if(_renderQueued)return; _renderQueued=true; setTimeout(()=>{ _renderQueued=false; renderAll(); },0); }
 
 /* ---------- categorization ---------- */
 function categorize(desc,amount){ const d=(desc||"").toLowerCase();
@@ -1384,22 +1430,128 @@ function parseCSV(text){
 function normalizeDate(s){ s=(s||"").trim();
   let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if(m)return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
   m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/); if(m){let[_,mo,da,yr]=m;if(yr.length===2)yr="20"+yr;return `${yr}-${String(mo).padStart(2,"0")}-${String(da).padStart(2,"0")}`;}
-  const d=new Date(s); if(!isNaN(d))return d.toISOString().slice(0,10); return s; }
+  const d=new Date(s); if(!isNaN(d))return isoOf(d); return s; }
 function parseAmount(s){ if(s==null)return NaN; const n=parseFloat(String(s).replace(/[^0-9.\-]/g,"")); return isNaN(n)?NaN:n; }
 
 /* ---------- pay-stub reading ---------- */
+/* --- reading a pay stub ---
+   Two things broke the old version. pdf.js flattens a page into one long line, so
+   "look for the amount on the same line as the label" had nothing to work with. And
+   a physical paycheck writes the amount in words — "TWO THOUSAND THIRTY-NINE &
+   80/100 DOLLARS" — which no numeric regex will ever find. This handles both, skips
+   year-to-date columns, and says when it isn't sure instead of reporting $0.00. */
+const NUM_WORDS={zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,
+  eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,
+  twenty:20,thirty:30,forty:40,fourty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+const NUM_SCALES={hundred:100,thousand:1000,million:1000000};
+/* "two thousand thirty-nine & 80/100" -> 2039.80 */
+function wordsToAmount(str){
+  if(!str)return null;
+  let s=String(str).toLowerCase().replace(/[^a-z0-9/&\s.-]/g," ");
+  let cents=0, hadCents=false;
+  const frac=s.match(/(\d{1,2})\s*\/\s*100/);
+  if(frac){ cents=parseInt(frac[1],10); hadCents=true; s=s.slice(0,frac.index); }
+  else { const c=s.match(/\band\s+(\d{1,2})\s+cents?\b/); if(c){ cents=parseInt(c[1],10); hadCents=true; s=s.slice(0,c.index); } }
+  s=s.replace(/\b(dollars?|and|&)\b/g," ").replace(/-/g," ");
+  const words=s.split(/\s+/).filter(w=>w&&(NUM_WORDS[w]!=null||NUM_SCALES[w]!=null));
+  if(!words.length) return hadCents?null:null;
+  let total=0,current=0,saw=false;
+  for(const w of words){
+    if(NUM_WORDS[w]!=null){ current+=NUM_WORDS[w]; saw=true; }
+    else if(w==="hundred"){ current=(current||1)*100; saw=true; }
+    else { total+=(current||1)*NUM_SCALES[w]; current=0; saw=true; }
+  }
+  if(!saw)return null;
+  const whole=total+current;
+  if(whole<=0&&!hadCents)return null;
+  return Math.round((whole+cents/100)*100)/100;
+}
+const MONEY_RE=/\$\s?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)|(\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+\.\d{2})/g;
+/* every money-looking figure with where it sat, so labels can be matched by proximity */
+function moneyTokens(text){
+  const out=[]; MONEY_RE.lastIndex=0; let m;
+  while((m=MONEY_RE.exec(text))!==null){
+    const raw=(m[1]||m[2]||"").replace(/,/g,"");
+    const v=parseFloat(raw);
+    if(!isFinite(v))continue;
+    /* a bare 4-digit integer is usually a year or an ID, not money */
+    if(!m[1]&&!/[.,]/.test(m[1]||m[2]||"")&&v>=1000)continue;
+    out.push({v,i:m.index,end:m.index+m[0].length});
+  }
+  return out;
+}
+const YTD_RE=/\b(ytd|y\.?t\.?d|year[\s-]?to[\s-]?date)\b/i;
+/* Match a label to the amount that belongs to it. Two rules do the work:
+   the CLOSEST figure after the label wins (a stub prints "Gross Pay 2,625.00
+   18,375.00" as current-then-YTD), and a figure sitting just *before* the label is
+   only a fallback, because "Federal Tax 315.00 Net Pay 2,039.80" would otherwise
+   hand the tax figure to "net pay". Earlier labels in the list are more specific
+   and always outrank later ones. */
+function amountForLabel(text,toks,labels,opts){
+  const low=text.toLowerCase(), o=opts||{};
+  const afterWin=o.after||70, beforeWin=o.before||4;
+  let best=null;
+  labels.forEach((lab,rank)=>{
+    let from=0,idx;
+    while((idx=low.indexOf(lab,from))!==-1){
+      from=idx+lab.length;
+      const labEnd=idx+lab.length;
+      let fwd=null,bwd=null;
+      for(const t of toks){
+        if(t.v<=0)continue;
+        /* a figure introduced by a year-to-date heading isn't this period's */
+        if(YTD_RE.test(text.slice(Math.max(0,t.i-10),t.i)))continue;
+        const ga=t.i-labEnd;
+        if(ga>=0&&ga<=afterWin&&(fwd===null||ga<fwd.d)) fwd={v:t.v,d:ga};
+        const gb=idx-t.end;
+        if(gb>=0&&gb<=beforeWin&&(bwd===null||gb<bwd.d)) bwd={v:t.v,d:gb};
+      }
+      const pick=o.preferBefore?(bwd||fwd):(fwd||bwd);
+      if(!pick)continue;
+      const score=rank*1000+pick.d+(pick===(o.preferBefore?bwd:fwd)?0:200);
+      if(best===null||score<best.score) best={v:pick.v,score,label:lab};
+    }
+  });
+  return best;
+}
 function parseStub(text){
-  const t=(text||"").replace(/\r/g,""); const lines=t.split("\n");
-  const money=/\$?\s*(\d[\d,]*\.\d{2})/;
-  const amtNear=labels=>{ for(const ln of lines){ const low=ln.toLowerCase();
-    if(labels.some(l=>low.includes(l))){ const m=ln.match(money); if(m) return parseFloat(m[1].replace(/,/g,"")); } } return null; };
-  const net=amtNear(["net pay","net amount","take home","take-home","direct deposit","net check","net"]);
-  const gross=amtNear(["gross pay","gross earnings","total earnings","gross wages","gross"]);
+  const t=(text||"").replace(/\r/g," ").replace(/[ \t]+/g," ");
+  const toks=moneyTokens(t);
+  const NET_LABELS=["net pay","net amount","net check","take home","take-home","net deposit","direct deposit","net earnings","net wages","net "];
+  const GROSS_LABELS=["gross pay","gross earnings","total earnings","gross wages","total gross","gross "];
+  const netHit=amountForLabel(t,toks,NET_LABELS);
+  const grossHit=amountForLabel(t,toks,GROSS_LABELS);
+  let net=netHit?netHit.v:null, gross=grossHit?grossHit.v:null;
+  /* A right-aligned table flattens to "2,039.80 Net Pay 2,625.00 Gross Pay", so both
+     labels grab the same figure. When that happens the values sit before the labels. */
+  if(net!=null&&gross!=null&&Math.abs(net-gross)<0.005){
+    const nb=amountForLabel(t,toks,NET_LABELS,{preferBefore:true,before:6});
+    const gb=amountForLabel(t,toks,GROSS_LABELS,{preferBefore:true,before:6});
+    if(nb&&gb&&Math.abs(nb.v-gb.v)>0.005){ net=Math.min(nb.v,gb.v); gross=Math.max(nb.v,gb.v); }
+  }
+  /* a physical check spells the amount out — that figure is the net */
+  const spelled=(()=>{
+    const m=t.match(/\b(?:pay\s*(?:the\s*sum\s*of)?\s*:?\s*)?((?:(?:twenty|thirty|forty|fourty|fifty|sixty|seventy|eighty|ninety|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|hundred|thousand|million|and|&|[\s-])+?)(?:\s*(?:&|and)\s*\d{1,2}\s*\/\s*100|\s+and\s+\d{1,2}\s+cents?)\s*(?:dollars?)?)/i);
+    return m?wordsToAmount(m[1]):null; })();
+  if(spelled!=null&&(net==null||net<=0)) net=spelled;
+  /* net can't exceed gross — if the labels crossed, straighten them out */
+  if(net!=null&&gross!=null&&net>gross+0.005){ const a=net,b=gross; net=Math.min(a,b); gross=Math.max(a,b); }
+  if(net!=null&&net<=0)net=null;
+  if(gross!=null&&gross<=0)gross=null;
   let date=null;
-  const dLabels=["pay date","check date","payment date","pay period end","period ending","period end","date"];
-  for(const ln of lines){ const low=ln.toLowerCase(); if(dLabels.some(l=>low.includes(l))){ const d=ln.match(/(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/); if(d){date=normalizeDate(d[1]);break;} } }
+  const dLabels=["pay date","check date","payment date","paid on","date of payment","period ending","pay period end","period end","issue date"];
+  const low=t.toLowerCase();
+  for(const lab of dLabels){ const i=low.indexOf(lab);
+    if(i!==-1){ const seg=t.slice(i,i+64);
+      const d=seg.match(/(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/);
+      if(d){ date=normalizeDate(d[1].replace(/\./g,"/")); break; } } }
   if(!date){ const d=t.match(/(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/); if(d)date=normalizeDate(d[1]); }
-  return {date,gross,net};
+  /* biggest few figures, so you can pick when the labels aren't there */
+  const seen=new Set(), candidates=[];
+  toks.slice().sort((a,b)=>b.v-a.v).forEach(x=>{ if(x.v>0&&!seen.has(x.v)&&candidates.length<8){seen.add(x.v);candidates.push(x.v);} });
+  if(spelled!=null&&!seen.has(spelled))candidates.unshift(spelled);
+  return {date,gross,net,spelled,candidates,
+    how:{net:netHit?netHit.label.trim():(spelled!=null?"written amount":null),gross:grossHit?grossHit.label.trim():null}};
 }
 async function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("load failed")); document.head.appendChild(s); }); }
 async function pdfToText(file){
@@ -1538,7 +1690,7 @@ async function fetchDivSchedule(ticker){
       .filter(r=>/^\d{4}-\d{2}-\d{2}$/.test(r.d)).sort((a,b)=>b.d.localeCompare(a.d));
     if(!rows.length) return null;
     const cut=new Date(); cut.setFullYear(cut.getFullYear()-1);
-    const cutISO=cut.toISOString().slice(0,10);
+    const cutISO=isoOf(cut);
     const yr=rows.filter(r=>r.d>=cutISO);
     const n=yr.length;
     const freq=n>=10?"monthly":n>=3?"quarterly":n===2?"semiannual":n===1?"annual":"irregular";
@@ -1583,11 +1735,11 @@ const ACCT_KINDS={
   digital:{label:"Digital wallet",group:"Digital wallets",color:"#7c5cf0"},
   cash:{label:"Physical cash",group:"Cash",color:"#0ca35a"},
   credit:{label:"Credit card",group:"Cards & credit",color:"#dc2626",liability:true,revolving:true},
-  lineofcredit:{label:"Line of credit",group:"Cards & credit",color:"#b91c1c",liability:true,revolving:true},
+  lineofcredit:{label:"Line of credit",group:"Cards & credit",color:"#b91c1c",liability:true,revolving:true,debtKind:"loc"},
   autoloan:{label:"Auto loan",group:"Loans",color:"#ea580c",liability:true,installment:true,debtKind:"auto"},
-  studentloan:{label:"Student loan",group:"Loans",color:"#d97706",liability:true,installment:true,debtKind:"loan"},
-  personalloan:{label:"Personal loan",group:"Loans",color:"#b45309",liability:true,installment:true,debtKind:"loan"},
-  mortgage:{label:"Mortgage",group:"Loans",color:"#9a3412",liability:true,installment:true,debtKind:"loan"},
+  studentloan:{label:"Student loan",group:"Loans",color:"#d97706",liability:true,installment:true,debtKind:"student"},
+  personalloan:{label:"Personal loan",group:"Loans",color:"#b45309",liability:true,installment:true,debtKind:"personal"},
+  mortgage:{label:"Mortgage",group:"Loans",color:"#9a3412",liability:true,installment:true,debtKind:"mortgage"},
   other:{label:"Other account",group:"Other",color:"#565a66"}
 };
 const HOLDER_KINDS=Object.entries(ACCT_KINDS).filter(([,o])=>o.holder);
@@ -1637,6 +1789,42 @@ function makeDebtFor(a){
 }
 /* Months to clear a balance at a fixed payment and rate. Null when the payment
    never covers the interest, which is worth saying out loud rather than hiding. */
+/* A card you're carrying is a monthly obligation, so it belongs in Bills next to
+   rent — otherwise the budget says you're fine while a minimum payment goes unpaid. */
+function debtBill(d){ return d&&d.billId?db.recurring.find(b=>b.id===d.billId):null; }
+function addDebtToBudget(d,opts){
+  const k=debtKindOf(d);
+  const b={id:uid(),name:d.name,category:k.cat,amount:Math.round(debtPayAmount(d))||0,
+    dueDay:Math.min(28,Math.max(1,num(d.dueDay)||1)),freq:"monthly",group:"Debt",tier:"essential",
+    debtId:d.id,auto:!!(opts&&opts.auto),estimated:!!(opts&&opts.estimated)};
+  db.recurring.push(b); d.billId=b.id; d.noBill=false; return b;
+}
+function removeDebtFromBudget(d){
+  if(!d.billId)return;
+  const id=d.billId;
+  db.transactions=db.transactions.filter(t=>!(t.billRef&&String(t.billRef).split("|")[0]===id));
+  db.recurring=db.recurring.filter(b=>b.id!==id);
+  d.billId=""; d.noBill=true;
+}
+function syncDebtBills(){
+  let changed=false, thisM=monthKey(todayISO());
+  db.debts.forEach(d=>{
+    if(d.billId&&!db.recurring.some(b=>b.id===d.billId)){ d.billId=""; changed=true; }
+    let bill=debtBill(d);
+    /* an active revolving balance gets a bill on its own, once */
+    if(!bill&&isRevolving(d)&&num(d.balance)>0&&d.noBill!==true){
+      bill=addDebtToBudget(d,{auto:true,estimated:true}); changed=true; }
+    if(bill){
+      if(bill.estimated){ const est=Math.round(debtPayAmount(d));
+        if(est>0&&num(bill.amount)!==est){ bill.amount=est; changed=true; } }
+      if(bill.name!==d.name&&!bill.renamed){ bill.name=d.name; changed=true; }
+      /* clear an auto-made bill once the card is at zero and nothing was paid on it */
+      if(bill.auto&&num(d.balance)<=0&&billPaidAmt(bill,thisM)<=0.005){
+        db.recurring=db.recurring.filter(b=>b.id!==bill.id); d.billId=""; changed=true; }
+    }
+  });
+  return changed;
+}
 function payoffMonths(bal,apr,pmt){
   bal=num(bal); pmt=num(pmt); const r=num(apr)/100/12;
   if(bal<=0||pmt<=0)return null;
@@ -1646,7 +1834,7 @@ function payoffMonths(bal,apr,pmt){
 }
 function payoffDateISO(bal,apr,pmt){ const m=payoffMonths(bal,apr,pmt);
   if(m==null||!isFinite(m))return null;
-  const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+m); return d.toISOString().slice(0,10); }
+  const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+m); return isoOf(d); }
 const LIAB_GROUPS=["Cards & credit","Loans"];
 const groupTotal=g=>topAccounts().filter(a=>kindOf(a).group===g)
   .reduce((s,a)=>s+(LIAB_GROUPS.includes(g)?liabBalance(a):assetBalance(a)),0);
@@ -1684,18 +1872,18 @@ function nextDivDate(h){
   let base=h.lastDiv||h.nextDivHint; if(!base)return null;
   const d=new Date(base+"T12:00:00"), today=todayISO();
   let guard=0;
-  while(d.toISOString().slice(0,10)<=today&&guard++<200) d.setMonth(d.getMonth()+step);
-  return d.toISOString().slice(0,10);
+  while(isoOf(d)<=today&&guard++<200) d.setMonth(d.getMonth()+step);
+  return isoOf(d);
 }
 function upcomingDividends(days){
-  const to=new Date(); to.setDate(to.getDate()+(days||120)); const toISO=to.toISOString().slice(0,10);
+  const to=new Date(); to.setDate(to.getDate()+(days||120)); const toISO=isoOf(to);
   const out=[];
   db.holdings.forEach(h=>{ if(!(num(h.divPerShare)>0&&num(h.shares)>0))return;
     const f=divFreqOf(h).n; if(!f)return;
     let d=nextDivDate(h); if(!d)return;
     const step=Math.round(12/f); let guard=0;
     while(d<=toISO&&guard++<24){ out.push({date:d,name:h.ticker||h.name||"—",amount:divPerPayment(h)});
-      const nd=new Date(d+"T12:00:00"); nd.setMonth(nd.getMonth()+step); d=nd.toISOString().slice(0,10); } });
+      const nd=new Date(d+"T12:00:00"); nd.setMonth(nd.getMonth()+step); d=isoOf(nd); } });
   return out.sort((a,b)=>a.date.localeCompare(b.date));
 }
 const totalDebt=()=>db.debts.reduce((s,d)=>s+num(d.balance),0);
@@ -1712,7 +1900,7 @@ function avgMonthlyBurn(){ const bm={}; for(const t of db.transactions){ if(t.am
   const ms=Object.keys(bm).sort().reverse().slice(0,3); if(!ms.length)return null; return ms.reduce((s,m)=>s+bm[m],0)/ms.length; }
 function effectiveBurn(){ if(db.settings.burnOverride!=null&&db.settings.burnOverride!=="")return +db.settings.burnOverride;
   const a=avgMonthlyBurn(); if(a!=null)return Math.round(a);
-  const rec=db.recurring.reduce((s,r)=>s+num(r.amount),0); return rec||1000; }
+  const rec=db.recurring.reduce((s,r)=>s+billMonthly(r),0); return rec||1000; }
 
 /* income */
 const FREQ={weekly:52,biweekly:26,semimonthly:24,monthly:12,annual:1};
@@ -1734,7 +1922,7 @@ function payDates(s,fromISO,toISO){
   const out=[]; const d=new Date(s.firstPay+"T12:00:00"); const lim=new Date(hardEnd+"T12:00:00"); const loD=new Date(lo+"T12:00:00");
   let guard=0;
   while(d<=lim&&guard++<3000){
-    if(d>=loD) out.push(d.toISOString().slice(0,10));
+    if(d>=loD) out.push(isoOf(d));
     if(py===52)d.setDate(d.getDate()+7);
     else if(py===26)d.setDate(d.getDate()+14);
     else if(py===24)d.setDate(d.getDate()+15);
@@ -1757,7 +1945,7 @@ function scheduledPay(s,fromISO,toISO){
 function nextPayday(s){
   if(s.active===false||!s.firstPay||s.model==="onetime") return null;
   const horizon=new Date(); horizon.setFullYear(horizon.getFullYear()+1);
-  const d=payDates(s,todayISO(),horizon.toISOString().slice(0,10));
+  const d=payDates(s,todayISO(),isoOf(horizon));
   return d&&d.length?d[0]:null;
 }
 function nextPaydayAll(){
@@ -1794,7 +1982,7 @@ function yearIncome(){
   const estEarnedNet=db.income.reduce((s,x)=>s+netOf(x,scheduledPay(x,jan1,today)),0);
   const earned=logged>0?logged:estEarned, earnedNet=logged>0?loggedNet:estEarnedNet;
   const tomorrow=new Date(today+"T12:00:00"); tomorrow.setDate(tomorrow.getDate()+1);
-  const from=tomorrow.toISOString().slice(0,10);
+  const from=isoOf(tomorrow);
   const projected=db.income.reduce((s,x)=>s+scheduledPay(x,from,dec31),0);
   const projectedNet=db.income.reduce((s,x)=>s+netOf(x,scheduledPay(x,from,dec31)),0);
   return {year:y,earned,earnedNet,projected,projectedNet,logged,estEarned,
@@ -1822,11 +2010,11 @@ function projectIncome(fromISO,toISO){
 }
 
 /* credit */
-function utilization(){ let bal=0,lim=0; for(const d of db.debts){ if(d.kind==="card"&&num(d.limit)>0){bal+=num(d.balance);lim+=num(d.limit);} } return lim>0?{pct:bal/lim*100,bal,lim}:{pct:null,bal,lim}; }
+function utilization(){ let bal=0,lim=0; for(const d of db.debts){ if(isRevolving(d)&&num(d.limit)>0){bal+=num(d.balance);lim+=num(d.limit);} } return lim>0?{pct:bal/lim*100,bal,lim}:{pct:null,bal,lim}; }
 function latestScore(){ if(!db.creditLog.length)return null; return [...db.creditLog].sort((a,b)=>a.date.localeCompare(b.date)).slice(-1)[0]; }
 
 /* dividends */
-function divTrailing12(){ const cut=new Date(todayISO()); cut.setFullYear(cut.getFullYear()-1); const c=cut.toISOString().slice(0,10);
+function divTrailing12(){ const cut=dayOf(todayISO()); cut.setFullYear(cut.getFullYear()-1); const c=isoOf(cut);
   return db.dividends.filter(d=>d.date>=c).reduce((s,d)=>s+num(d.amount),0); }
 const divTotal=()=>db.dividends.reduce((s,d)=>s+num(d.amount),0);
 
@@ -1865,11 +2053,12 @@ function renderStart(){
 function renderComingUp(){
   const el=document.getElementById("comingUp"); if(!el)return;
   const today=todayISO(), endD=new Date(today+"T12:00:00"); endD.setDate(endD.getDate()+14);
-  const to=endD.toISOString().slice(0,10);
+  const to=isoOf(endD);
   const items=[];
   const months=[monthKey(today)];
-  const nm=new Date(today+"T12:00:00"); nm.setMonth(nm.getMonth()+1); months.push(nm.toISOString().slice(0,7));
+  const nm=new Date(today+"T12:00:00"); nm.setMonth(nm.getMonth()+1); months.push(monthOf(nm));
   db.recurring.forEach(b=>months.forEach(mk=>{
+    if(!billDueIn(b,mk))return;
     const due=billDue(b,mk);
     if(due>=today&&due<=to&&!billPaid(b,mk)) items.push({d:due,t:"bill",name:b.name,amt:-num(b.amount)});
   }));
@@ -1947,16 +2136,17 @@ function renderDash(){
   // cover this month's activity and the things you can act on instead of repeating it.
   const pcNet=db.paychecks.filter(p=>monthKey(p.date)===curMonth).reduce((a,p)=>a+num(p.net),0);
   const gotIn=pcNet+db.transactions.filter(t=>monthKey(t.date)===curMonth&&t.amount>0&&!t.billRef&&!isNeutral(t)).reduce((a,t)=>a+t.amount,0);
-  const prev=(()=>{const [y,m]=curMonth.split("-").map(Number);const d=new Date(y,m-1,1);d.setMonth(d.getMonth()-1);return d.toISOString().slice(0,7);})();
+  const prev=(()=>{const [y,m]=curMonth.split("-").map(Number);const d=new Date(y,m-1,1);d.setMonth(d.getMonth()-1);return monthOf(d);})();
   const prevSpend=monthTotals(prev).exp;
   const dayOfMonth=curMonth===monthKey(todayISO())?new Date().getDate():31;
   const prevToDate=prevSpend*Math.min(1,dayOfMonth/30.44);
   const pace=prevToDate>0?Math.round((mt.exp-prevToDate)/prevToDate*100):null;
   const budCats=Object.keys(db.budgets);
   const avail=budCats.reduce((a,c)=>a+availableFor(c,curMonth),0);
-  const billsTot=db.recurring.reduce((a,b)=>a+num(b.amount),0);
-  const billsPaid=db.recurring.filter(b=>billPaid(b,curMonth));
-  const billsLeft=billsTot-billsPaid.reduce((a,b)=>a+num(b.amount),0);
+  const billsTot=db.recurring.reduce((a,b)=>a+billAmountIn(b,curMonth),0);
+  const billsPaidAmtDash=db.recurring.reduce((a,b)=>a+(billDueIn(b,curMonth)?billPaidAmt(b,curMonth):0),0);
+  const billsPaid=db.recurring.filter(b=>billDueIn(b,curMonth)&&billPaid(b,curMonth));
+  const billsLeft=Math.max(0,billsTot-billsPaidAmtDash);
   const dStart=db.debts.reduce((a,d)=>a+debtOrig(d),0), dNow=totalDebt(), dPaid=debtPaidLogged(), dN=debtPayCount();
   const goalPct=num(g.target)?Math.min(100,Math.round(cash/num(g.target)*100)):null;
   const kpis=[
@@ -1967,7 +2157,7 @@ function renderDash(){
     {go:"budget",label:"Left to spend",val:budCats.length?fmt(avail):"—",cls:avail<0?"neg":"pos",icon:"cash",c:C.goal,
      sub:budCats.length?`across ${budCats.length} budget${budCats.length===1?"":"s"}`:"set budgets to track this"},
     {go:"budget",label:"Bills",val:db.recurring.length?fmt(billsLeft):"—",cls:billsLeft>0?"":"pos",icon:"debt",c:C.acc,
-     sub:db.recurring.length?`${billsPaid.length} of ${db.recurring.length} paid · ${fmt(billsLeft)} to go`:"add your bills"},
+     sub:db.recurring.length?`${billsPaid.length} of ${db.recurring.filter(b=>billDueIn(b,curMonth)).length} paid · ${fmt(billsLeft)} to go`:"add your bills"},
     {go:"credit",label:"Payments logged",val:db.debts.length?fmt(dPaid):"—",cls:"pos",icon:"net",c:C.neg,
      sub:!db.debts.length?"add your debts":dN?`${dN} payment${dN===1?"":"s"} · ${fmt(dNow)} still owed`:`${fmt(dNow)} owed — log a payment to track this`},
     {go:"goals",label:"Cash goal",val:goalPct!=null?goalPct+"%":"—",cls:"",icon:"clock",c:C.inv,
@@ -1983,7 +2173,7 @@ function renderDash(){
     <div class="bar"><span style="width:${(v/max*100).toFixed(1)}%;background:${catColor[c]||'#64748b'}"></span></div></div>`).join("")+`</div>`+
     (entries.length>5?`<div class="scrollhint">scroll for ${entries.length-5} more</div>`:"")
     :`<div class="empty">No spending logged for ${prettyMonth(curMonth)} yet. Import a CSV in Spending, or check off bills in Budget.</div>`;
-  const cutD=new Date(); cutD.setDate(cutD.getDate()-30); const cut=cutD.toISOString().slice(0,10);
+  const cutD=new Date(); cutD.setDate(cutD.getDate()-30); const cut=isoOf(cutD);
   const sorted=[...db.transactions].sort((a,b)=>b.date.localeCompare(a.date));
   let recent=sorted.filter(t=>t.date>=cut).slice(0,30);
   const windowed=recent.length>0;
@@ -1995,7 +2185,7 @@ function renderDash(){
 
 /* INCOME */
 let horizon="3";
-let expStream=null;
+let expStream=null,editPay=null,addPayOpen=false;
 function renderIncome(){
   const from=todayISO();
   const est=monthlyIncomeNet();
@@ -2003,20 +2193,19 @@ function renderIncome(){
   const taxed=db.settings.taxEnabled;
   document.getElementById("incomeKpis").innerHTML=`
     <div class="card kpi"><div class="label">Est. monthly income</div><div class="val pos">${fmt(est)}</div><div class="sub">${taxed?`after ~${num(db.settings.taxRate)}% tax`:"recurring streams combined"}</div></div>
-    <div class="card kpi"><div class="label">Next payday</div><div class="val">${np?esc(shortDate(np)):"—"}</div><div class="sub">${np?(daysUntil(np)<=0?"today":daysUntil(np)+" days away"):"add a first paycheck date"}</div></div>
+    <div class="card kpi"><div class="label">Next payday</div><div class="val">${np?esc(shortDate(np)):"—"}</div><div class="sub">${np?(daysUntil(np)<=0?"today":daysUntil(np)===1?"tomorrow":"in "+daysUntil(np)+" days"):"add a first paycheck date"}</div></div>
     <div class="card kpi"><div class="label">Income in ${yr.year}</div><div class="val">${fmt(yr.totalNet)}</div><div class="sub">${fmt(yr.earnedNet)} earned${yr.basis==="estimated"?" (est.)":""} + ${fmt(yr.projectedNet)} projected</div></div>`;
   // projection
   let to;
-  if(horizon==="goal"){ to=db.goal.deadline||from; } else { const d=new Date(from); d.setMonth(d.getMonth()+ +horizon); to=d.toISOString().slice(0,10); }
+  if(horizon==="goal"){ to=db.goal.deadline||from; } else { const d=dayOf(from); d.setMonth(d.getMonth()+ +horizon); to=isoOf(d); }
   const pr=projectIncome(from, to<from?from:to);
-  const label = horizon==="goal"?`through ${db.goal.deadline}`:`over the next ${horizon} month${horizon==="1"?"":"s"}`;
+  const label = horizon==="goal"?`through ${shortDate(db.goal.deadline)}`:`next ${horizon} month${horizon==="1"?"":"s"}`;
   document.getElementById("projBox").innerHTML=`
-    <div class="between" style="align-items:flex-end;margin-bottom:14px">
-      <div><div class="muted" style="font-size:13px">Projected income ${label}${taxNote()}</div><div class="big pos">${fmt(pr.totalNet)}</div>
-      <div class="muted" style="font-size:12.5px">${from} → ${to<from?from:to}</div></div></div>
-    ${pr.parts.filter(p=>p.amt>0).length?`<table><thead><tr><th>Stream</th><th class="amt">Projected</th></tr></thead><tbody>
-      ${pr.parts.map(p=>`<tr><td>${esc(p.name)}${p.notax?` <span class="muted" style="font-size:12px">· not taxed</span>`:""}</td><td class="amt ${p.amt>0?'pos':'muted'}">${fmt(p.net)}</td></tr>`).join("")}</tbody></table>`
-      :`<div class="empty">Add an income stream to see a projection.</div>`}`;
+    <div class="big pos" style="line-height:1.05">${fmt(pr.totalNet)}</div>
+    <div class="muted" style="font-size:13px;margin-top:4px">${esc(label)}${taxNote()} · ${esc(shortDate(from))} → ${esc(shortDate(to<from?from:to))}</div>
+    ${pr.parts.filter(p=>p.amt>0).length?`<div class="deflist" style="margin-top:14px;border-top:1px solid var(--line);padding-top:6px">
+      ${pr.parts.filter(p=>p.amt>0).map(p=>`<div class="defrow"><span class="k">${esc(p.name)}${p.notax?` · not taxed`:""}</span><span class="v pos">${fmt(p.net)}</span></div>`).join("")}</div>`
+      :`<div class="empty" style="padding:14px 0 4px">Add an income stream to see a projection.</div>`}`;
   const tt=document.getElementById("taxToggle"); if(tt)tt.checked=!!db.settings.taxEnabled;
   const trI=document.getElementById("taxRate"); if(trI)trI.value=num(db.settings.taxRate);
   const exN=document.getElementById("taxExemptNote");
@@ -2041,7 +2230,7 @@ function renderIncome(){
         <div class="damt"><div class="dbal">${fmt(streamMonthly(s))}</div><div class="dof">per month</div></div>
         <button class="aedit${open?" on":""}" data-iedit="${s.id}" aria-label="Edit ${esc(s.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
       </div>
-      ${np?`<div class="dbarrow" style="padding-bottom:12px"><span style="font-size:13px;color:var(--pos);font-weight:580">Next payday ${esc(shortDate(np))} · ${daysUntil(np)<=0?"today":daysUntil(np)+" days"}</span></div>`:""}
+      ${np?`<div class="dbarrow" style="padding-bottom:12px"><span style="font-size:13px;color:var(--pos);font-weight:580">Next payday ${esc(shortDate(np))} · ${daysUntil(np)<=0?"today":daysUntil(np)===1?"tomorrow":"in "+daysUntil(np)+" days"}</span></div>`:""}
       ${open?`<div class="dpanel">
         <div class="formgrid"><div class="field"><label>Name</label><input value="${esc(s.name)}" data-iname="${s.id}"></div></div>
         <div class="muted" style="font-size:12.5px;margin-top:6px">${esc(win)}</div>
@@ -2141,26 +2330,88 @@ function renderPaychecks(){
   const mk=monthKey(todayISO());
   const tm=db.paychecks.filter(p=>monthKey(p.date)===mk);
   const gross=tm.reduce((s,p)=>s+num(p.gross),0), net=tm.reduce((s,p)=>s+num(p.net),0), est=monthlyIncomeEstimate();
+  const list=[...db.paychecks].sort((a,b)=>b.date.localeCompare(a.date));
+  const thisYear=todayISO().slice(0,4);
+  const row=p=>{ const editing=editPay===p.id, g=num(p.gross), n=num(p.net);
+    const withheld=g>0&&n>0?g-n:0;
+    return `<div class="brow${editing?" editing":""}">
+      <div class="bmain" data-payopen="${p.id}">
+        <div class="binfo">
+          <div class="bname">${esc(p.source||"Paycheck")}</div>
+          <div class="bmeta">${esc(shortDate(p.date))}${String(p.date).slice(0,4)!==thisYear?" "+String(p.date).slice(0,4):""}${g>0?` · ${fmt(g)} gross`:""}${withheld>0?` · ${fmt(withheld)} withheld`:""}</div>
+        </div>
+        <div class="bamt roll pos">${fmt(n||g)}<em>${n?"net":"gross"}</em></div>
+        <button class="aedit${editing?" on":""}" data-payedit="${p.id}" aria-label="Edit this paycheck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+      </div>
+      ${editing?`<div class="bpanel">
+        <div class="formgrid">
+          <div class="field"><label>Date</label><input type="date" value="${esc(p.date)}" data-paydate="${p.id}"></div>
+          <div class="field"><label>Source</label><input value="${esc(p.source||"")}" data-paysrc="${p.id}"></div>
+          <div class="field"><label>Gross</label><input type="number" step="0.01" value="${g||""}" data-paygross="${p.id}"></div>
+          <div class="field"><label>Net (take-home)</label><input type="number" step="0.01" value="${n||""}" data-paynet="${p.id}"></div>
+        </div>
+        ${withheld>0?`<div class="muted" style="font-size:12.5px;margin-top:8px">${fmt2(withheld)} withheld — ${(withheld/g*100).toFixed(1)}% of gross.</div>`:""}
+        <div class="toolbar" style="margin:12px 0 0">
+          <button class="btn sm" data-paydup="${p.id}">Duplicate</button>
+          <div class="spacer"></div>
+          <button class="btn sm danger" data-pcdel="${p.id}">Delete</button>
+          <button class="btn sm primary" data-paydone="1">Done</button>
+        </div>
+      </div>`:""}
+    </div>`; };
   box.innerHTML=`
    <div class="grid kpis" style="margin-bottom:14px">
-     <div class="card kpi"><div class="label">Received this month (net)</div><div class="val pos">${fmt(net)}</div><div class="sub">${tm.length} paycheck${tm.length===1?"":"s"}</div></div>
+     <div class="card kpi"><div class="label">Received this month</div><div class="val pos">${fmt(net)}</div><div class="sub">${tm.length} paycheck${tm.length===1?"":"s"} · net</div></div>
      <div class="card kpi"><div class="label">Gross this month</div><div class="val">${fmt(gross)}</div><div class="sub">before taxes</div></div>
      <div class="card kpi"><div class="label">Estimated (gross)</div><div class="val">${fmt(est)}</div><div class="sub">from your streams</div></div>
    </div>
-   ${db.paychecks.length?`<table><thead><tr><th>Date</th><th>Source</th><th class="amt">Gross</th><th class="amt">Net</th><th></th></tr></thead><tbody>
-     ${[...db.paychecks].sort((a,b)=>b.date.localeCompare(a.date)).map(p=>`<tr><td>${p.date}</td><td>${esc(p.source||"")}</td><td class="amt">${fmt2(num(p.gross))}</td><td class="amt pos">${fmt2(num(p.net))}</td><td><button class="btn ghost sm" data-pcdel="${p.id}">✕</button></td></tr>`).join("")}
-     </tbody></table>`:`<div class="empty">No paychecks logged yet. Add one below, or scan a stub above.</div>`}
-   <div class="formgrid" style="margin-top:12px">
-     <div class="field"><label>Date</label><input id="pc-date" type="date" value="${todayISO()}"></div>
-     <div class="field"><label>Source</label><input id="pc-source" placeholder="Concrete Films"></div>
-     <div class="field"><label>Gross</label><input id="pc-gross" type="number" placeholder="2200"></div>
-     <div class="field"><label>Net (take-home)</label><input id="pc-net" type="number" placeholder="1850"></div>
-     <button class="btn primary" id="pc-add">Add paycheck</button>
+   ${list.length?`<div class="paylist ${list.length>5?"scrollrows bills":""}">${list.map(row).join("")}</div>`
+     :`<div class="empty" style="padding:20px">No paychecks logged yet — hit <b>+ Paycheck</b>, or scan a stub.</div>`}
+   <div id="addPayPanel" style="display:${addPayOpen?"block":"none"};border-top:1px solid var(--line);margin-top:14px;padding-top:14px">
+     <div class="formgrid">
+       <div class="field"><label>Date</label><input id="pc-date" type="date" value="${todayISO()}"></div>
+       <div class="field"><label>Source</label><input id="pc-source" placeholder="Concrete Films"></div>
+       <div class="field"><label>Gross</label><input id="pc-gross" type="number" placeholder="2200"></div>
+       <div class="field"><label>Net (take-home)</label><input id="pc-net" type="number" placeholder="1850"></div>
+       <button class="btn primary" id="pc-add">Add paycheck</button>
+       <button class="btn ghost" id="pc-cancel">Cancel</button>
+     </div>
    </div>`;
-  box.querySelectorAll("[data-pcdel]").forEach(b=>b.onclick=e=>{db.paychecks=db.paychecks.filter(x=>x.id!==e.currentTarget.dataset.pcdel);saveAll();});
-  document.getElementById("pc-add").onclick=()=>{ const date=document.getElementById("pc-date").value||todayISO();
+  const pl=box.querySelector(".paylist");
+  if(pl){
+    pl.querySelectorAll("[data-payopen]").forEach(el=>el.onclick=e=>{
+      if(e.target.closest("[data-payedit]"))return;
+      const id=el.dataset.payopen; editPay=editPay===id?null:id; renderPaychecks();});
+    pl.querySelectorAll("[data-payedit]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+      const id=b.dataset.payedit; editPay=editPay===id?null:id; renderPaychecks();});
+    pl.querySelectorAll("[data-paydone]").forEach(b=>b.onclick=()=>{editPay=null;renderPaychecks();});
+    const find=id=>db.paychecks.find(x=>x.id===id);
+    pl.querySelectorAll("[data-paydate]").forEach(i=>i.onchange=e=>{const p=find(e.currentTarget.dataset.paydate);
+      if(p&&e.currentTarget.value){p.date=normalizeDate(e.currentTarget.value);saveAll();}});
+    pl.querySelectorAll("[data-paysrc]").forEach(i=>i.onchange=e=>{const p=find(e.currentTarget.dataset.paysrc);
+      if(p){p.source=e.currentTarget.value;saveAll();}});
+    pl.querySelectorAll("[data-paygross]").forEach(i=>i.onchange=e=>{const p=find(e.currentTarget.dataset.paygross);
+      if(p){p.gross=num(e.currentTarget.value);saveAll();}});
+    pl.querySelectorAll("[data-paynet]").forEach(i=>i.onchange=e=>{const p=find(e.currentTarget.dataset.paynet);
+      if(p){p.net=num(e.currentTarget.value);saveAll();}});
+    pl.querySelectorAll("[data-paydup]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+      const p=find(b.dataset.paydup); if(!p)return;
+      /* a duplicate is almost always the next pay period, so step the date forward */
+      const st=db.income.find(x=>x.name&&p.source&&x.name.toLowerCase()===String(p.source).toLowerCase());
+      const step={weekly:7,biweekly:14,semimonthly:15,monthly:30,annual:365}[(st&&st.payFreq)||"biweekly"]||14;
+      const d=dayOf(p.date); d.setDate(d.getDate()+step);
+      const copy={id:uid(),date:isoOf(d),source:p.source,gross:num(p.gross),net:num(p.net)};
+      db.paychecks.push(copy); editPay=copy.id; saveAll();});
+  }
+  box.querySelectorAll("[data-pcdel]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+    db.paychecks=db.paychecks.filter(x=>x.id!==e.currentTarget.dataset.pcdel); editPay=null; saveAll();});
+  const cancel=document.getElementById("pc-cancel");
+  if(cancel)cancel.onclick=()=>{addPayOpen=false;renderPaychecks();};
+  const add=document.getElementById("pc-add");
+  if(add)add.onclick=()=>{ const date=document.getElementById("pc-date").value||todayISO();
     const p={id:uid(),date:normalizeDate(date),source:document.getElementById("pc-source").value.trim(),gross:num(document.getElementById("pc-gross").value),net:num(document.getElementById("pc-net").value)};
-    if(!p.gross&&!p.net)return; db.paychecks.push(p); saveAll(); };
+    if(!p.gross&&!p.net)return; db.paychecks.push(p); addPayOpen=false; saveAll(); };
+
 }
 function toggleStubPanel(){ const p=document.getElementById("stubPanel"); if(p.style.display==="none"){ p.style.display="block"; renderStubPanel(); } else { p.style.display="none"; p.innerHTML=""; } }
 function renderStubPanel(){
@@ -2184,9 +2435,30 @@ function renderStubPanel(){
 }
 function applyStub(text){
   const r=parseStub(text); const res=document.getElementById("stubResult");
-  if(res)res.innerHTML=`<div class="note" style="margin-top:10px;border-color:#bfe3d9;background:#f0faf7">Found → date: <b>${r.date||"?"}</b> · gross: <b>${r.gross!=null?fmt2(r.gross):"?"}</b> · net: <b>${r.net!=null?fmt2(r.net):"?"}</b>. Double-check, then hit <b>Add paycheck</b> below.</div>`;
+  if(!addPayOpen){ addPayOpen=true; renderPaychecks(); }
   const set=(id,v)=>{const el=document.getElementById(id); if(el&&v!=null&&v!=="")el.value=v;};
   set("pc-date",r.date); set("pc-gross",r.gross); set("pc-net",r.net);
+  if(res){
+    const miss=[]; if(r.date==null)miss.push("pay date"); if(r.net==null)miss.push("net"); if(r.gross==null)miss.push("gross");
+    const line=[r.date?`date <b>${esc(r.date)}</b>`:null,
+      r.net!=null?`net <b>${fmt2(r.net)}</b>${r.how.net?` <span class="muted">(${esc(r.how.net)})</span>`:""}`:null,
+      r.gross!=null?`gross <b>${fmt2(r.gross)}</b>${r.how.gross?` <span class="muted">(${esc(r.how.gross)})</span>`:""}`:null
+    ].filter(Boolean).join(" · ");
+    /* saying "$0.00" when nothing was found is worse than admitting it */
+    res.innerHTML=`<div class="note" style="margin-top:10px">
+      ${line?`Read → ${line}.`:"Couldn't read any figures off that."}
+      ${miss.length?`<br><span style="color:var(--warn)">Couldn't find the ${miss.join(" or ")} — ${r.candidates.length?"tap a figure below or type it in":"type it in below"}.</span>`:" Check it, then hit <b>Add paycheck</b>."}
+      ${miss.length&&r.candidates.length?`<div class="chiprow" style="margin-top:10px">${r.candidates.map(v=>`<button class="tchip" data-stubpick="${v}">${fmt2(v)}</button>`).join("")}</div>
+      <div class="muted" style="font-size:12px;margin-top:6px">Tap once for net, twice for gross.</div>`:""}
+    </div>`;
+    let picks=0;
+    res.querySelectorAll("[data-stubpick]").forEach(b=>b.onclick=()=>{
+      const v=b.dataset.stubpick;
+      const target=(picks++%2===0)?"pc-net":"pc-gross";
+      const el=document.getElementById(target); if(el){el.value=v;el.focus();}
+      res.querySelectorAll("[data-stubpick]").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on");});
+  }
   const box=document.getElementById("paycheckBox"); if(box)box.scrollIntoView({behavior:"smooth",block:"center"});
 }
 
@@ -2213,11 +2485,11 @@ function setFiltOpen(v){
 function acctName(id){ const a=db.accounts.find(x=>x.id===id); return a?a.name:null; }
 function txWindow(k){
   const t=todayISO();
-  if(k==="30"||k==="90"){ const d=new Date(); d.setDate(d.getDate()-(+k)); return [d.toISOString().slice(0,10),t]; }
+  if(k==="30"||k==="90"){ const d=new Date(); d.setDate(d.getDate()-(+k)); return [isoOf(d),t]; }
   if(k==="tm") return [t.slice(0,7)+"-01",t];
   if(k==="lm"){ const d=new Date(t+"T12:00:00"); d.setDate(1); d.setMonth(d.getMonth()-1);
-    const from=d.toISOString().slice(0,7)+"-01"; const e=new Date(d.getFullYear(),d.getMonth()+1,0);
-    return [from,e.toISOString().slice(0,10)]; }
+    const from=monthOf(d)+"-01"; const e=new Date(d.getFullYear(),d.getMonth()+1,0);
+    return [from,isoOf(e)]; }
   if(k==="ytd") return [t.slice(0,4)+"-01-01",t];
   return null;
 }
@@ -2322,7 +2594,8 @@ function renderTx(){
     if(!t)return; const v=e.target.value; if(!v)return; t.date=v;
     /* a bill checked off carries the month it was paid in its reference, so move
        that too or the tick mark stays on the wrong month */
-    if(t.billRef){ const p=t.billRef.split("|"); t.billRef=p[0]+"|"+monthKey(v); }
+    if(t.billRef){ const p=String(t.billRef).split("|");
+      t.billRef=p[0]+"|"+monthKey(v)+(p[2]?"|"+p[2]:""); }
     saveAll();});
   document.querySelectorAll("[data-txdesc]").forEach(i=>i.onchange=e=>{const t=db.transactions.find(x=>x.id===e.target.dataset.txdesc);
     if(t){t.desc=e.target.value;saveAll();}});
@@ -2337,7 +2610,7 @@ function merchantKey(desc){ const c=(desc||"").toLowerCase().replace(/[^a-z ]+/g
 /* BUDGET — bills (fixed obligations) vs flexible budgets (spending targets)
    With rollover on, a category behaves like an envelope: what you don't spend stays
    in it, and overspending eats into next month. Available = carried in + budgeted - spent. */
-let budgetMonth=null,editBill=null,editBudget=null,billTab="all",billTierFilter=null;
+let budgetMonth=null,editBill=null,editBudget=null,payBill=null,billTab="all",billTierFilter=null,billView="month";
 function budgetMetaOf(cat){ return (db.budgetMeta&&db.budgetMeta[cat])||{}; }
 function budgetSince(cat){ return budgetMetaOf(cat).since||budgetStartMonth(); }
 function budgetRolls(cat){ const m=budgetMetaOf(cat); return m.roll===undefined?true:!!m.roll; }
@@ -2362,7 +2635,7 @@ function monthsUpTo(m){
   let guard=0;
   while(cur<=m&&guard++<120){ out.push(cur);
     const [y,mm]=cur.split("-").map(Number); const d=new Date(y,mm-1,1); d.setMonth(d.getMonth()+1);
-    cur=d.toISOString().slice(0,7); }
+    cur=monthOf(d); }
   return out;
 }
 function carriedInto(cat,m){
@@ -2389,13 +2662,48 @@ const BILL_TIERS={essential:{label:"Essential",short:"ESS",color:"#0ca35a",note:
 const DEFAULT_TIER={Housing:"essential",Utilities:"essential",Insurance:"essential",Debt:"essential",
   Transport:"essential",Subscriptions:"luxury",Other:"flexible"};
 const billTier=b=>(BILL_TIERS[b&&b.tier]?b.tier:(DEFAULT_TIER[billGroup(b)]||"flexible"));
-const tierTotal=t=>db.recurring.filter(b=>billTier(b)===t).reduce((s,b)=>s+num(b.amount),0);
-const bizTotal=()=>db.recurring.filter(b=>b.biz).reduce((s,b)=>s+num(b.amount),0);
+const tierTotal=t=>db.recurring.filter(b=>billTier(b)===t).reduce((s,b)=>s+billMonthly(b),0);
+const bizTotal=()=>db.recurring.filter(b=>b.biz).reduce((s,b)=>s+billMonthly(b),0);
 const monthlyFloor=()=>tierTotal("essential");
 /* bills: due dates */
+/* Not every bill is monthly. A quarterly or annual bill needs two different
+   numbers: what's actually due in a given month, and its true monthly cost. Mixing
+   those up either overstates a month (car insurance billed once a year) or hides a
+   real obligation (nothing shows for 11 months, then $600 lands). */
+const BILL_FREQ={monthly:{n:1,label:"Monthly",every:"month"},bimonthly:{n:2,label:"Every 2 months",every:"2 months"},
+  quarterly:{n:3,label:"Quarterly",every:"3 months"},semiannual:{n:6,label:"Twice a year",every:"6 months"},
+  annual:{n:12,label:"Yearly",every:"year"}};
+const billFreq=b=>BILL_FREQ[b&&b.freq]||BILL_FREQ.monthly;
+const billAnchor=b=>(b&&/^\d{4}-\d{2}$/.test(b.anchor))?b.anchor:(db.budgetStart||monthKey(todayISO()));
+function monthsBetweenKeys(a,b){ const [y1,m1]=a.split("-").map(Number),[y2,m2]=b.split("-").map(Number);
+  return (y2-y1)*12+(m2-m1); }
+/* is this bill due in month m? */
+function billDueIn(b,m){ const n=billFreq(b).n; if(n<=1)return true;
+  const diff=monthsBetweenKeys(billAnchor(b),m);
+  return ((diff%n)+n)%n===0; }
 function billDue(b,m){ const d=Math.min(Math.max(1,num(b.dueDay)||1),28); return m+"-"+String(d).padStart(2,"0"); }
+/* what actually lands in month m */
+const billAmountIn=(b,m)=>billDueIn(b,m)?num(b.amount):0;
+/* the true monthly cost — a $600 yearly bill is $50 a month you have to be setting aside */
+const billMonthly=b=>num(b.amount)/billFreq(b).n;
+/* the next month on or after m in which this bill is due */
+function nextBillMonth(b,m){ const n=billFreq(b).n; if(n<=1)return m;
+  const diff=monthsBetweenKeys(billAnchor(b),m), r=((diff%n)+n)%n;
+  if(r===0)return m;
+  const add=n-r; const [y,mm]=m.split("-").map(Number); const d=new Date(y,mm-1+add,1);
+  return monthOf(d); }
+function nextBillDate(b,fromISO){
+  const start=monthKey(fromISO||todayISO());
+  let mk=nextBillMonth(b,start);
+  if(billDue(b,mk)<(fromISO||todayISO())){
+    const n=billFreq(b).n, [y,mm]=mk.split("-").map(Number);
+    const d=new Date(y,mm-1+Math.max(1,n),1); mk=monthOf(d);
+    mk=nextBillMonth(b,mk);
+  }
+  return billDue(b,mk); }
 function billStatus(b,m){
   if(billPaid(b,m)) return {k:"paid",label:"Paid",cls:"ok"};
+  if(!billDueIn(b,m)) return {k:"off",label:"not due this month",cls:""};
   const due=billDue(b,m), today=todayISO();
   if(due<today) return {k:"late",label:"Overdue",cls:"bad"};
   const days=Math.ceil(daysBetween(today,due));
@@ -2435,19 +2743,21 @@ function billsICS(){
   const today=todayISO(), thisM=monthKey(today);
   db.recurring.forEach(b=>{
     const day=Math.min(Math.max(1,num(b.dueDay)||1),28);
-    /* first occurrence is this month if it hasn't passed, otherwise next month */
-    let first=thisM+"-"+String(day).padStart(2,"0");
-    if(first<today){ const d=new Date(thisM+"-01T12:00:00"); d.setMonth(d.getMonth()+1);
-      first=d.toISOString().slice(0,7)+"-"+String(day).padStart(2,"0"); }
+    const f=billFreq(b);
+    /* start at the next real occurrence so the recurrence lands on the right months */
+    const first=nextBillDate(b,today);
     const t=BILL_TIERS[billTier(b)].label;
-    const desc=[t,billGroup(b),b.biz?"Business":null,fmt(num(b.amount))+" a month",
+    const desc=[t,billGroup(b),b.biz?"Business":null,
+      fmt(num(b.amount))+" every "+f.every,
+      f.n>1?fmt(billMonthly(b))+" a month set aside":null,
       "Tracked in Freedom Engine"].filter(Boolean).join(" · ");
     L.push("BEGIN:VEVENT",
       "UID:"+b.id+"@freedom-engine",
       "DTSTAMP:"+stamp,
       "DTSTART;VALUE=DATE:"+first.replace(/-/g,""),
       "DURATION:P1D",
-      "RRULE:FREQ=MONTHLY;BYMONTHDAY="+day,
+      (f.n===12?"RRULE:FREQ=YEARLY;BYMONTH="+(+first.slice(5,7))+";BYMONTHDAY="+day
+        :"RRULE:FREQ=MONTHLY"+(f.n>1?";INTERVAL="+f.n:"")+";BYMONTHDAY="+day),
       "SUMMARY:"+icsEsc(b.name+" — "+fmt(num(b.amount))+" due"),
       "DESCRIPTION:"+icsEsc(desc),
       "CATEGORIES:"+icsEsc(billGroup(b)),
@@ -2468,15 +2778,31 @@ function downloadBillsICS(){
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   return true;
 }
-function billPaid(bill,mk){ return db.transactions.some(t=>t.billRef===billRefKey(bill,mk)); }
+/* A bill can be paid in pieces. Each payment is a real transaction tagged
+   "<billId>|<month>|<seq>", so it lands in spending and the budget like any other
+   expense, and the bill counts as paid once the pieces cover the amount. Older
+   whole-bill records are tagged "<billId>|<month>" and still match. */
+function billTxs(bill,mk){ const p=billRefKey(bill,mk);
+  return db.transactions.filter(t=>t.billRef===p||String(t.billRef||"").startsWith(p+"|")); }
+function billPaidAmt(bill,mk){ return billTxs(bill,mk).reduce((s,t)=>s+Math.abs(num(t.amount)),0); }
+function billRemaining(bill,mk){ return Math.max(0,num(bill.amount)-billPaidAmt(bill,mk)); }
+function billPaid(bill,mk){ const due=num(bill.amount);
+  return due>0 ? billPaidAmt(bill,mk)>=due-0.005 : billTxs(bill,mk).length>0; }
+function billPartial(bill,mk){ const a=billPaidAmt(bill,mk); return a>0.005&&!billPaid(bill,mk); }
+function billPayDate(bill,mk){ const due=billDue(bill,mk), t=todayISO();
+  /* the due date reads better than "today" for a bill you actually paid on the 1st */
+  return (mk===monthKey(t))?(due<=t?due:t):due; }
+function logBillPayment(bill,mk,amt,dateISO){
+  const a=Math.abs(num(amt)); if(a<=0)return null;
+  const tx={id:uid(),date:dateISO||billPayDate(bill,mk),desc:bill.name,amount:-a,
+    category:bill.category,billRef:billRefKey(bill,mk)+"|"+uid()};
+  db.transactions.push(tx); db.transactions.sort((a,b)=>b.date.localeCompare(a.date));
+  return tx;
+}
 function setBillPaid(bill,mk,paid){
-  const ref=billRefKey(bill,mk);
-  if(paid){ if(!billPaid(bill,mk)){
-      /* Dating it "today" is wrong for a bill you actually paid on the 1st. Use the
-         due date for that month, unless that date hasn't arrived yet. */
-      const due=billDue(bill,mk), t=todayISO();
-      const date=(mk===monthKey(t))?(due<=t?due:t):due; db.transactions.push({id:uid(),date,desc:bill.name,amount:-num(bill.amount),category:bill.category,billRef:ref}); db.transactions.sort((a,b)=>b.date.localeCompare(a.date)); } }
-  else { db.transactions=db.transactions.filter(t=>t.billRef!==ref); }
+  if(paid){ const left=billRemaining(bill,mk); if(left>0.005) logBillPayment(bill,mk,left); }
+  else { const keep=new Set(billTxs(bill,mk).map(t=>t.id));
+    db.transactions=db.transactions.filter(t=>!keep.has(t.id)); }
 }
 function renderBudget(){
   const months=monthsWithData(); if(!budgetMonth||!months.includes(budgetMonth))budgetMonth=months[0];
@@ -2484,9 +2810,11 @@ function renderBudget(){
   document.getElementById("budgetMonthSel").innerHTML=months.map(m=>`<option value="${m}" ${m===mk?"selected":""}>${prettyMonth(m)}</option>`).join("");
   const spent={}; for(const t of db.transactions){ if(monthKey(t.date)===mk&&t.amount<0&&!isNeutral(t))spent[t.category]=(spent[t.category]||0)+(-t.amount); }
   // bills
-  const billsTotal=db.recurring.reduce((s,b)=>s+num(b.amount),0);
-  const paidBills=db.recurring.filter(b=>billPaid(b,mk));
-  const billsPaidAmt=paidBills.reduce((s,b)=>s+num(b.amount),0);
+  const billsTotal=db.recurring.reduce((s,b)=>s+billAmountIn(b,mk),0);
+  const billsMonthlyCost=db.recurring.reduce((s,b)=>s+billMonthly(b),0);
+  const paidBills=db.recurring.filter(b=>billDueIn(b,mk)&&billPaid(b,mk));
+  /* count every dollar actually paid, including part payments on bills still open */
+  const billsPaidAmt=db.recurring.reduce((s,b)=>s+(billDueIn(b,mk)?billPaidAmt(b,mk):0),0);
   // flexible budgets
   const budCats=Object.keys(db.budgets);
   const flexLimit=budCats.reduce((s,c)=>s+budgetedFor(c,mk),0);
@@ -2500,11 +2828,16 @@ function renderBudget(){
   const free=income-billsTotal-flexLimit;
   document.getElementById("budgetKpis").innerHTML=`
     <div class="card kpi"><div class="label">Income this month</div><div class="val pos">${fmt(income)}</div><div class="sub">${actualIncome>0?"actual received":"estimated"+(db.settings.taxEnabled?" · after tax":"")}</div></div>
-    <div class="card kpi"><div class="label">Bills</div><div class="val">${fmt(billsTotal)}</div><div class="sub">${fmt(billsPaidAmt)} paid · ${fmt(billsTotal-billsPaidAmt)} left</div></div>
+    <div class="card kpi"><div class="label">Bills due</div><div class="val">${fmt(billsTotal)}</div><div class="sub">${fmt(billsPaidAmt)} paid · ${fmt(billsTotal-billsPaidAmt)} left${Math.abs(billsMonthlyCost-billsTotal)>=1?` · ${fmt(billsMonthlyCost)}/mo true cost`:""}</div></div>
     <div class="card kpi"><div class="label">Available to spend</div><div class="val ${flexAvail<0?'neg':'pos'}">${fmt(flexAvail)}</div><div class="sub">${db.settings.rollover?"across your envelopes":`${fmt(flexSpent)} spent of ${fmt(flexLimit)}`}</div></div>
     <div class="card kpi"><div class="label">Free to save / attack debt</div><div class="val ${free<0?'neg':'pos'}">${fmt(free)}</div><div class="sub">income − bills − budgets</div></div>`;
   // bills list
-  const billsSorted=[...db.recurring].sort((a,b)=>(num(a.dueDay)||1)-(num(b.dueDay)||1));
+  /* what's due this month first, in due-day order; everything else after */
+  const billsSorted=[...db.recurring].sort((a,b)=>{
+    const da=billDueIn(a,mk)?0:1, dbb=billDueIn(b,mk)?0:1;
+    if(da!==dbb)return da-dbb;
+    if(da===1){ const na=nextBillMonth(a,mk),nb=nextBillMonth(b,mk); if(na!==nb)return na.localeCompare(nb); }
+    return (num(a.dueDay)||1)-(num(b.dueDay)||1);});
   {const el=document.getElementById("billAlertDays"); if(el&&document.activeElement!==el)el.value=num(db.settings.billAlertDays)||3;}
   const ord=n=>{const d=n%10,t=n%100; return n+(t>=11&&t<=13?"th":d===1?"st":d===2?"nd":d===3?"rd":"th");};
   // ---- the floor + tier chips ----
@@ -2525,43 +2858,79 @@ function renderBudget(){
       const v=b.dataset.btier; billTierFilter=(v&&billTierFilter!==v)?v:null; renderBudget();});
   }
   // ---- tabs by group ----
-  const groupsPresent=BILL_GROUPS.filter(g=>db.recurring.some(b=>billGroup(b)===g));
-  if(!groupsPresent.includes(billTab))billTab="all";
+  /* "This month" hides a yearly bill for the eleven months it isn't due;
+     "All bills" is the full standing list of what you owe on any cycle. */
+  /* the one being edited stays put — changing its cycle shouldn't make the panel
+     you're typing in disappear out from under you */
+  const inView=b=>billView==="all"||billDueIn(b,mk)||editBill===b.id||payBill===b.id;
+  document.querySelectorAll("[data-bview]").forEach(bt=>{
+    bt.classList.toggle("active",bt.dataset.bview===billView);
+    bt.onclick=()=>{billView=bt.dataset.bview;renderBudget();};});
+  const pool=db.recurring.filter(inView);
+  const groupsPresent=BILL_GROUPS.filter(g=>pool.some(b=>billGroup(b)===g));
+  if(billTab!=="all"&&!groupsPresent.includes(billTab))billTab="all";
   const tabsEl=document.getElementById("billTabs");
-  if(tabsEl) tabsEl.innerHTML=(db.recurring.length&&groupsPresent.length>1)?
+  if(tabsEl) tabsEl.innerHTML=(pool.length&&groupsPresent.length>1)?
     [["all","All"]].concat(groupsPresent.map(g=>[g,g])).map(([v,l])=>{
-      const n=v==="all"?db.recurring.length:db.recurring.filter(b=>billGroup(b)===v).length;
+      const n=v==="all"?pool.length:pool.filter(b=>billGroup(b)===v).length;
       return `<button class="btab${billTab===v?" on":""}" data-btab="${esc(v)}">${esc(l)}<span class="bcount">${n}</span></button>`;}).join(""):"";
   if(tabsEl) tabsEl.querySelectorAll("[data-btab]").forEach(b=>b.onclick=()=>{billTab=b.dataset.btab;renderBudget();});
   // ---- the list ----
-  const shown=billsSorted.filter(b=>(billTab==="all"||billGroup(b)===billTab)&&
+  const shown=billsSorted.filter(b=>inView(b)&&(billTab==="all"||billGroup(b)===billTab)&&
     (!billTierFilter||(billTierFilter==="biz"?!!b.biz:billTier(b)===billTierFilter)));
-  const shownTotal=shown.reduce((s,b)=>s+num(b.amount),0);
-  const shownPaid=shown.filter(b=>billPaid(b,mk));
-  const billRow=b=>{ const paid=billPaid(b,mk), st=billStatus(b,mk), editing=editBill===b.id;
-    const tk=billTier(b), to=BILL_TIERS[tk];
-    return `<div class="brow${paid?" paid":""}${editing?" editing":""}">
+  const offCount=db.recurring.filter(b=>!billDueIn(b,mk)).length;
+  const shownTotal=shown.reduce((s,b)=>s+billAmountIn(b,mk),0);
+  const shownPaid=shown.filter(b=>billDueIn(b,mk)&&billPaid(b,mk));
+  const shownPaidAmt=shown.reduce((t,x)=>t+(billDueIn(x,mk)?billPaidAmt(x,mk):0),0);
+  const shownDue=shown.filter(b=>billDueIn(b,mk));
+  const billRow=b=>{ const dueNow=billDueIn(b,mk), paid=dueNow&&billPaid(b,mk), st=billStatus(b,mk), editing=editBill===b.id;
+    const tk=billTier(b), to=BILL_TIERS[tk], f=billFreq(b);
+    const paidAmt=dueNow?billPaidAmt(b,mk):0, left=billRemaining(b,mk), part=dueNow&&billPartial(b,mk);
+    const nextM=dueNow?null:nextBillMonth(b,mk);
+    return `<div class="brow${paid?" paid":""}${editing?" editing":""}${dueNow?"":" offmonth"}">
       <div class="bmain" data-billopen="${b.id}">
-        <button class="chk ${paid?'on':''}" data-billtog="${b.id}" title="${paid?'Paid — tap to undo':'Mark paid'}">${paid?'✓':''}</button>
+        ${dueNow?`<button class="chk ${paid?'on':''}" data-billtog="${b.id}" title="${paid?'Paid — tap to undo':part?'Cover the remaining '+fmt(left):'Mark paid in full'}">${paid?'✓':''}</button>`
+          :`<span class="chk ghosted"></span>`}
         <div class="binfo">
           <div class="bname">${esc(b.name)}${b.biz?` <span class="bizmark" title="Business expense">BIZ</span>`:""}</div>
-          <div class="bmeta"><span class="bdot" style="background:${to.color}" title="${esc(to.label)} — ${esc(to.note)}"></span><span class="bcat">${esc(billGroup(b))} · </span>due the ${ord(num(b.dueDay)||1)}${st.cls&&st.k!=="paid"?` · <span class="${st.cls==='bad'?'bneg':'bwarn'}">${esc(st.label)}</span>`:""}</div>
+          <div class="bmeta"><span class="bdot" style="background:${to.color}" title="${esc(to.label)} — ${esc(to.note)}"></span><span class="bcat">${esc(billGroup(b))} · </span>${f.n>1?`${esc(f.label.toLowerCase())} · `:""}${dueNow?`due the ${ord(num(b.dueDay)||1)}`:`next in ${esc(shortMonth(nextM))}`}${dueNow&&st.cls&&st.k!=="paid"?` · <span class="${st.cls==='bad'?'bneg':'bwarn'}">${esc(st.label)}</span>`:""}${part?` · <span class="bpart">${fmt(paidAmt)} paid</span>`:""}</div>
         </div>
-        <div class="bamt">${fmt(num(b.amount))}</div>
+        <div class="bamt${f.n>1||part?" roll":""}">${fmt(dueNow&&part?left:num(b.amount))}${part?`<em>of ${fmt(num(b.amount))} left</em>`:(f.n>1?`<em>${fmt(billMonthly(b))}/mo</em>`:"")}</div>
+        ${dueNow&&!paid?`<button class="btn ghost sm bpay" data-billpay="${b.id}">${payBill===b.id?"Cancel":"Pay"}</button>`:""}
         <button class="aedit${editing?" on":""}" data-billedit="${b.id}" aria-label="Edit ${esc(b.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
       </div>
+      ${part?`<div class="bprog"><span style="width:${(paidAmt/num(b.amount)*100).toFixed(1)}%"></span></div>`:""}
+      ${payBill===b.id?`<div class="bpanel">
+        <div class="formgrid">
+          <div class="field"><label>Date</label><input type="date" id="bp-date" value="${esc(billPayDate(b,mk))}"></div>
+          <div class="field"><label>Amount paid</label><input type="number" step="0.01" id="bp-amt" value="${left.toFixed(2)}"></div>
+          <button class="btn primary" data-billpaysave="${b.id}">Apply</button>
+        </div>
+        <div class="muted" style="font-size:12.5px;margin-top:8px">${paidAmt>0.005?`<b>${fmt(paidAmt)}</b> paid so far · <b>${fmt(left)}</b> left`:`Pay part of it if that's all you can cover — it ticks off on its own once the ${fmt(num(b.amount))} is covered.`}</div>
+        ${paidAmt>0.005?`<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:4px">
+          <table><tbody>${billTxs(b,mk).slice().sort((x,y)=>y.date.localeCompare(x.date)).map(t=>`<tr>
+            <td style="width:112px;white-space:nowrap">${esc(t.date)}</td>
+            <td class="amt pos">${fmt2(Math.abs(num(t.amount)))}</td>
+            <td class="amt" style="width:42px"><button class="btn ghost sm" data-billpaydel="${t.id}" title="Remove this payment">✕</button></td></tr>`).join("")}</tbody></table>
+        </div>`:""}
+      </div>`:""}
       ${editing?`<div class="bpanel">
         <div class="formgrid">
           <div class="field"><label>Name</label><input value="${esc(b.name)}" data-billname="${b.id}"></div>
           <div class="field"><label>Spending category</label><select data-billcat="${b.id}">${db.categories.map(c=>`<option ${c===b.category?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
-          <div class="field"><label>Amount / mo</label><input type="number" value="${num(b.amount)}" data-billamt="${b.id}"></div>
+          <div class="field"><label>Amount <span class="muted" style="font-weight:400">per ${esc(f.every)}</span></label><input type="number" value="${num(b.amount)}" data-billamt="${b.id}"></div>
+          <div class="field"><label>How often</label><select data-billfreq="${b.id}">${Object.entries(BILL_FREQ).map(([v,o2])=>`<option value="${v}" ${(b.freq||"monthly")===v?"selected":""}>${o2.label}</option>`).join("")}</select></div>
           <div class="field"><label>Due day of month</label><input type="number" min="1" max="28" value="${num(b.dueDay)||1}" data-billday="${b.id}"></div>
+          ${f.n>1?`<div class="field"><label>A month it's due <span class="muted" style="font-weight:400">sets the cycle</span></label><input type="month" value="${esc(billAnchor(b))}" data-billanchor="${b.id}"></div>`:""}
           <div class="field"><label>Group <span class="muted" style="font-weight:400">tab it lives under</span></label>
             <select data-billgrp="${b.id}">${BILL_GROUPS.map(g=>`<option value="${g}" ${billGroup(b)===g?"selected":""}>${g}</option>`).join("")}</select></div>
           <div class="field"><label>How optional is it?</label>
             <select data-billtier="${b.id}">${Object.entries(BILL_TIERS).map(([v,o])=>`<option value="${v}" ${tk===v?"selected":""}>${o.label}</option>`).join("")}</select></div>
         </div>
         <div class="muted" style="font-size:12.5px;margin-top:6px">${esc(to.label)} — ${esc(to.note)}.</div>
+        ${b.debtId?(()=>{const dd=db.debts.find(x=>x.id===b.debtId);
+          return `<div class="note" style="margin-top:12px;font-size:13px">Tied to <b>${esc(dd?dd.name:"a debt")}</b> in Debt payoff${b.estimated?` — the amount is an <b>estimated minimum</b> (2% of the balance, $25 floor). Type your real payment and it stops guessing.`:"."}</div>`;})():""}
+        ${f.n>1?`<div class="note" style="margin-top:12px;font-size:13px"><b>${fmt(num(b.amount))}</b> every ${esc(f.every)} works out to <b>${fmt(billMonthly(b))}</b> a month — that's what counts toward your floor, so it's money you're setting aside rather than a surprise. Next due <b>${esc(shortDate(nextBillDate(b)))}</b>.</div>`:""}
         <label class="flex" style="font-size:14px;margin-top:12px;gap:9px"><input type="checkbox" data-billbiz="${b.id}" ${b.biz?"checked":""}> Business expense <span class="muted" style="font-size:12.5px">worth separating at tax time</span></label>
         <div class="toolbar" style="margin:12px 0 0">
           <div class="spacer"></div>
@@ -2572,38 +2941,66 @@ function renderBudget(){
     </div>`; };
   document.getElementById("billsList").innerHTML=db.recurring.length?
     (shown.length?`<div class="${shown.length>5?"scrollrows bills":""}">${shown.map(billRow).join("")}</div>`
-      :`<div class="empty" style="padding:22px">No bills in this view — pick another tab or clear the filter.</div>`)+
+      :`<div class="empty" style="padding:22px">${billView==="month"&&offCount?`Nothing due in ${esc(prettyMonth(mk))} here.`:"No bills in this view — pick another tab or clear the filter."}</div>`)+
       `<div class="brow sum"><div class="bmain"><span class="chk ghosted"></span>
-        <div class="binfo"><div class="bname">${shownPaid.length} of ${shown.length} paid</div>
-        <div class="bmeta">${shownTotal-shownPaid.reduce((t,x)=>t+num(x.amount),0)>0?fmt(shownTotal-shownPaid.reduce((t,x)=>t+num(x.amount),0))+" still to cover":"all covered"}${shown.length!==db.recurring.length?` · filtered from ${fmt(billsTotal)}`:""}</div></div>
+        <div class="binfo"><div class="bname">${shownPaid.length} of ${shownDue.length} due this month paid</div>
+        <div class="bmeta">${shownTotal-shownPaidAmt>0.005?fmt(shownTotal-shownPaidAmt)+" still to cover":"all covered"}${billView==="all"?` · ${fmt(shown.reduce((t,x)=>t+billMonthly(x),0))}/mo true cost`:""}</div></div>
         <div class="bamt">${fmt(shownTotal)}</div><span style="width:32px;flex:none"></span></div></div>`
     :`<div class="empty" style="padding:22px">No bills yet — hit <b>+ Bill</b> to add rent, car, insurance, phone.</div>`;
+  {const hn=document.getElementById("billHidden");
+   if(hn) hn.innerHTML=(billView==="month"&&offCount)
+     ? `<button class="fclear" id="showAllBills">${offCount} bill${offCount===1?"":"s"} on a longer cycle ${offCount===1?"isn't":"aren't"} due in ${esc(prettyMonth(mk))} — show ${offCount===1?"it":"them"}</button>` : "";
+   const sa=document.getElementById("showAllBills"); if(sa)sa.onclick=()=>{billView="all";renderBudget();};}
   const bl=document.getElementById("billsList");
   bl.querySelectorAll("[data-billopen]").forEach(el=>el.onclick=e=>{
     if(e.target.closest("[data-billtog],[data-billedit]"))return;
-    const id=el.dataset.billopen; editBill=editBill===id?null:id; renderBudget();});
+    if(e.target.closest("[data-billpay],[data-billpaysave],[data-billpaydel]"))return;
+    const id=el.dataset.billopen; editBill=editBill===id?null:id; if(editBill)payBill=null; renderBudget();});
   bl.querySelectorAll("[data-billedit]").forEach(btn=>btn.onclick=e=>{e.stopPropagation();
-    const id=btn.dataset.billedit; editBill=editBill===id?null:id; renderBudget();});
+    const id=btn.dataset.billedit; editBill=editBill===id?null:id; if(editBill)payBill=null; renderBudget();});
   bl.querySelectorAll("[data-billdone]").forEach(btn=>btn.onclick=()=>{editBill=null;renderBudget();});
   bl.querySelectorAll("[data-billday]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billday);
     if(b){b.dueDay=Math.min(28,Math.max(1,num(e.currentTarget.value)||1));saveAll();}});
   bl.querySelectorAll("[data-billname]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billname);
-    if(b){b.name=e.currentTarget.value;saveAll();}});
+    if(b){b.name=e.currentTarget.value;b.renamed=true;saveAll();}});
   bl.querySelectorAll("[data-billcat]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billcat);
     if(b){b.category=e.currentTarget.value;saveAll();}});
   bl.querySelectorAll("[data-billamt]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billamt);
-    if(b){b.amount=num(e.currentTarget.value);saveAll();}});
+    if(b){ b.amount=num(e.currentTarget.value); b.estimated=false;   // a typed figure isn't a guess
+      const d=db.debts.find(x=>x.billId===b.id); if(d&&!num(d.payment))d.payment=b.amount;
+      saveAll(); }});
+  bl.querySelectorAll("[data-billfreq]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billfreq);
+    if(b){ b.freq=e.currentTarget.value;
+      /* anchor the cycle to the month you're looking at, so "quarterly" starts here */
+      if(billFreq(b).n>1&&!/^\d{4}-\d{2}$/.test(b.anchor)) b.anchor=mk;
+      saveAll(); }});
+  bl.querySelectorAll("[data-billanchor]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billanchor);
+    if(b&&/^\d{4}-\d{2}$/.test(e.currentTarget.value)){ b.anchor=e.currentTarget.value; saveAll(); }});
   bl.querySelectorAll("[data-billgrp]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billgrp);
     if(b){b.group=e.currentTarget.value;saveAll();}});
   bl.querySelectorAll("[data-billtier]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billtier);
     if(b){b.tier=e.currentTarget.value;saveAll();}});
   bl.querySelectorAll("[data-billbiz]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billbiz);
     if(b){b.biz=e.currentTarget.checked;saveAll();}});
+  bl.querySelectorAll("[data-billpay]").forEach(btn=>btn.onclick=e=>{e.stopPropagation();
+    const id=btn.dataset.billpay; payBill=payBill===id?null:id; editBill=null; renderBudget();
+    const f=document.getElementById("bp-amt"); if(f){f.focus();f.select();}});
+  bl.querySelectorAll("[data-billpaysave]").forEach(btn=>btn.onclick=e=>{e.stopPropagation();
+    const b=db.recurring.find(x=>x.id===btn.dataset.billpaysave); if(!b)return;
+    const amt=num(document.getElementById("bp-amt").value);
+    const date=document.getElementById("bp-date").value||billPayDate(b,mk);
+    if(amt<=0){document.getElementById("bp-amt").focus();return;}
+    logBillPayment(b,mk,amt,date);
+    payBill=billPaid(b,mk)?null:b.id; saveAll();});
+  bl.querySelectorAll("[data-billpaydel]").forEach(btn=>btn.onclick=e=>{e.stopPropagation();
+    const tid=btn.dataset.billpaydel;
+    db.transactions=db.transactions.filter(t=>t.id!==tid); saveAll();});
   bl.querySelectorAll("[data-billtog]").forEach(btn=>btn.onclick=e=>{e.stopPropagation();
     const bill=db.recurring.find(x=>x.id===e.currentTarget.dataset.billtog);if(bill){setBillPaid(bill,mk,!billPaid(bill,mk));saveAll();}});
   bl.querySelectorAll("[data-billdel]").forEach(btn=>btn.onclick=e=>{const id=e.currentTarget.dataset.billdel;
-    db.transactions=db.transactions.filter(t=>!(t.billRef&&t.billRef.split("|")[0]===id));
-    db.recurring=db.recurring.filter(x=>x.id!==id); editBill=null; saveAll();});
+    db.debts.forEach(d=>{ if(d.billId===id){ d.billId=""; d.noBill=true; } });
+    db.transactions=db.transactions.filter(t=>!(t.billRef&&String(t.billRef).split("|")[0]===id));
+    db.recurring=db.recurring.filter(x=>x.id!==id); editBill=null; payBill=null; saveAll();});
   // flexible budgets — envelope style, one compact row each
   const rows=budCats.sort((a,b)=>(spent[b]||0)-(spent[a]||0));
   document.getElementById("budgetList").innerHTML=rows.length?rows.map(c=>{
@@ -2665,6 +3062,8 @@ function renderBudget(){
     Object.keys(db.monthBudgets||{}).forEach(m=>{ if(db.monthBudgets[m])delete db.monthBudgets[m][c]; });
     editBudget=null; saveAll();});
   const rc=document.getElementById("recCat"); if(rc)rc.innerHTML=db.categories.filter(c=>c!=="Income").map(c=>`<option>${c}</option>`).join("");
+  {const rf=document.getElementById("recFreq");
+   if(rf&&!rf.options.length)rf.innerHTML=Object.entries(BILL_FREQ).map(([v,o])=>`<option value="${v}">${o.label}</option>`).join("");}
   const bc=document.getElementById("budCat"); if(bc)bc.innerHTML=db.categories.filter(c=>c!=="Income").map(c=>`<option>${c}</option>`).join("");
 }
 
@@ -2701,7 +3100,7 @@ function renderCredit(){
   ub.style.width=upct+"%"; ub.style.background=u.pct!=null&&u.pct>30?"var(--neg)":u.pct!=null&&u.pct>10?"var(--debt)":"var(--pos)";
   document.getElementById("utilSub").textContent=u.pct!=null?`${fmt(u.bal)} of ${fmt(u.lim)} in limits used`:"Set a credit limit on your card debts below to track this.";
   // debt list
-  const kindOpts=k=>[["card","Credit card"],["collection","Collection"],["auto","Auto loan"],["loan","Loan"]].map(([v,l])=>`<option value="${v}" ${k===v?"selected":""}>${l}</option>`).join("");
+  const kindOpts=k=>Object.entries(DEBT_KINDS).map(([v,o])=>`<option value="${v}" ${k===v?"selected":""}>${o.label}</option>`).join("");
   // Display in a STABLE order (as entered). Re-sorting on every edit made rows jump,
   // so you'd be typing in one debt and land on another. Priority is shown by badge.
   let nextId=null,lowest=Infinity;
@@ -2710,16 +3109,17 @@ function renderCredit(){
     const orig=debtOrig(d), bal=num(d.balance), paid=Math.max(0,orig-bal);
     const pct=orig?Math.min(100,Math.max(0,(paid/orig)*100)):0;
     const pays=(d.payments||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
-    const isCard=d.kind==="card", acct=db.accounts.find(a=>a.debtId===d.id);
+    const isCard=isRevolving(d), acct=db.accounts.find(a=>a.debtId===d.id), dbill=debtBill(d);
     const editing=editDebt===d.id, done=bal<=0;
     const state=done?"ok":d.id===nextId?"warn":"bad";
     const label=done?"PAID":d.id===nextId?`<span class="tlong">ATTACK NEXT</span><span class="tshort">NEXT</span>`:"OPEN";
-    const kindLabel=({card:"Credit card",collection:"Collection",auto:"Auto loan",loan:"Loan"})[d.kind]||"Debt";
+    const kindLabel=debtKindOf(d).label;
     const pmo=payoffMonths(bal,d.apr,d.payment);
     const meta=[kindLabel, orig>bal?`${pct.toFixed(0)}% paid off`:null,
                 num(d.apr)?`${num(d.apr)}% APR`:null,
                 (pmo&&isFinite(pmo))?`${pmo} mo to clear`:null,
                 acct?"synced from your bank":null,
+                dbill?"in Budget":null,
                 pays.length?`${pays.length} payment${pays.length===1?"":"s"}`:null].filter(Boolean).join(" · ");
     return `<div class="dcard${editing?" editing":""}${done?" done":""}">
       <div class="dtop" data-dopen="${d.id}">
@@ -2759,8 +3159,12 @@ function renderCredit(){
           return ""; })()}
         ${orig&&orig<bal?`<div class="note" style="margin-top:12px;font-size:13px;border-left-color:var(--warn)">The original is below the current balance, so progress shows as zero. Raise it to what the debt started at.</div>`:""}
         ${acct?`<div class="note" style="margin-top:12px;font-size:13px">Linked to the <b>${esc(acct.name)}</b> account. Editing the balance here updates it there too, and a bank sync will overwrite both.</div>`:""}
+        ${dbill?`<div class="note" style="margin-top:12px;font-size:13px">In <b>Budget → Bills</b> as <b>${fmt(num(dbill.amount))}</b>/mo${dbill.estimated?` <span class="muted">(estimated minimum — set a payment above or edit the bill to lock it)</span>`:""}, due the ${(num(dbill.dueDay)||1)}. Checking it off there logs the payment here too.</div>`
+          :`<div class="note" style="margin-top:12px;font-size:13px">Not in your monthly bills. Add it and the payment you're planning shows up alongside rent, so the budget knows about it.</div>`}
         <div class="toolbar" style="margin:12px 0 0">
-          ${pays.length?`<button class="btn sm" data-dhist="${d.id}">${histOpen===d.id?"Hide payments":`${pays.length} payment${pays.length===1?"":"s"}`}</button>`:`<span class="muted" style="font-size:13px">No payments logged yet.</span>`}
+          ${dbill?`<button class="btn sm ghost" data-dbillrm="${d.id}">Remove from budget</button>`
+            :`<button class="btn sm" data-dbilladd="${d.id}">+ Add to budget</button>`}
+          ${pays.length?`<button class="btn sm" data-dhist="${d.id}">${histOpen===d.id?"Hide payments":`${pays.length} payment${pays.length===1?"":"s"}`}</button>`:""}
           <div class="spacer"></div>
           <button class="btn sm danger" data-ddel="${d.id}">Delete debt</button>
           <button class="btn sm primary" data-ddone="1">Done</button>
@@ -2792,12 +3196,20 @@ function renderCredit(){
     const a=db.accounts.find(x=>x.debtId===d.id); if(a)a.payment=d.payment; saveAll();}});
   dl.querySelectorAll("[data-dkind]").forEach(i=>i.onchange=e=>{const d=findDebt(e.currentTarget.dataset.dkind);if(d){d.kind=e.currentTarget.value;saveAll();}});
   dl.querySelectorAll("[data-ddel]").forEach(b=>b.onclick=e=>{const id=b.dataset.ddel; if(!id)return;
-    const i=db.debts.findIndex(x=>x.id===id); if(i<0)return; db.debts.splice(i,1);
+    const i=db.debts.findIndex(x=>x.id===id); if(i<0)return;
+    const gone=db.debts[i];
+    if(gone.billId){ db.recurring=db.recurring.filter(b=>b.id!==gone.billId);
+      db.transactions=db.transactions.filter(t=>!(t.billRef&&String(t.billRef).split("|")[0]===gone.billId)); }
+    db.debts.splice(i,1);
     db.accounts.forEach(a=>{if(a.debtId===id)a.debtId="";});
     if(payOpen===id)payOpen=null; if(editDebt===id)editDebt=null; saveAll();});
   dl.querySelectorAll("[data-dpay]").forEach(b=>b.onclick=e=>{e.stopPropagation(); const id=b.dataset.dpay;
     if(payOpen===id){payOpen=null;}else{payOpen=id;editDebt=null;}
     renderCredit(); const f=document.getElementById("pay-amt"); if(f)f.focus();});
+  dl.querySelectorAll("[data-dbilladd]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+    const d=findDebt(b.dataset.dbilladd); if(!d)return; addDebtToBudget(d,{estimated:!num(d.payment)}); saveAll();});
+  dl.querySelectorAll("[data-dbillrm]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+    const d=findDebt(b.dataset.dbillrm); if(!d)return; removeDebtFromBudget(d); saveAll();});
   dl.querySelectorAll("[data-dhist]").forEach(b=>b.onclick=e=>{const id=b.dataset.dhist;
     histOpen=histOpen===id?null:id; renderCredit();});
   dl.querySelectorAll("[data-dpaysave]").forEach(b=>b.onclick=e=>{
@@ -2818,6 +3230,28 @@ function renderCredit(){
 }
 /* Original loan amount. Falls back to the balance so a debt entered without one
    still reads sensibly instead of showing a 0% bar against a $0 total. */
+/* What kind of debt it is drives three things: whether it revolves (so utilization
+   and a minimum payment apply), which spending category its payments belong to, and
+   how it reads. "loan" from earlier versions maps to Personal loan. */
+const DEBT_KINDS={
+  card:{label:"Credit card",revolving:true,cat:"Debt Payment"},
+  store:{label:"Store card",revolving:true,cat:"Debt Payment"},
+  loc:{label:"Line of credit",revolving:true,cat:"Debt Payment"},
+  collection:{label:"Collection",cat:"Debt Payment"},
+  medical:{label:"Medical bill",cat:"Health"},
+  auto:{label:"Auto loan",cat:"Car Payment"},
+  student:{label:"Student loan",cat:"Debt Payment"},
+  personal:{label:"Personal loan",cat:"Debt Payment"},
+  mortgage:{label:"Mortgage",cat:"Rent/Mortgage"},
+  tax:{label:"Tax debt",cat:"Debt Payment"},
+  other:{label:"Other debt",cat:"Debt Payment"}
+};
+const debtKindOf=d=>DEBT_KINDS[d&&d.kind]||DEBT_KINDS.other;
+const isRevolving=d=>!!debtKindOf(d).revolving;
+/* US cards bill roughly 1–3% of the balance with a floor around $25 */
+const minPayment=d=>{ const b=num(d.balance); if(b<=0)return 0;
+  return Math.min(b,Math.max(25,Math.round(b*0.02))); };
+const debtPayAmount=d=>num(d.payment)>0?num(d.payment):(isRevolving(d)?minPayment(d):0);
 function debtOrig(d){ const st=num(d.start), b=num(d.balance); return st>0?st:b; }
 /* Money you have actually paid while using this app. Kept separate from
    (original − balance), which on a car loan includes years of payments made
@@ -3070,11 +3504,17 @@ function renderForecast(){
 function renderHistoryList(){
   const el=document.getElementById("hsList"); if(!el)return;
   const snaps=(db.snapshots||[]).slice().sort((a,b)=>b.m.localeCompare(a.m));
-  el.innerHTML=snaps.length?`<table><thead><tr><th>Month</th><th class="amt">Cash</th><th class="amt">Investments</th><th class="amt">Debt</th><th class="amt">Net worth</th><th></th></tr></thead><tbody>${snaps.map(s=>`<tr>
-    <td>${esc(s.m)}${s.manual?'':' <span class="muted" style="font-size:12px">auto</span>'}</td>
-    <td class="amt">${fmt(num(s.cash))}</td><td class="amt">${fmt(num(s.invest))}</td><td class="amt neg">${fmt(num(s.debt))}</td>
-    <td class="amt"><b class="${num(s.net)>=0?"pos":"neg"}">${fmt(num(s.net))}</b></td>
-    <td><button class="btn ghost sm" data-hsdel="${esc(s.m)}">✕</button></td></tr>`).join("")}</tbody></table>`
+  /* six columns of money will not fit a phone, and a sideways-scrolling box is
+     worse than two lines — net worth leads, the breakdown sits underneath */
+  el.innerHTML=snaps.length?`<div class="${snaps.length>5?"scrollrows bills":""}">${snaps.map(s=>`<div class="brow">
+    <div class="bmain" style="cursor:default">
+      <div class="binfo">
+        <div class="bname">${esc(prettyMonth(s.m))}${s.manual?'':' <span class="muted" style="font-size:11.5px;font-weight:500">auto</span>'}</div>
+        <div class="bmeta">${fmt(num(s.cash))} cash · ${fmt(num(s.invest))} invested · <span class="bneg">${fmt(num(s.debt))} owed</span></div>
+      </div>
+      <div class="bamt ${num(s.net)>=0?"pos":"neg"}">${fmt(num(s.net))}</div>
+      <button class="btn ghost sm" data-hsdel="${esc(s.m)}" title="Remove this entry" style="flex:none">&#10005;</button>
+    </div></div>`).join("")}</div>`
     :`<div class="muted" style="font-size:14px">No entries yet.</div>`;
   el.querySelectorAll("[data-hsdel]").forEach(b=>b.onclick=e=>{const m=e.currentTarget.dataset.hsdel;
     db.snapshots=db.snapshots.filter(s=>s.m!==m); saveAll();});
@@ -3242,7 +3682,7 @@ function renderGoals(){
   set("goalTargetG",el=>el.value=g.target);
   set("goalDeadlineG",el=>el.value=g.deadline);
   const dl=g.deadline&&!isNaN(new Date(g.deadline))?g.deadline:"";
-  const days=dl?Math.max(0,Math.ceil((new Date(dl)-new Date(todayISO()))/86400000)):null;
+  const days=dl?Math.max(0,daysBetween(todayISO(),dl)):null;
   const remaining=Math.max(0,num(g.target)-cash), perWeek=(days&&days>0)?remaining/(days/7):null;
   set("goalSubG",el=>el.textContent=num(g.target)?`${fmt(cash)} of ${fmt(g.target)} · ${pct.toFixed(0)}% there`:"Set a target below to start tracking a goal.");
   set("goalStatsG",el=>el.innerHTML=`<div style="font-size:30px;font-weight:750;letter-spacing:-.02em">${fmt(cash)}</div><div class="muted" style="font-size:13px;margin-bottom:12px">saved toward ${fmt(g.target)}</div><div class="stack" style="gap:7px"><div class="between"><span class="muted">Still needed</span><b>${fmt(remaining)}</b></div><div class="between"><span class="muted">Days left</span><b>${days==null?"—":days}</b></div><div class="between"><span class="muted">Pace to hit it</span><b>${perWeek==null?"set a deadline":fmt(Math.round(perWeek))+"/wk"}</b></div></div>`);
@@ -3276,7 +3716,11 @@ function renderCats(){
 function renderRules(){
   renderSetRoot();
   if(!paneOpen("rules"))return;
-  document.getElementById("rulesList").innerHTML=`<table><tbody>${db.rules.map((r,i)=>`<tr><td><code>${esc(r.m)}</code></td><td>→</td><td><span class="catpill">${esc(r.c)}</span></td><td class="amt"><button class="btn ghost sm" data-ruledel="${i}">✕</button></td></tr>`).join("")}</tbody></table>`;
+  /* four narrow columns still overflowed a phone; these rows wrap instead */
+  document.getElementById("rulesList").innerHTML=db.rules.length?
+    `<div class="deflist rulelist">${db.rules.map((r,i)=>`<div class="defrow"><span class="k"><code>${esc(r.m)}</code></span>
+      <span class="v"><span class="catpill">${esc(r.c)}</span><button class="btn ghost sm" data-ruledel="${i}" aria-label="Remove rule">✕</button></span></div>`).join("")}</div>`
+    :`<div class="empty" style="padding:14px 0">No rules yet — recategorize a transaction in Spending and it learns one.</div>`;
   document.querySelectorAll("[data-ruledel]").forEach(b=>b.onclick=e=>{db.rules.splice(+e.target.dataset.ruledel,1);saveAll();});
   document.getElementById("ruleCat").innerHTML=db.categories.map(c=>`<option>${c}</option>`).join("");
 }
@@ -3507,7 +3951,7 @@ async function sfSync(days){
       const tid=String(t.id);
       if(db.transactions.some(x=>x.sfTid===tid)){ dupes++; return; }
       const secs=Number(t.posted||t.transacted_at||0);
-      const date=secs?new Date(secs*1000).toISOString().slice(0,10):todayISO();
+      const date=secs?isoOf(new Date(secs*1000)):todayISO();
       const desc=String(t.description||t.payee||"").trim()||"(no description)";
       const amount=parseFloat(t.amount)||0;
       db.transactions.push({id:uid(),date,desc,amount,category:categorize(desc,amount),sfTid:tid,acctId:target.id});
@@ -3713,7 +4157,9 @@ function renderAbout(){
     ["Where it's kept","This browser, on this device"],
     ["What leaves it","Only what you push to your own encrypted cloud copy"]
   ];
-  el.innerHTML=`<table><tbody>${rows.map(r=>`<tr><td class="muted" style="font-size:14px">${esc(r[0])}</td><td class="amt" style="font-weight:560">${esc(r[1])}</td></tr>`).join("")}</tbody></table>`;
+  /* a table forces one long value to widen the whole card and start scrolling;
+     these rows wrap onto a second line instead */
+  el.innerHTML=`<div class="deflist">${rows.map(r=>`<div class="defrow"><span class="k">${esc(r[0])}</span><span class="v">${esc(r[1])}</span></div>`).join("")}</div>`;
 }
 function openSetting(id){
   const meta=SET_PANES[id]; if(!meta)return;
@@ -3766,12 +4212,20 @@ document.getElementById("addDivBtn").addEventListener("click",()=>{const date=do
   db.dividends.push({id:uid(),date,name,amount:amt});document.getElementById("divName").value="";document.getElementById("divAmt").value="";saveAll();});
 document.getElementById("addRecBtn").addEventListener("click",()=>{const name=document.getElementById("recName").value.trim();const category=document.getElementById("recCat").value;const amount=num(document.getElementById("recAmt").value);if(!name||!amount)return;
   const b={id:uid(),name,category,amount,dueDay:Math.min(28,Math.max(1,num(document.getElementById("recDay").value)||1))};
+  b.freq=(document.getElementById("recFreq")||{}).value||"monthly";
+  if(BILL_FREQ[b.freq]&&BILL_FREQ[b.freq].n>1) b.anchor=monthKey(todayISO());
   b.group=CAT_GROUP[category]||"Other"; b.tier=DEFAULT_TIER[b.group]||"flexible";
   db.recurring.push(b);
   ["recName","recAmt","recDay"].forEach(i=>{const el=document.getElementById(i); if(el)el.value="";});
+  {const rf=document.getElementById("recFreq"); if(rf)rf.value="monthly";}
   document.getElementById("addBillPanel").style.display="none";
   billTab="all"; billTierFilter=null; editBill=b.id; saveAll();});
-document.getElementById("markAllBillsBtn").addEventListener("click",()=>{db.recurring.forEach(b=>setBillPaid(b,budgetMonth,true));saveAll();});
+document.getElementById("markAllBillsBtn").addEventListener("click",()=>{
+  db.recurring.forEach(b=>{ if(billDueIn(b,budgetMonth))setBillPaid(b,budgetMonth,true); });saveAll();});
+document.getElementById("showAddPaycheck").addEventListener("click",()=>{
+  addPayOpen=!addPayOpen; editPay=null; renderPaychecks();
+  if(addPayOpen){ const el=document.getElementById("addPayPanel"); if(el)el.scrollIntoView({behavior:"smooth",block:"center"});
+    const f=document.getElementById("pc-source"); if(f)setTimeout(()=>f.focus(),260); }});
 function showAddPanel(id,focusId){ const p=document.getElementById(id); if(!p)return;
   const open=p.style.display!=="none"; p.style.display=open?"none":"block";
   if(!open){ p.scrollIntoView({behavior:"smooth",block:"center"});
@@ -3827,7 +4281,7 @@ function captureSnapshot(){
 }
 function monthsRange(n){
   const out=[]; const d=new Date(todayISO()+"T12:00:00"); d.setDate(1);
-  for(let i=n-1;i>=0;i--){ const x=new Date(d); x.setMonth(x.getMonth()-i); out.push(x.toISOString().slice(0,7)); }
+  for(let i=n-1;i>=0;i--){ const x=new Date(d); x.setMonth(x.getMonth()-i); out.push(monthOf(x)); }
   return out;
 }
 function monthIO(m){
@@ -3919,13 +4373,15 @@ function chartBars(points,labels,opt){
    drain evenly. Answers "what will I actually have on <date>?" */
 function forecastTo(toISO){
   const start=todayISO(); if(toISO<=start) return null;
-  const bills=db.recurring.reduce((s,b)=>s+num(b.amount),0);
+  /* charge each bill only in the months it's actually due */
+  const billsIn=m=>db.recurring.reduce((s,b)=>s+billAmountIn(b,m),0);
+  const bills=db.recurring.reduce((s,b)=>s+billMonthly(b),0);   // headline "per month" figure
   const flex=Object.keys(db.budgets).reduce((s,c)=>s+num(db.budgets[c]),0);
   const dailyFlex=flex/30.44;
   const pay={};
   db.income.forEach(s=>{ const ds=payDates(s,start,toISO); if(ds)ds.forEach(d=>{pay[d]=(pay[d]||0)+netOf(s,perPaycheck(s));});
     else { const amt=scheduledPay(s,start,toISO); if(amt>0){ const days=Math.max(1,Math.round(daysBetween(start,toISO)));
-      for(let k=1;k<=days;k++){ const d=new Date(start+"T12:00:00"); d.setDate(d.getDate()+k); pay[d.toISOString().slice(0,10)]=(pay[d.toISOString().slice(0,10)]||0)+netOf(s,amt)/days; } } } });
+      for(let k=1;k<=days;k++){ const d=new Date(start+"T12:00:00"); d.setDate(d.getDate()+k); pay[isoOf(d)]=(pay[isoOf(d)]||0)+netOf(s,amt)/days; } } } });
   let bal=totalCash(); const pts=[],labels=[],events=[];
   const cur=new Date(start+"T12:00:00"), end=new Date(toISO+"T12:00:00");
   let guard=0,lowest={v:bal,d:start};
@@ -3934,9 +4390,10 @@ function forecastTo(toISO){
   pts.push(bal); labels.push(shortMonth(monthKey(start))+" "+cur.getDate());
   while(cur<end&&guard++<1100){
     cur.setDate(cur.getDate()+1);
-    const iso=cur.toISOString().slice(0,10);
+    const iso=isoOf(cur);
     if(pay[iso]){ bal+=pay[iso]; events.push({d:iso,t:"pay",a:pay[iso]}); }
-    if(cur.getDate()===1&&bills>0){ bal-=bills; events.push({d:iso,t:"bills",a:-bills}); }
+    if(cur.getDate()===1){ const due=billsIn(monthKey(iso));
+      if(due>0){ bal-=due; events.push({d:iso,t:"bills",a:-due}); } }
     bal-=dailyFlex;
     if(bal<lowest.v)lowest={v:bal,d:iso};
     if(guard%every===0||iso===toISO){ pts.push(bal); labels.push(shortMonth(monthKey(iso))+" "+cur.getDate()); }
