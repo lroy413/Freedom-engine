@@ -584,6 +584,36 @@
   @media(max-width:820px){ .scrollrows.bills{max-height:296px} }
 
   /* ---------- bill rows ---------- */
+  /* ---------- overflow menu ---------- */
+  .morebtn{padding:7px 9px}
+  .morebtn svg{width:18px;height:18px}
+  .popmenu{position:absolute;top:calc(100% + 6px);right:0;z-index:30;min-width:220px;
+    background:var(--card);background-image:var(--card-grad);border:1px solid var(--line2);
+    border-radius:14px;box-shadow:var(--card-hi),var(--shadow);padding:6px;display:flex;flex-direction:column}
+  .popitem{display:flex;align-items:center;gap:11px;width:100%;padding:11px 12px;border:0;background:transparent;
+    color:var(--ink);font-size:14.5px;font-weight:570;border-radius:9px;cursor:pointer;text-align:left}
+  .popitem:hover{background:var(--raise)}
+  .popitem svg{width:17px;height:17px;flex:none;color:var(--muted)}
+  .chipdiv{width:1px;align-self:stretch;background:var(--line2);margin:3px 3px;flex:none}
+  .tchip.vchip{font-weight:640}
+  .tchip.ichip{width:30px;justify-content:center;font:italic 700 12px/1 Georgia,serif;color:var(--muted)}
+  .tchip.ichip.on{color:var(--accent-ink);border-color:var(--accent)}
+  .floornote.helptext{margin:8px 0 2px}
+  .chk.payg{font-size:15px;font-weight:800;color:var(--muted);display:flex;align-items:center;justify-content:center}
+  /* ---------- insight cards ---------- */
+  #insightRow{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+  .insight{display:flex;align-items:center;gap:11px;background:var(--card);background-image:var(--card-grad);
+    border:1px solid var(--line);border-radius:13px;padding:11px 13px;box-shadow:var(--card-hi),var(--shadow-sm)}
+  .insight .idot{width:8px;height:8px;border-radius:50%;flex:none}
+  .insight.warn .idot{background:var(--warn)} .insight.info .idot{background:var(--accent)} .insight.good .idot{background:var(--pos)}
+  .insight .itext{flex:1;min-width:0;text-align:left;background:none;border:0;padding:0;color:var(--ink2);
+    font:inherit;font-size:13.5px;line-height:1.45;cursor:pointer}
+  .insight .itext b{color:var(--ink)}
+  .insight .itext:hover{color:var(--ink)}
+  .insight .ix{width:30px;height:30px;flex:none;border:0;background:transparent;color:var(--muted);
+    border-radius:9px;display:grid;place-items:center;cursor:pointer;font-size:12px}
+  .insight .ix:hover{background:var(--raise);color:var(--ink)}
+  @media(max-width:820px){ .insight{padding:10px 11px} .insight .itext{font-size:13px} }
   /* ---------- hero carousel ---------- */
   /* Scroll-snap does the work: real momentum on a phone, drag or arrow keys on a
      desktop, and it degrades to a plain stack if scroll-snap isn't supported. */
@@ -975,6 +1005,17 @@
     <div class="sheetscroll" id="nwSheetBody"></div>
   </div>
 </div>
+<!-- Safe to spend detail — the arithmetic behind the one number. -->
+<div class="sheet" id="stsSheet" hidden>
+  <div class="sheetscrim" data-stsclose="1"></div>
+  <div class="sheetbody" role="dialog" aria-label="Safe to spend detail">
+    <div class="sheethead">
+      <div><div class="sheetkicker">Safe to spend</div><div class="sheettitle" id="stsVal">—</div></div>
+      <button class="sheetx" data-stsclose="1" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="sheetscroll" id="stsBody"></div>
+  </div>
+</div>
 <aside class="sidebar" id="sidebar">
   <div class="sbbrand"><span class="brandmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="blade" d="M20.5 3.5 L11 13"/><circle class="tsuba" cx="9.9" cy="14.1" r="1.7"/><path class="blade" d="M8.8 15.2 L5 19"/></svg></span> Freedom Engine</div>
   <nav id="sbnav"></nav>
@@ -1004,6 +1045,7 @@
     <p class="lead">Net worth is the number everything else feeds into. The rest of this screen is what's moving it this month.</p>
     <div id="startCard"></div>
     <div id="dashHero"></div>
+    <div id="insightRow" hidden></div>
     <div class="between pagerow" style="margin-bottom:14px">
       <h2 style="font-size:17.5px" id="dashMonthLabel">This month</h2>
       <div class="field nolabel" style="width:auto"><label>Month</label><select id="monthSel" aria-label="Month"></select></div>
@@ -1097,6 +1139,7 @@
     </div>
     <div id="learnNote" style="margin-bottom:12px"></div>
 
+    <div class="card" id="reviewCard" hidden style="margin-bottom:12px"></div>
     <div class="card" style="margin-bottom:12px" id="txFilterCard">
       <button class="filthead" id="filtToggle" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M7 12h10M10 19h4"/></svg>
@@ -1147,15 +1190,18 @@
     <p class="lead">Money in, bills to cover, flexible spending to stay under — what's left is yours to save or attack debt with.</p>
     <div class="grid kpis" id="budgetKpis" style="margin-bottom:22px"></div>
 
+    <!-- Three buttons, two chip rows and a paragraph made five stacked bars of
+         chrome before the first bill. The rare actions live in a ⋯ menu now, and
+         the view toggle rides in the same row as the tier chips. -->
     <div class="sectiontitle"><h2>Bills</h2><span class="hint">tap one to edit</span><span class="spacer"></span>
-      <span class="flex" style="gap:8px"><button class="btn sm ghost" id="calBillsBtn" title="Download a calendar file with a reminder for every bill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span class="lgonly">Add to calendar</span></button>
-      <button class="btn sm ghost" id="markAllBillsBtn"><span class="lgonly">Mark all paid</span><span class="smonly">All paid</span></button>
-      <button class="btn sm primary" id="showAddBill">+ Bill</button></span></div>
+      <span class="flex" style="gap:8px;position:relative">
+        <button class="btn sm ghost morebtn" id="billMoreBtn" aria-haspopup="true" aria-expanded="false" aria-label="More bill actions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>
+        <div class="popmenu" id="billMore" hidden>
+          <button class="popitem" id="calBillsBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>Add to calendar</button>
+          <button class="popitem" id="markAllBillsBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Mark this month paid</button>
+        </div>
+        <button class="btn sm primary" id="showAddBill">+ Bill</button></span></div>
     <div id="billFloor"></div>
-    <div class="segoptions" id="billViewSeg" style="margin-bottom:10px">
-      <button class="seg active" data-bview="month">This month</button>
-      <button class="seg" data-bview="all">All bills</button>
-    </div>
     <div class="tabrow" id="billTabs"></div>
     <div class="card" id="billsList"></div>
     <div id="billHidden" style="margin-top:8px"></div>
@@ -1947,7 +1993,7 @@ function doImport(){
   for(const r of pendingRows){ const date=normalizeDate(r[di]),desc=(r[de]||"").trim(); let amt=parseAmount(r[ai]);
     if(isNaN(amt)||!date){skipped++;continue;} if(sign==="pos")amt=-amt;
     const k=date+"|"+desc+"|"+amt; if(seen.has(k)){skipped++;continue;} seen.add(k);
-    db.transactions.push({id:uid(),date,desc,amount:amt,category:categorize(desc,amt)}); added++; }
+    db.transactions.push({id:uid(),date,desc,amount:amt,category:categorize(desc,amt),review:true}); added++; }
   db.transactions.sort((a,b)=>b.date.localeCompare(a.date));
   document.getElementById("mapPanel").innerHTML=`<div class="note">Imported <b>${added}</b>.${skipped?` Skipped ${skipped} (dupes/unreadable).`:""}</div>`;
   pendingRows=null; saveAll();
@@ -2430,6 +2476,7 @@ function renderComingUp(){
   db.recurring.forEach(b=>months.forEach(mk=>{
     if(!billDueIn(b,mk))return;
     const due=billDue(b,mk);
+    if(b.open) return;                    // pay-as-you-go — nothing "arrives" on a date
     if(due>=today&&due<=to&&!billPaid(b,mk)) items.push({d:due,t:"bill",name:b.name,amt:-num(b.amount)});
   }));
   db.income.forEach(st=>{ const ds=payDates(st,today,to); if(ds)ds.forEach(d=>items.push({d,t:"pay",name:st.name,amt:netOf(st,perPaycheck(st))})); });
@@ -2455,6 +2502,112 @@ function renderComingUp(){
    the dashboard sections remembered. One store, saved with everything else. */
 function pref(k,d){ const p=(db.settings&&db.settings.ui)||{}; return p[k]===undefined?d:p[k]; }
 function setPref(k,v){ db.settings.ui=db.settings.ui||{}; db.settings.ui[k]=v; persist(); }
+
+/* ======================= SAFE TO SPEND & INSIGHTS =======================
+   One number for the days you don't want to think: what you can spend today
+   without touching a bill, an envelope, or the IRS's share. It starts from
+   money you actually have — not projected income, which for freelance work is
+   a promise, not a number. */
+function safeToSpend(){
+  const mk=monthKey(todayISO());
+  const cash=spendableCash();                               // already net of the tax reserve
+  const bills=db.recurring.reduce((s,b)=>s+(billDueIn(b,mk)?billRemaining(b,mk):0),0);
+  /* what's still sitting in envelopes is planned spending, not free money */
+  const env=Object.keys(db.budgets).reduce((s,c)=>s+Math.max(0,availableFor(c,mk)),0);
+  const safe=cash-bills-env;
+  const d=dayOf(todayISO());
+  const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+  const daysLeft=Math.max(1,last-d.getDate()+1);
+  return {cash,bills,env,tax:taxHeld(),safe,daysLeft,perDay:safe/daysLeft};
+}
+const reviewQueue=()=>db.transactions.filter(t=>t.review);
+
+/* ---------- insights ----------
+   A handful of honest rules computed from numbers already on hand — no server,
+   no model, and deliberately few: three useful nudges beat twenty nags.
+   Dismissing one keeps it gone for the rest of the month. */
+function insightDismissed(id){ const d=(db.settings.insightsGone||{}); return d[id]===monthKey(todayISO()); }
+function dismissInsight(id){ db.settings.insightsGone=db.settings.insightsGone||{};
+  db.settings.insightsGone[id]=monthKey(todayISO()); persist(); renderInsights(); }
+function insights(){
+  const out=[], mk=monthKey(todayISO()), today=todayISO();
+  const push=(id,kind,text,go)=>{ if(!insightDismissed(id)) out.push({id,kind,text,go}); };
+
+  /* imported transactions waiting for a look */
+  const rq=reviewQueue().length;
+  if(rq) push("review","info",`<b>${rq} imported transaction${rq===1?"":"s"}</b> waiting for review — a wrong category quietly bends every chart.`,"expenses");
+
+  /* quarterly tax close and short */
+  const nq=nextQuarter&&nextQuarter();
+  if(nq&&nq.days<=21&&db.tax.enabled!==false){
+    const plan=quarterPlan(String(nq.year)).find(q=>q.q===nq.q);
+    if(plan&&plan.left>1){
+      const held=taxHeld();
+      push("tax-q"+nq.q,held>=plan.left?"info":"warn",
+        `<b>Q${nq.q} estimated tax</b> (${fmt(plan.left)}) is due ${esc(shortDate(nq.due))} — ${held>=plan.left?`the reserve covers it`:`you're holding ${fmt(held)}`}.`,"tax");
+    }
+  }
+  /* category running well ahead of last month's pace */
+  {
+    const prev=(()=>{const[y,m]=mk.split("-").map(Number);const d2=new Date(y,m-1,1);d2.setMonth(d2.getMonth()-1);return monthOf(d2);})();
+    const frac=Math.min(1,new Date().getDate()/30.44);
+    let worst=null;
+    db.categories.forEach(c=>{ if(c==="Income"||c==="Transfer")return;
+      const now=spentFor(c,mk), before=spentFor(c,prev)*frac;
+      if(before>=40&&now-before>=40){ const pct=Math.round((now-before)/before*100);
+        if(pct>=25&&(!worst||pct>worst.pct)) worst={c,pct,now}; } });
+    if(worst) push("pace-"+worst.c,"warn",`<b>${esc(worst.c)}</b> is running ${worst.pct}% ahead of last month's pace — ${fmt(worst.now)} so far.`,"expenses");
+  }
+  /* an envelope nearly gone with real month left */
+  {
+    const d=dayOf(today); const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+    const left=last-d.getDate();
+    if(left>=7){ let hot=null;
+      Object.keys(db.budgets).forEach(c=>{ const b=budgetedFor(c,mk); if(b<=0)return;
+        const used=spentFor(c,mk)/b; if(used>=.8&&used<1.15&&(!hot||used>hot.used)) hot={c,used}; });
+      if(hot) push("env-"+hot.c,"warn",`The <b>${esc(hot.c)}</b> envelope is ${Math.round(hot.used*100)}% used with ${left} days still to go.`,"budget");
+    }
+  }
+  /* unpaid bills inside a week */
+  {
+    const soon=db.recurring.filter(b=>{ if(b.open||!billDueIn(b,mk)||billPaid(b,mk))return false;
+      const due=billDue(b,mk); if(!due)return false;
+      const dd=daysBetween(today,due); return dd>=0&&dd<=7; });
+    const tot=soon.reduce((s,b)=>s+billRemaining(b,mk),0);
+    if(soon.length&&tot>1) push("due7","info",`<b>${soon.length} bill${soon.length===1?"":"s"}</b> (${fmt(tot)}) due within a week and not yet covered.`,"budget");
+  }
+  /* freedom coverage moved since last noticed */
+  {
+    const st=freedomState();
+    if(st.next&&st.need.thrive>0){
+      const cur=Math.round(st.next.pct);
+      const seen=num((db.settings.lastFreedom||{}).pct);
+      const tier=(db.settings.lastFreedom||{}).tier;
+      if(tier===st.next.key&&seen&&Math.abs(cur-seen)>=2){
+        push("free-"+st.next.key+"-"+cur,cur>seen?"good":"warn",
+          `Freedom coverage to <b>${esc(st.next.label)}</b> moved ${seen}% → ${cur}%${cur>seen?" — the machine is working":""}.`,"goals");
+      }
+      db.settings.lastFreedom={tier:st.next.key,pct:cur};
+    }
+  }
+  /* runway thin */
+  { const r=runwayMonths(); if(r>0&&r<2)
+      push("runway","warn",`Runway is <b>${runwayText()}</b> — under two months of spending on hand.`,"goals"); }
+
+  const rank={warn:0,info:1,good:2};
+  return out.sort((a,b)=>rank[a.kind]-rank[b.kind]).slice(0,4);
+}
+function renderInsights(){
+  const el=document.getElementById("insightRow"); if(!el)return;
+  const list=insights();
+  el.hidden=!list.length;
+  el.innerHTML=list.map(i=>`<div class="insight ${i.kind}">
+      <span class="idot"></span>
+      <button class="itext" data-go="${i.go}">${i.text}</button>
+      <button class="ix" data-idismiss="${esc(i.id)}" aria-label="Dismiss">&#10005;</button>
+    </div>`).join("");
+  el.querySelectorAll("[data-idismiss]").forEach(b=>b.onclick=e=>{e.stopPropagation();dismissInsight(b.dataset.idismiss);});
+}
 
 let heroIdx=0, heroWired=false;
 /* Keeps the dots in step with wherever the scroll actually is, and restores the
@@ -2669,10 +2822,16 @@ function renderDash(){
        return d>0.5?`${base} · ${fmt(d)}/mo from business`:base;})()},
     {go:"expenses",label:"Spending this month",val:fmt(mt.exp),cls:"",icon:"spend",c:C.warn,
      sub:pace==null?`${entriesCount} categories`:`${Math.abs(pace)}% ${pace>=0?"ahead of":"behind"} last month's pace`},
-    {go:"budget",label:"Left to spend",val:budCats.length?fmt(avail):"—",cls:avail<0?"neg":"pos",icon:"cash",c:C.goal,
-     sub:budCats.length?`across ${budCats.length} budget${budCats.length===1?"":"s"}`:"set budgets to track this"},
-    {go:"budget",label:"Bills",val:db.recurring.length?fmt(billsLeft):"—",cls:billsLeft>0?"":"pos",icon:"debt",c:C.acc,
-     sub:db.recurring.length?`${billsPaid.length} of ${db.recurring.filter(b=>billDueIn(b,curMonth)).length} paid · ${fmt(billsLeft)} to go`:"add your bills"},
+    /* the DollarWise lesson: one derived number beats ten accurate ones for daily
+       use. Ours is honest about the tax reserve, which theirs never heard of. */
+    (()=>{ const st=safeToSpend();
+      return {sts:true,label:"Safe to spend",val:fmt(st.safe),cls:st.safe>=0?"pos":"neg",icon:"cash",c:C.goal,
+        sub:st.safe>=0?`≈ ${fmt(Math.max(0,st.perDay))}/day for ${st.daysLeft} more day${st.daysLeft===1?"":"s"} · tap for the maths`
+          :"bills + envelopes exceed cash — tap to see why"};})(),
+    {go:"budget",label:"Bills left",val:db.recurring.length?fmt(billsLeft):"—",cls:billsLeft>0?"":"pos",icon:"debt",c:C.acc,
+     sub:db.recurring.length?(billsLeft<=0.005
+       ?("all "+fmt(billsTot)+" covered"+(billsPaidAmtDash-billsTot>0.5?" · "+fmt(billsPaidAmtDash-billsTot)+" ahead":""))
+       :(billsPaid.length+" of "+db.recurring.filter(b=>billDueIn(b,curMonth)).length+" paid · of "+fmt(billsTot)+" due")):"add your bills"},
     {go:"credit",label:"Payments logged",val:db.debts.length?fmt(dPaid):"—",cls:"pos",icon:"net",c:C.neg,
      sub:!db.debts.length?"add your debts":dN?`${dN} payment${dN===1?"":"s"} · ${fmt(dNow)} still owed`:`${fmt(dNow)} owed — log a payment to track this`},
     /* was reading the pre-multi-goal single target; now it reports the thing the
@@ -2685,7 +2844,7 @@ function renderDash(){
       return {go:"goals",label:gg?esc(gg.name):"Goals",val:gg?Math.round(goalPct(gg))+"%":"—",cls:"",icon:"clock",c:C.inv,
         sub:gg?`${fmtK(goalNow(gg))} of ${fmtK(num(gg.target))}`:"set a goal to track this"};})()
   ];
-  document.getElementById("kpiRow").innerHTML=kpis.map(k=>`<div class="card kpi tappable" data-go="${k.go}" style="--kpic:${k.c}"><div class="kpitop">${kpiIcon(k.icon,k.c)}<div class="label">${k.label}</div></div><div class="val ${k.cls}">${k.val}</div><div class="sub">${k.sub}</div></div>`).join("");
+  document.getElementById("kpiRow").innerHTML=kpis.map(k=>`<div class="card kpi tappable" ${k.sts?`data-stsopen="1"`:`data-go="${k.go}"`} style="--kpic:${k.c}"><div class="kpitop">${kpiIcon(k.icon,k.c)}<div class="label">${k.label}</div></div><div class="val ${k.cls}">${k.val}</div><div class="sub">${k.sub}</div></div>`).join("");
   const cats={}; for(const t of db.transactions){ if(monthKey(t.date)===curMonth&&t.amount<0&&!isNeutral(t))cats[t.category]=(cats[t.category]||0)+(-t.amount); }
   const entries=Object.entries(cats).sort((a,b)=>b[1]-a[1]); const max=entries.length?entries[0][1]:1;
   document.getElementById("spendHint").textContent=entries.length?`${fmt(mt.exp)} across ${entries.length} categories`:"";
@@ -3116,7 +3275,7 @@ function renderTxFilters(){
 function renderTx(){
   renderTxFilters();
   const list=filteredTx();
-  const catOpts=c=>db.categories.map(x=>`<option ${x===c?"selected":""}>${x}</option>`).join("");
+
   const out=list.filter(t=>t.amount<0&&!isNeutral(t)).reduce((s,t)=>s+(-t.amount),0);
   const inc=list.filter(t=>t.amount>0&&!isNeutral(t)).reduce((s,t)=>s+t.amount,0);
   const xfers=list.filter(isNeutral);
@@ -3213,6 +3372,7 @@ function carriedInto(cat,m){
   let a=0; for(const mm of monthsUpTo(m)){ if(mm===m)break; if(mm<since)continue; a+=budgetedFor(cat,mm)-spentFor(cat,mm); }
   return a;
 }
+const catOpts=c=>db.categories.map(x=>`<option ${x===c?"selected":""}>${x}</option>`).join("");
 function availableFor(cat,m){ return carriedInto(cat,m)+budgetedFor(cat,m)-spentFor(cat,m); }
 /* Bills carry two labels beyond their spending category.
    GROUP is what kind of bill it is — drives the tabs, so six subscriptions on six
@@ -3271,8 +3431,10 @@ function nextBillDate(b,fromISO){
   }
   return billDue(b,mk); }
 function billStatus(b,m){
-  if(billPaid(b,m)) return {k:"paid",label:"Paid",cls:"ok"};
+  if(billPaid(b,m)) return {k:"paid",label:b.open?"Covered":"Paid",cls:"ok"};
   if(!billDueIn(b,m)) return {k:"off",label:"not due this month",cls:""};
+  /* prepaid power has no real due date — "overdue" would be a lie */
+  if(b.open) return {k:"open",label:billPaidRaw(b,m)>0.005?fmt(billPaidRaw(b,m))+" so far":"pay as you go",cls:""};
   const due=billDue(b,m), today=todayISO();
   if(due<today) return {k:"late",label:"Overdue",cls:"bad"};
   const days=Math.ceil(daysBetween(today,due));
@@ -3353,7 +3515,28 @@ function downloadBillsICS(){
    whole-bill records are tagged "<billId>|<month>" and still match. */
 function billTxs(bill,mk){ const p=billRefKey(bill,mk);
   return db.transactions.filter(t=>t.billRef===p||String(t.billRef||"").startsWith(p+"|")); }
-function billPaidAmt(bill,mk){ return billTxs(bill,mk).reduce((s,t)=>s+Math.abs(num(t.amount)),0); }
+function billPaidRaw(bill,mk){ return billTxs(bill,mk).reduce((s,t)=>s+Math.abs(num(t.amount)),0); }
+/* Overpaying a bill rolls forward as credit toward the next month it's due.
+   Computed cumulatively from the first recorded payment: each month's surplus
+   carries in, and a shortfall clamps at zero — unpaid is unpaid, not a debt to
+   the app. Quarterly and annual bills work unchanged, because off-months have a
+   due of zero and simply pass the credit along. */
+function billCredit(bill,mk){
+  if(bill.open) return 0;                    // a pay-as-you-go bill has no fixed due to overshoot
+  let first=null;
+  for(const t of db.transactions){ if(!t.billRef)continue; const p=String(t.billRef).split("|");
+    if(p[0]===bill.id&&p[1]&&p[1]<mk&&(first===null||p[1]<first)) first=p[1]; }
+  if(first===null) return 0;
+  let run=0,[y,m]=first.split("-").map(Number);
+  for(let g=0;g<600;g++){
+    const cur=y+"-"+String(m).padStart(2,"0");
+    if(cur>=mk) break;
+    run=Math.max(0, run + billPaidRaw(bill,cur) - billAmountIn(bill,cur));
+    m++; if(m>12){m=1;y++;}
+  }
+  return run;
+}
+function billPaidAmt(bill,mk){ return billPaidRaw(bill,mk)+billCredit(bill,mk); }
 function billRemaining(bill,mk){ return Math.max(0,num(bill.amount)-billPaidAmt(bill,mk)); }
 function billPaid(bill,mk){ const due=num(bill.amount);
   return due>0 ? billPaidAmt(bill,mk)>=due-0.005 : billTxs(bill,mk).length>0; }
@@ -3397,7 +3580,11 @@ function renderBudget(){
   const free=income-billsTotal-flexLimit;
   document.getElementById("budgetKpis").innerHTML=`
     <div class="card kpi"><div class="label">Income this month</div><div class="val pos">${fmt(income)}</div><div class="sub">${actualIncome>0?"actual received":"estimated"+(db.settings.taxEnabled?" · after tax":"")}</div></div>
-    <div class="card kpi"><div class="label">Bills due</div><div class="val">${fmt(billsTotal)}</div><div class="sub">${fmt(billsPaidAmt)} paid · ${fmt(billsTotal-billsPaidAmt)} left${Math.abs(billsMonthlyCost-billsTotal)>=1?` · ${fmt(billsMonthlyCost)}/mo true cost`:""}</div></div>
+    ${(()=>{ /* "owed" must mean what's still unpaid — a paid-up month reads $0,
+       and an overpaid one shows the surplus as credit, never a negative */
+      const leftAmt=Math.max(0,billsTotal-billsPaidAmt);
+      const over=Math.max(0,billsPaidAmt-billsTotal);
+      return `<div class="card kpi"><div class="label">Bills left</div><div class="val ${leftAmt<=0.005?"pos":""}">${leftAmt<=0.005?"$0":fmt(leftAmt)}</div><div class="sub">${leftAmt<=0.005?`all ${fmt(billsTotal)} covered`:`of ${fmt(billsTotal)} this month · ${fmt(billsPaidAmt)} paid`}${over>0.5?` · ${fmt(over)} ahead → next month`:""}${Math.abs(billsMonthlyCost-billsTotal)>=1?` · ${fmt(billsMonthlyCost)}/mo true cost`:""}</div></div>`;})()}
     <div class="card kpi"><div class="label">Available to spend</div><div class="val ${flexAvail<0?'neg':'pos'}">${fmt(flexAvail)}</div><div class="sub">${db.settings.rollover?"across your envelopes":`${fmt(flexSpent)} spent of ${fmt(flexLimit)}`}</div></div>
     <div class="card kpi"><div class="label">Free to save / attack debt</div><div class="val ${free<0?'neg':'pos'}">${fmt(free)}</div><div class="sub">income − bills − budgets</div></div>`;
   // bills list
@@ -3415,14 +3602,21 @@ function renderBudget(){
     const tiers=["essential","flexible","luxury"].filter(t=>db.recurring.some(b=>billTier(b)===t));
     const biz=bizTotal();
     floorEl.innerHTML=db.recurring.length?`<div class="chiprow scrollchips">
+      <button class="tchip vchip${billView==="month"?" on":""}" data-bview="month">This month</button>
+      <button class="tchip vchip${billView==="all"?" on":""}" data-bview="all">All</button>
+      <span class="chipdiv" aria-hidden="true"></span>
       ${tiers.map(t=>{const o=BILL_TIERS[t],on=billTierFilter===t;
         return `<button class="tchip${on?" on":""}" data-btier="${t}" title="${esc(o.note)}">
           <span class="tdot" style="background:${o.color}"></span>${o.label} <b>${fmt(tierTotal(t))}</b></button>`;}).join("")}
       ${biz?`<button class="tchip${billTierFilter==="biz"?" on":""}" data-btier="biz" title="Marked as a business expense — worth pulling out at tax time">
         <span class="tdot" style="background:#2563eb"></span>Business <b>${fmt(biz)}</b></button>`:""}
       ${billTierFilter?`<button class="fclear" data-btier="">Show all</button>`:""}
+      <button class="tchip ichip" data-floorinfo="1" aria-label="What the tiers mean" aria-expanded="false">i</button>
     </div>
-    <div class="floornote">Essentials are your monthly floor — <b>${fmt(monthlyFloor())}</b> to clear before anything else. Everything above it is choice.</div>`:"";
+    <div class="floornote helptext" hidden>Essentials are your monthly floor — <b>${fmt(monthlyFloor())}</b> to clear before anything else. Everything above it is choice. The chips filter the list.</div>`:"";
+    const fi=floorEl.querySelector("[data-floorinfo]");
+    if(fi)fi.onclick=e=>{e.stopPropagation(); const n=floorEl.querySelector(".floornote");
+      n.hidden=!n.hidden; fi.setAttribute("aria-expanded",n.hidden?"false":"true"); fi.classList.toggle("on",!n.hidden);};
     floorEl.querySelectorAll("[data-btier]").forEach(b=>b.onclick=()=>{
       const v=b.dataset.btier; billTierFilter=(v&&billTierFilter!==v)?v:null; renderBudget();});
   }
@@ -3433,7 +3627,7 @@ function renderBudget(){
      you're typing in disappear out from under you */
   const inView=b=>billView==="all"||billDueIn(b,mk)||editBill===b.id||payBill===b.id;
   document.querySelectorAll("[data-bview]").forEach(bt=>{
-    bt.classList.toggle("active",bt.dataset.bview===billView);
+    bt.classList.toggle("on",bt.dataset.bview===billView);
     bt.onclick=()=>{billView=bt.dataset.bview;setPref("billView",billView);renderBudget();};});
   const pool=db.recurring.filter(inView);
   const groupsPresent=BILL_GROUPS.filter(g=>pool.some(b=>billGroup(b)===g));
@@ -3458,24 +3652,28 @@ function renderBudget(){
     const nextM=dueNow?null:nextBillMonth(b,mk);
     return `<div class="brow${paid?" paid":""}${editing?" editing":""}${dueNow?"":" offmonth"}">
       <div class="bmain" data-billopen="${b.id}">
-        ${dueNow?`<button class="chk ${paid?'on':''}" data-billtog="${b.id}" title="${paid?'Paid — tap to undo':part?'Cover the remaining '+fmt(left):'Mark paid in full'}">${paid?'✓':''}</button>`
+        ${dueNow&&!b.open?`<button class="chk ${paid?'on':''}" data-billtog="${b.id}" title="${paid?'Paid — tap to undo':part?'Cover the remaining '+fmt(left):'Mark paid in full'}">${paid?'✓':''}</button>`
+          :b.open&&dueNow?`<span class="chk ghosted payg" title="Pay as you go — no fixed amount">~</span>`
           :`<span class="chk ghosted"></span>`}
         <div class="binfo">
           <div class="bname">${esc(b.name)}${b.biz?` <span class="bizmark" title="Business expense">BIZ</span>`:""}</div>
-          <div class="bmeta"><span class="bdot" style="background:${to.color}" title="${esc(to.label)} — ${esc(to.note)}"></span><span class="bcat">${esc(billGroup(b))} · </span>${f.n>1?`${esc(f.label.toLowerCase())} · `:""}${dueNow?`due the ${ord(num(b.dueDay)||1)}`:`next in ${esc(shortMonth(nextM))}`}${dueNow&&st.cls&&st.k!=="paid"?` · <span class="${st.cls==='bad'?'bneg':'bwarn'}">${esc(st.label)}</span>`:""}${part?` · <span class="bpart">${fmt(paidAmt)} paid</span>`:""}</div>
+          <div class="bmeta"><span class="bdot" style="background:${to.color}" title="${esc(to.label)} — ${esc(to.note)}"></span><span class="bcat">${esc(billGroup(b))} · </span>${f.n>1?`${esc(f.label.toLowerCase())} · `:""}${dueNow?(b.open?`no set amount`:`due the ${ord(num(b.dueDay)||1)}`):`next in ${esc(shortMonth(nextM))}`}${dueNow&&st.k!=="paid"&&(st.cls||b.open)?` · <span class="${st.cls==='bad'?'bneg':st.cls==='warn'?'bwarn':''}">${esc(st.label)}</span>`:""}${part&&!b.open?` · <span class="bpart">${fmt(paidAmt)} paid${billCredit(b,mk)>0.005?" (incl. credit)":""}</span>`:""}</div>
         </div>
-        <div class="bamt${f.n>1||part?" roll":""}">${fmt(dueNow&&part?left:num(b.amount))}${part?`<em>of ${fmt(num(b.amount))} left</em>`:(f.n>1?`<em>${fmt(billMonthly(b))}/mo</em>`:"")}</div>
-        ${dueNow&&!paid?`<button class="btn ghost sm bpay" data-billpay="${b.id}">${payBill===b.id?"Cancel":"Pay"}</button>`:""}
+        <div class="bamt${f.n>1||part||b.open?" roll":""}">${b.open?fmt(dueNow?billPaidRaw(b,mk):0):fmt(dueNow&&part?left:num(b.amount))}${b.open?`<em>~${fmt(num(b.amount))} typical</em>`:part?`<em>of ${fmt(num(b.amount))} left</em>`:(f.n>1?`<em>${fmt(billMonthly(b))}/mo</em>`:"")}</div>
+        ${dueNow&&(!paid||b.open)?`<button class="btn ghost sm bpay" data-billpay="${b.id}">${payBill===b.id?"Cancel":"Pay"}</button>`:""}
         <button class="aedit${editing?" on":""}" data-billedit="${b.id}" aria-label="Edit ${esc(b.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
       </div>
       ${part?`<div class="bprog"><span style="width:${(paidAmt/num(b.amount)*100).toFixed(1)}%"></span></div>`:""}
       ${payBill===b.id?`<div class="bpanel">
         <div class="formgrid">
           <div class="field"><label>Date</label><input type="date" id="bp-date" value="${esc(billPayDate(b,mk))}"></div>
-          <div class="field"><label>Amount paid</label><input type="number" step="0.01" id="bp-amt" value="${left.toFixed(2)}"></div>
+          <div class="field"><label>Amount paid</label><input type="number" step="0.01" id="bp-amt" value="${b.open?"":left.toFixed(2)}" ${b.open?`placeholder="whatever kept the lights on"`:""}></div>
           <button class="btn primary" data-billpaysave="${b.id}">Apply</button>
         </div>
-        <div class="muted" style="font-size:12.5px;margin-top:8px">${paidAmt>0.005?`<b>${fmt(paidAmt)}</b> paid so far · <b>${fmt(left)}</b> left`:`Pay part of it if that's all you can cover — it ticks off on its own once the ${fmt(num(b.amount))} is covered.`}</div>
+        <div class="muted" style="font-size:12.5px;margin-top:8px">${b.open
+          ?`No fixed amount — log payments as they happen. ${billPaidRaw(b,mk)>0.005?`<b>${fmt(billPaidRaw(b,mk))}</b> so far this month, against a typical ${fmt(num(b.amount))}.`:`The ~${fmt(num(b.amount))} typical figure is only for planning.`}`
+          :paidAmt>0.005?`<b>${fmt(paidAmt)}</b> covered${billCredit(b,mk)>0.005?` (${fmt(billCredit(b,mk))} carried in from last month)`:""} · <b>${fmt(left)}</b> left. Pay over and the extra rolls into next month.`
+          :`Pay part if that's all you can cover — it ticks off once the ${fmt(num(b.amount))} is met. Pay over and the extra becomes credit toward next month.`}</div>
         ${paidAmt>0.005?`<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:4px">
           <table><tbody>${billTxs(b,mk).slice().sort((x,y)=>y.date.localeCompare(x.date)).map(t=>`<tr>
             <td style="width:112px;white-space:nowrap">${esc(t.date)}</td>
@@ -3487,7 +3685,7 @@ function renderBudget(){
         <div class="formgrid">
           <div class="field"><label>Name</label><input value="${esc(b.name)}" data-billname="${b.id}"></div>
           <div class="field"><label>Spending category</label><select data-billcat="${b.id}">${db.categories.map(c=>`<option ${c===b.category?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
-          <div class="field"><label>Amount <span class="muted" style="font-weight:400">per ${esc(f.every)}</span></label><input type="number" value="${num(b.amount)}" data-billamt="${b.id}"></div>
+          <div class="field"><label>${b.open?`Typical month ($) <span class="muted" style="font-weight:400">planning only</span>`:`Amount <span class="muted" style="font-weight:400">per ${esc(f.every)}</span>`}</label><input type="number" value="${num(b.amount)}" data-billamt="${b.id}"></div>
           <div class="field"><label>How often</label><select data-billfreq="${b.id}">${Object.entries(BILL_FREQ).map(([v,o2])=>`<option value="${v}" ${(b.freq||"monthly")===v?"selected":""}>${o2.label}</option>`).join("")}</select></div>
           <div class="field"><label>Due day of month</label><input type="number" min="1" max="28" value="${num(b.dueDay)||1}" data-billday="${b.id}"></div>
           ${f.n>1?`<div class="field"><label>A month it's due <span class="muted" style="font-weight:400">sets the cycle</span></label><input type="month" value="${esc(billAnchor(b))}" data-billanchor="${b.id}"></div>`:""}
@@ -3500,6 +3698,9 @@ function renderBudget(){
         ${b.debtId?(()=>{const dd=db.debts.find(x=>x.id===b.debtId);
           return `<div class="note" style="margin-top:12px;font-size:13px">Tied to <b>${esc(dd?dd.name:"a debt")}</b> in Debt payoff${b.estimated?` — the amount is an <b>estimated minimum</b> (2% of the balance, $25 floor). Type your real payment and it stops guessing.`:"."}</div>`;})():""}
         ${f.n>1?`<div class="note" style="margin-top:12px;font-size:13px"><b>${fmt(num(b.amount))}</b> every ${esc(f.every)} works out to <b>${fmt(billMonthly(b))}</b> a month — that's what counts toward your floor, so it's money you're setting aside rather than a surprise. Next due <b>${esc(shortDate(nextBillDate(b)))}</b>.</div>`:""}
+        <label class="flex" style="font-size:14px;margin-top:12px;gap:9px;align-items:flex-start">
+          <input type="checkbox" data-billopenflag="${b.id}" ${b.open?"checked":""} style="margin-top:3px">
+          <span>No set amount — prepaid / pay-as-you-go<br><span class="muted" style="font-size:12.5px">Prepaid power, a top-up phone, tolls. Log payments whenever they happen; the amount above becomes a typical-month figure used only for planning.</span></span></label>
         ${bizList().length?`<div class="formgrid" style="margin-top:12px">
           <div class="field"><label>Business</label><select data-billbizid="${b.id}"><option value="">Personal</option>${bizList().map(x=>`<option value="${x.id}" ${b.bizId===x.id?"selected":""}>${esc(x.name)}</option>`).join("")}</select></div>
           ${b.bizId?`<div class="field"><label>How much is business (%)</label><input type="number" min="0" max="100" step="5" data-billbizpct="${b.id}" value="${b.bizPct===undefined?100:num(b.bizPct)}"></div>`:""}
@@ -3517,7 +3718,7 @@ function renderBudget(){
       :`<div class="empty" style="padding:22px">${billView==="month"&&offCount?`Nothing due in ${esc(prettyMonth(mk))} here.`:"No bills in this view — pick another tab or clear the filter."}</div>`)+
       `<div class="brow sum"><div class="bmain"><span class="chk ghosted"></span>
         <div class="binfo"><div class="bname">${shownPaid.length} of ${shownDue.length} due this month paid</div>
-        <div class="bmeta">${shownTotal-shownPaidAmt>0.005?fmt(shownTotal-shownPaidAmt)+" still to cover":"all covered"}${billView==="all"?` · ${fmt(shown.reduce((t,x)=>t+billMonthly(x),0))}/mo true cost`:""}</div></div>
+        <div class="bmeta">${shownTotal-shownPaidAmt>0.005?fmt(shownTotal-shownPaidAmt)+" still to cover":shownPaidAmt-shownTotal>0.5?`all covered · ${fmt(shownPaidAmt-shownTotal)} ahead → next month`:"all covered"}${billView==="all"?` · ${fmt(shown.reduce((t,x)=>t+billMonthly(x),0))}/mo true cost`:""}</div></div>
         <div class="bamt">${fmt(shownTotal)}</div><span style="width:32px;flex:none"></span></div></div>`
     :`<div class="empty" style="padding:22px">No bills yet — hit <b>+ Bill</b> to add rent, car, insurance, phone.</div>`;
   {const hn=document.getElementById("billHidden");
@@ -3538,6 +3739,8 @@ function renderBudget(){
     if(b){b.name=e.currentTarget.value;b.renamed=true;saveAll();}});
   bl.querySelectorAll("[data-billcat]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billcat);
     if(b){b.category=e.currentTarget.value;saveAll();}});
+  bl.querySelectorAll("[data-billopenflag]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billopenflag);
+    if(b){b.open=e.currentTarget.checked;saveAll();}});
   bl.querySelectorAll("[data-billamt]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billamt);
     if(b){ b.amount=num(e.currentTarget.value); b.estimated=false;   // a typed figure isn't a guess
       const d=db.debts.find(x=>x.billId===b.id); if(d&&!num(d.payment))d.payment=b.amount;
@@ -4593,6 +4796,75 @@ function freedomState(){
   return {passive:p,need,tiers,next:tiers.find(t=>!t.cleared)||null};
 }
 
+/* ---------- safe to spend sheet ---------- */
+let stsOpen=false;
+function openSTS(){ stsOpen=true; document.body.classList.add("sheetopen");
+  document.getElementById("stsSheet").hidden=false; renderSTS(); }
+function closeSTS(){ stsOpen=false; document.body.classList.remove("sheetopen");
+  document.getElementById("stsSheet").hidden=true; }
+function renderSTS(){
+  if(!stsOpen)return;
+  const el=document.getElementById("stsBody"), st=safeToSpend();
+  document.getElementById("stsVal").innerHTML=`<span class="${st.safe>=0?"pos":"neg"}">${fmt(st.safe)}</span>`;
+  const row=(k,v,cls,sub)=>`<div class="defrow"><span class="k">${k}${sub?`<br><span style="font-size:11.5px;opacity:.7">${sub}</span>`:""}</span><span class="v ${cls||""}">${v}</span></div>`;
+  el.innerHTML=`
+    <div class="deflist tight">
+      ${row("Money on hand",fmt(st.cash+st.tax),"","every asset account, before anything is earmarked")}
+      ${st.tax>0?row("Held for tax","−"+fmt(st.tax),"neg","the IRS's share of 1099 income — already spent"):""}
+      ${row("Bills still due this month","−"+fmt(st.bills),"neg","what remains unpaid on everything due")}
+      ${row("Left in your envelopes","−"+fmt(st.env),"neg","planned spending — groceries, gas — not free money")}
+      ${row("<b>Safe to spend</b>","<b class='"+(st.safe>=0?"pos":"neg")+"'>"+fmt(st.safe)+"</b>","")}
+    </div>
+    ${st.safe>=0
+      ? `<div class="note ok" style="margin-top:14px">About <b>${fmt(Math.max(0,st.perDay))}/day</b> for the next ${st.daysLeft} day${st.daysLeft===1?"":"s"}. Spend it on anything without touching a bill, an envelope, or the tax reserve.</div>`
+      : `<div class="note warn" style="margin-top:14px">Short by <b>${fmt(-st.safe)}</b> — this month's bills and envelopes add up to more than the cash on hand. An envelope may need trimming, or a payday lands first: the forecast on Goals shows which.</div>`}
+    <div class="muted" style="font-size:12.5px;margin-top:12px">Built from money you actually have, not projected income — a promised invoice isn't spendable yet. Logging a paycheck moves this number the moment it lands.</div>`;
+}
+/* ---------- import review queue ---------- */
+function renderReview(){
+  const card=document.getElementById("reviewCard"); if(!card)return;
+  const q=reviewQueue().slice().sort((a,b)=>b.date.localeCompare(a.date));
+  card.hidden=!q.length;
+  if(!q.length){ card.innerHTML=""; return; }
+  card.innerHTML=`<button class="filthead" id="rvToggle" aria-expanded="${rvOpen?"true":"false"}">
+      <span class="fcount" style="background:var(--accent);color:#fff">${q.length}</span>
+      <span><b>New transaction${q.length===1?"":"s"} to review</b></span>
+      <span class="muted lgonly" style="font-size:13px">tap ✓ if the guess is right</span>
+      <span class="spacer"></span>
+      <svg class="filtchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="filtbody" ${rvOpen?"":"hidden"} style="padding:0">
+      <div class="${q.length>5?"scrollrows bills":""}">${q.map(t=>`<div class="brow">
+        <div class="bmain" style="cursor:default">
+          <button class="chk" data-rvok="${t.id}" title="Category is right — accept">✓</button>
+          <div class="binfo"><div class="bname">${esc(t.desc||"—")}</div>
+            <div class="bmeta">${esc(shortDate(t.date))}${acctName(t.acctId)?` · ${esc(acctName(t.acctId))}`:""}</div></div>
+          <select class="catsel" data-rvcat="${t.id}" style="flex:none;max-width:38%">${catOpts(t.category)}</select>
+          <div class="bamt ${t.amount<0?"neg":"pos"}" style="min-width:74px">${t.amount<0?"":"+"}${fmt2(t.amount)}</div>
+        </div></div>`).join("")}</div>
+      <div class="toolbar" style="padding:10px 14px;border-top:1px solid var(--line)">
+        <span class="muted" style="font-size:12.5px">Changing a category teaches a rule for next time.</span>
+        <span class="spacer"></span>
+        <button class="btn sm primary" id="rvAll">Accept all ${q.length}</button>
+      </div>
+    </div>`;
+  const t2=document.getElementById("rvToggle");
+  t2.onclick=()=>{rvOpen=!rvOpen;renderReview();};
+  card.querySelectorAll("[data-rvok]").forEach(b=>b.onclick=()=>{
+    const t=db.transactions.find(x=>x.id===b.dataset.rvok);
+    if(t){ delete t.review; saveAll(); }});
+  /* correcting the guess is the teaching moment — same rule engine as the table */
+  card.querySelectorAll("[data-rvcat]").forEach(sel=>sel.onchange=()=>{
+    const t=db.transactions.find(x=>x.id===sel.dataset.rvcat); if(!t)return;
+    t.category=sel.value; delete t.review;
+    const kw=merchantKey(t.desc);
+    if(kw&&!db.rules.some(r=>r.m===kw)) db.rules.push({m:kw,c:sel.value});
+    saveAll();});
+  const all=document.getElementById("rvAll");
+  if(all) all.onclick=()=>{ reviewQueue().forEach(t=>delete t.review); saveAll(); };
+}
+let rvOpen=true;
+
 /* ---------- net worth drill-down ----------
    Net worth is the culmination of every other screen, so the dashboard leads with
    it and this sheet shows the whole chain: what you own, what you owe, what moved
@@ -5560,7 +5832,18 @@ function collapseLeads(){
     row.appendChild(b);
   });
 }
-function renderAll(){ captureSnapshot(); renderNav(); renderSlotPicker(); syncTheme(); renderCats();renderDash();renderTrends();renderIncome();renderPaychecks();renderTx();renderBudget();renderGoals();renderForecast();renderNWSheet();renderTax();renderBusiness();renderCash();renderCredit();renderInvest();renderRules(); try{collapseHelp();}catch(e){} }
+/* Every save rebuilds the DOM, which used to snap each scrollable list back to
+   the top — tick one bill mid-list and you were staring at the first one again.
+   Positions are captured by container id before the rebuild and restored after. */
+function captureScrolls(){ const out={};
+  document.querySelectorAll(".scrollrows,.scrolllist").forEach((el,i)=>{
+    if(el.scrollTop>0){ const host=el.closest("[id]"); out[(host?host.id:"x")+"#"+i]=el.scrollTop; } });
+  return out; }
+function restoreScrolls(map){ if(!map)return;
+  document.querySelectorAll(".scrollrows,.scrolllist").forEach((el,i)=>{
+    const host=el.closest("[id]"); const k=(host?host.id:"x")+"#"+i;
+    if(map[k]) el.scrollTop=map[k]; }); }
+function renderAll(){ const _sc=captureScrolls(); captureSnapshot(); renderNav(); renderSlotPicker(); syncTheme(); renderCats();renderDash();renderTrends();renderIncome();renderPaychecks();renderTx();renderBudget();renderGoals();renderForecast();renderNWSheet();renderTax();renderBusiness();renderInsights();renderReview();renderSTS();renderCash();renderCredit();renderInvest();renderRules(); try{collapseHelp();}catch(e){} restoreScrolls(_sc); }
 
 /* ---------- events ---------- */
 document.getElementById("menuBtn").addEventListener("click",openDrawer);
@@ -5602,8 +5885,10 @@ function addHistoryEntry(){
 }
 /* ---- net worth sheet ---- */
 document.addEventListener("click",e=>{ if(e.target.closest("[data-nwclose]")) closeNW();
-  else if(e.target.closest("[data-nwopen]")) openNW(); });
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&nwOpen)closeNW(); });
+  else if(e.target.closest("[data-nwopen]")) openNW();
+  else if(e.target.closest("[data-stsclose]")) closeSTS();
+  else if(e.target.closest("[data-stsopen]")) openSTS(); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(nwOpen)closeNW(); if(stsOpen)closeSTS(); } });
 /* ---- goals ---- */
 document.getElementById("showAddBiz").addEventListener("click",()=>{
   addBizOpen=!addBizOpen; openBiz=null; renderBusiness();
@@ -5768,7 +6053,7 @@ async function sfSync(days){
       const date=secs?isoOf(new Date(secs*1000)):todayISO();
       const desc=String(t.description||t.payee||"").trim()||"(no description)";
       const amount=parseFloat(t.amount)||0;
-      db.transactions.push({id:uid(),date,desc,amount,category:categorize(desc,amount),sfTid:tid,acctId:target.id});
+      db.transactions.push({id:uid(),date,desc,amount,category:categorize(desc,amount),sfTid:tid,acctId:target.id,review:true});
       newTx++;
     });
   });
@@ -6034,7 +6319,14 @@ document.getElementById("addRecBtn").addEventListener("click",()=>{const name=do
   {const rf=document.getElementById("recFreq"); if(rf)rf.value="monthly";}
   document.getElementById("addBillPanel").style.display="none";
   billTab="all"; billTierFilter=null; editBill=b.id; saveAll();});
+document.getElementById("billMoreBtn").addEventListener("click",e=>{e.stopPropagation();
+  const m=document.getElementById("billMore"); m.hidden=!m.hidden;
+  document.getElementById("billMoreBtn").setAttribute("aria-expanded",m.hidden?"false":"true");});
+document.addEventListener("click",e=>{ const m=document.getElementById("billMore");
+  if(m&&!m.hidden&&!e.target.closest("#billMore")&&!e.target.closest("#billMoreBtn")){ m.hidden=true;
+    document.getElementById("billMoreBtn").setAttribute("aria-expanded","false"); }});
 document.getElementById("markAllBillsBtn").addEventListener("click",()=>{
+  document.getElementById("billMore").hidden=true;
   db.recurring.forEach(b=>{ if(billDueIn(b,budgetMonth))setBillPaid(b,budgetMonth,true); });saveAll();});
 document.getElementById("showAddPaycheck").addEventListener("click",()=>{
   addPayOpen=!addPayOpen; editPay=null; renderPaychecks();
