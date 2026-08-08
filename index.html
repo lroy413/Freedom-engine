@@ -2,19 +2,25 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Freedom Engine</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>FreeBound</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2310b981'/%3E%3Cstop offset='1' stop-color='%23047857'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='15' fill='url(%23g)'/%3E%3Cg stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' fill='none'%3E%3Cpath d='M25.3 25.6 L14.4 54.7' stroke-width='5.9'/%3E%3Cpath d='M38.7 25.6 L49.6 54.7' stroke-width='5.9'/%3E%3Cpath d='M32 50.4 V44.8' stroke-width='6.1'/%3E%3Cpath d='M32 38.9 V34.4' stroke-width='5.3'/%3E%3Cpath d='M32 28.8 V25.9' stroke-width='4.5'/%3E%3Cpath d='M23.7 17.6 L32 9.6 L40.3 17.6' stroke-width='5.9'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#ffffff">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Freedom Engine">
+<meta name="apple-mobile-web-app-title" content="FreeBound">
 <style>
+  /* No zooming. touch-action kills double-tap zoom; text-size-adjust stops iOS
+     inflating text in landscape; the 16px rule below stops focus auto-zoom. */
+  html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+
   :root{
     --bg:#f6f7f9; --card:#ffffff; --ink:#16181f; --ink2:#565a66; --muted:#9195a1;
     --line:#edeef2; --line2:#e3e5ea; --line2h:#cfd3db; --raise:#fafbfc; --raise2:#f5f6f8;
     --track:#eef0f4; --grid:#edeef2;
-    --accent:#4f46e5; --accent-soft:#eef0fe; --accent-ink:#4338ca;
+    --accent:#059669; --accent-soft:#e6f6ee; --accent-ink:#047857;
     --pos:#0ca35a; --neg:#e0463e; --debt:#e5900f; --warn:#e5900f; --goal:#0ea5a0; --invest:#7c5cf0;
-    --s1:#4f46e5; --s2:#0ea5a0; --s3:#e0463e; --s4:#0ca35a; --s5:#eb6834;
+    --s1:#059669; --s2:#6366f1; --s3:#e0463e; --s4:#0ca35a; --s5:#eb6834;
     --barbg:rgba(255,255,255,.85); --barbg2:rgba(255,255,255,.97);
     /* Depth is three layers doing different jobs: a crisp contact line, a close
        ambient, and a wide soft diffuse. One flat shadow reads as a border. */
@@ -31,9 +37,9 @@
     --bg:#0f1014; --card:#181a20; --ink:#f2f3f5; --ink2:#b6bac4; --muted:#868b98;
     --line:#24262e; --line2:#2e313a; --line2h:#3d414c; --raise:#1e2027; --raise2:#22242c;
     --track:#2a2d36; --grid:#24262e;
-    --accent:#7c74f2; --accent-soft:#26244a; --accent-ink:#a5a0ff;
+    --accent:#10b981; --accent-soft:#0c2f23; --accent-ink:#6ee7b7;
     --pos:#3ecf8e; --neg:#f4736a; --debt:#f0ad3e; --warn:#f0ad3e; --goal:#2dd4bf; --invest:#a78bfa;
-    --s1:#8b83ff; --s2:#2dd4bf; --s3:#f4736a; --s4:#3ecf8e; --s5:#fb923c;
+    --s1:#34d399; --s2:#8b83ff; --s3:#f4736a; --s4:#2dd4bf; --s5:#fb923c;
     --barbg:rgba(24,26,32,.85); --barbg2:rgba(24,26,32,.97);
     --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px -8px rgba(0,0,0,.5),0 24px 60px -20px rgba(0,0,0,.6);
     --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 8px 22px -12px rgba(0,0,0,.5);
@@ -71,7 +77,7 @@
   .brandswap .viewname{opacity:0;transform:translateY(5px);pointer-events:none}
   header.topbar.stuck .brandswap .wordmark{opacity:0;transform:translateY(-5px)}
   header.topbar.stuck .brandswap .viewname{opacity:1;transform:none}
-  .brand .dot{width:27px;height:27px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#0ea5a0);box-shadow:0 2px 10px -2px rgba(79,70,229,.55);position:relative;flex:none}
+  .brand .dot{width:27px;height:27px;border-radius:9px;background:linear-gradient(135deg,#10b981,#047857);box-shadow:0 2px 10px -2px rgba(5,150,105,.55);position:relative;flex:none}
   .brand .dot::after{content:"";position:absolute;inset:8px;border-radius:3px;background:rgba(255,255,255,.92)}
   nav.tabs{display:flex;gap:3px;overflow-x:auto;margin-left:auto;scrollbar-width:none}
   nav.tabs::-webkit-scrollbar{display:none}
@@ -207,7 +213,7 @@
     box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 2px 6px -2px color-mix(in srgb,var(--pos) 55%,transparent)}
 
   /* hero — money on hand */
-  .hero{background:linear-gradient(140deg,#4f46e5 0%,#4338ca 45%,#0e9c98 100%);color:#fff;border-radius:20px;padding:26px 26px 24px;box-shadow:0 10px 34px -14px rgba(79,70,229,.6);position:relative;overflow:hidden}
+  .hero{background:linear-gradient(140deg,#059669 0%,#047857 45%,#0d9488 100%);color:#fff;border-radius:20px;padding:26px 26px 24px;box-shadow:0 10px 34px -14px rgba(5,150,105,.6);position:relative;overflow:hidden}
   .hero::after{content:"";position:absolute;right:-70px;top:-70px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.09)}
   .hero .hlabel{font-size:12.5px;text-transform:uppercase;letter-spacing:.09em;font-weight:660;opacity:.85}
   .hero .hval{font-size:47px;font-weight:760;letter-spacing:-.035em;margin-top:8px;line-height:1.05}
@@ -358,7 +364,7 @@
   #scrim.on{opacity:1;pointer-events:auto}
   .sidebar{position:fixed;top:0;left:0;bottom:0;width:236px;background:var(--card);border-right:1px solid var(--line);box-shadow:8px 0 28px -24px rgba(0,0,0,.28);z-index:45;display:flex;flex-direction:column;padding:16px 12px;gap:4px;overflow-y:auto;overscroll-behavior:contain;transition:transform .24s cubic-bezier(.4,0,.2,1)}
   .sbbrand{display:flex;align-items:center;gap:10px;font-weight:760;font-size:17px;letter-spacing:-.025em;padding:6px 8px 14px}
-  .sbbrand .dot{width:27px;height:27px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#0ea5a0);position:relative;flex:none}
+  .sbbrand .dot{width:27px;height:27px;border-radius:9px;background:linear-gradient(135deg,#10b981,#047857);position:relative;flex:none}
   .sbbrand .dot::after{content:"";position:absolute;inset:8px;border-radius:3px;background:var(--card)}
   .sblink{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:11px;border:0;background:transparent;color:var(--ink2);font-size:15px;font-weight:570;width:100%;text-align:left;transition:background .14s,color .14s}
   .sblink svg{width:20px;height:20px;flex:none}
@@ -384,7 +390,7 @@
     box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 8px 22px -8px color-mix(in srgb,var(--accent) 75%,transparent);transition:transform .16s}
   .bbcenter svg{width:27px;height:27px}
   .bbcenter:active{transform:scale(.94)}
-  .bbcenter.active{background:linear-gradient(140deg,#818cf8,#4f46e5)}
+  .bbcenter.active{background:linear-gradient(140deg,color-mix(in srgb,var(--accent) 65%,#fff),var(--accent))}
 
   @media(max-width:1023px){
     .sidebar{transform:translateX(-105%);box-shadow:0 0 40px rgba(0,0,0,.25)}
@@ -856,8 +862,8 @@
 
   /* ---------- dashboard hero ---------- */
   .dashhero{position:relative;overflow:hidden;border-radius:20px;padding:24px 28px 20px;margin-bottom:22px;color:#fff;
-    background:linear-gradient(135deg,#4f46e5 0%,#4338ca 42%,#0e9c98 100%);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 16px 38px -20px rgba(79,70,229,.75)}
+    background:linear-gradient(135deg,#059669 0%,#047857 42%,#0d9488 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 16px 38px -20px rgba(5,150,105,.75)}
   .dashhero::after{content:"";position:absolute;right:-80px;top:-120px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.09)}
   .dashhero::before{content:"";position:absolute;right:120px;bottom:-150px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.06)}
   .dh-top{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
@@ -935,11 +941,17 @@
   /* rising sun behind the hero figure */
   html[data-theme="bushido"] .dashhero::after{background:radial-gradient(circle,rgba(255,214,140,.30) 0%,rgba(193,39,45,.12) 60%,transparent 70%)}
   html[data-theme="bushido"] .brandmark .blade{stroke:#fdf6ec}
-  html[data-theme="bushido"] .brandmark .tsuba{fill:#c9a227}
+  html[data-theme="bushido"] .brandmark .bhead{stroke:#c9a227}
+  /* bright emerald needs dark ink, not white — the Cash App/Robinhood move */
+  html[data-theme="dark"] .btn.primary,html[data-theme="dark"] .seg.active,
+  html[data-theme="dark"] .bbcenter,html[data-theme="dark"] .chk.on,
+  html[data-theme="dark"] .fcount[style*="accent"],html[data-theme="dark"] .tchip.on b{color:#032b1f}
+  html[data-theme="dark"] .btn.primary{text-shadow:none}
+  html[data-theme="dark"] .dh-gbar span{background:#eafff5}
 
   /* katana mark */
-  .brandmark{width:30px;height:30px;border-radius:10px;flex:none;background:linear-gradient(135deg,#4f46e5,#0ea5a0);
-    display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px -2px rgba(79,70,229,.55)}
+  .brandmark{width:30px;height:30px;border-radius:10px;flex:none;background:linear-gradient(135deg,#10b981,#047857);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px -2px rgba(5,150,105,.55)}
   .brandmark svg{width:21px;height:21px}
   .brandmark .blade{stroke:#fff;stroke-width:2.1;stroke-linecap:round;fill:none}
   .brandmark .tsuba{fill:#fff}
@@ -978,6 +990,10 @@
      hiding something by attribute silently fails. This has now bitten four
      separate components — one global guard ends the whole category. */
   [hidden]{display:none !important}
+
+  @media (hover:none) and (pointer:coarse){
+    input,select,textarea,.miniedit,.catsel,.txdesc,.txamt,.txdate,.bizpct{font-size:16px !important}
+  }
 </style>
 </head>
 <body>
@@ -1017,7 +1033,7 @@
   </div>
 </div>
 <aside class="sidebar" id="sidebar">
-  <div class="sbbrand"><span class="brandmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="blade" d="M20.5 3.5 L11 13"/><circle class="tsuba" cx="9.9" cy="14.1" r="1.7"/><path class="blade" d="M8.8 15.2 L5 19"/></svg></span> Freedom Engine</div>
+  <div class="sbbrand"><span class="brandmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="blade" d="M9.5 9.6 L5.4 20.5"/><path class="blade" d="M14.5 9.6 L18.6 20.5"/><path class="blade" d="M12 18.9 V16.8" stroke-width="2.3"/><path class="blade" d="M12 14.6 V12.9" stroke-width="2"/><path class="blade" d="M12 10.8 V9.7" stroke-width="1.7"/><path class="bhead" d="M8.9 6.6 L12 3.6 L15.1 6.6"/></svg></span> FreeBound</div>
   <nav id="sbnav"></nav>
   <div class="sbfoot" id="sbfoot"></div>
 </aside>
@@ -1028,9 +1044,9 @@
          is on screen; once you scroll past it the view name takes over, so the
          header always says something and never repeats what's directly below it. -->
     <div class="brand">
-      <span class="brandmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="blade" d="M20.5 3.5 L11 13"/><circle class="tsuba" cx="9.9" cy="14.1" r="1.7"/><path class="blade" d="M8.8 15.2 L5 19"/></svg></span>
+      <span class="brandmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="blade" d="M9.5 9.6 L5.4 20.5"/><path class="blade" d="M14.5 9.6 L18.6 20.5"/><path class="blade" d="M12 18.9 V16.8" stroke-width="2.3"/><path class="blade" d="M12 14.6 V12.9" stroke-width="2"/><path class="blade" d="M12 10.8 V9.7" stroke-width="1.7"/><path class="bhead" d="M8.9 6.6 L12 3.6 L15.1 6.6"/></svg></span>
       <span class="brandswap">
-        <span class="bt wordmark" id="brandWord">Freedom Engine</span>
+        <span class="bt wordmark" id="brandWord">FreeBound</span>
         <span class="bt viewname" id="viewTitle"></span>
       </span>
     </div>
@@ -2013,12 +2029,14 @@ const MD_PROVIDERS={
 function viaRelay(url){ const r=(syncCfg.sfRelay||"").trim(); return r?r.replace(/\/+$/,"")+"/?url="+encodeURIComponent(url):url; }
 async function jget(url){ const r=await fetch(viaRelay(url),{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
 /* keyed providers send CORS headers, so these work even from a downloaded file */
+let _avCapped=false;   // remembers a tripped daily cap for this session so the rest of the list skips straight to the free sources
 async function quoteFromKey(t){
   const key=(db.settings.mdKey||"").trim(); if(!key) return null;
   const prov=db.settings.mdProvider||"alphavantage";
   if(prov==="alphavantage"){
+    if(_avCapped) return null;
     const j=await jget(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(t)}&apikey=${encodeURIComponent(key)}`);
-    if(j.Note||j.Information) throw new Error("Alpha Vantage daily limit reached — try again tomorrow or switch provider");
+    if(j.Note||j.Information){ _avCapped=true; throw new Error("Alpha Vantage daily limit reached — try again tomorrow or switch provider"); }
     if(j["Error Message"]) throw new Error("Alpha Vantage rejected that symbol or key");
     const p=parseFloat((j["Global Quote"]||{})["05. price"]);
     if(p>0) return {price:p,source:"Alpha Vantage"};
@@ -2058,8 +2076,14 @@ async function quoteKeyless(t){
 }
 async function fetchQuote(ticker){
   const t=(ticker||"").trim().toUpperCase(); if(!t) throw new Error("No ticker");
-  const keyed=await quoteFromKey(t); if(keyed) return keyed;      // throws its own clear errors
+  /* A rate-limited key must not take the free sources down with it — the old
+     version let the provider's throw abort before Yahoo/Stooq were ever tried,
+     which is how one capped key turned into "1 of 7 updated". */
+  let keyedErr=null;
+  try{ const keyed=await quoteFromKey(t); if(keyed) return keyed; }
+  catch(e){ keyedErr=e; }
   const free=await quoteKeyless(t); if(free) return free;
+  if(keyedErr) throw new Error(keyedErr.message+" (free sources didn't answer either)");
   throw new Error((db.settings.mdKey||"").trim()
     ? "no price returned for that symbol"
     : ((syncCfg.sfRelay||"").trim()
@@ -2103,10 +2127,18 @@ async function refreshHolding(h,statusEl){
   if(statusEl)statusEl.textContent=`Fetching ${h.ticker.toUpperCase()}…`;
   try{
     const q=await fetchQuote(h.ticker); h.price=q.price; h.lastQuote=todayISO(); recordPrice(h);
-    const d=await fetchDividend(h.ticker); if(d){ h.divYield=d.divYield; }
+    /* Dividends change quarterly at most; the price is what you tapped for. The
+       overview + schedule are two extra API calls per holding, so checking them
+       on every refresh burned ~21 of Alpha Vantage's 25 free calls a day on a
+       7-holding list. Once a week is plenty. */
+    const needDiv=!h.divChecked||daysBetween(h.divChecked,todayISO())>=7;
+    const d=needDiv?await fetchDividend(h.ticker):null; if(d){ h.divYield=d.divYield; }
     let sched=null;
-    try{ sched=await fetchDivSchedule(h.ticker); }catch(e){}
-    if(sched){ h.divFreq=sched.freq; h.divFreqAuto=true; h.lastDiv=sched.last; h.divChecked=todayISO();
+    if(needDiv){ try{ sched=await fetchDivSchedule(h.ticker); }catch(e){} }
+    /* stamp the attempt itself — a holding that pays nothing must not be
+       re-queried on every tap forever */
+    if(needDiv) h.divChecked=todayISO();
+    if(sched){ h.divFreq=sched.freq; h.divFreqAuto=true; h.lastDiv=sched.last;
       /* the schedule lists real payments, so average them for the per-payment figure */
       if(sched.count>0&&sched.trailingPerShare>0) h.divPerShare=+(sched.trailingPerShare/sched.count).toFixed(6);
       h.divBasis="payment";
@@ -3184,7 +3216,7 @@ function applyStub(text){
    filtered slice actually cost. With several accounts synced, "what did I spend on
    food with the Chase card last month" has to be one question, not four. */
 const txFilter={acct:"all",cat:"all",when:"all",dir:"all",min:"",max:"",sort:"new"};
-let filtOpen=false;
+let txShowAll=false; let filtOpen=false;
 function activeFilterCount(){
   const q=((document.getElementById("txSearch")||{}).value||"").trim();
   let n=q?1:0;
@@ -3295,13 +3327,18 @@ function renderTx(){
       <div class="spacer"></div>
       ${anyFilter?`<div class="muted" style="font-size:12.5px;align-self:center">of ${db.transactions.length} total</div>`:""}
     </div>`:"";
-  document.getElementById("txTable").innerHTML=list.length?`<table class="stacktbl tx5"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="amt">Amount</th><th></th></tr></thead><tbody>${list.map(t=>{
+  /* 2,500 rows of live inputs takes seconds to build; nobody scans that many.
+     The latest 250 render instantly and one tap opens the rest. */
+  const txCap=(typeof txShowAll!=="undefined"&&txShowAll)?Infinity:250;
+  const shownTx=list.slice(0,txCap);
+  document.getElementById("txTable").innerHTML=list.length?`<table class="stacktbl tx5"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="amt">Amount</th><th></th></tr></thead><tbody>${shownTx.map(t=>{
     const an=acctName(t.acctId);
     /* Business tagging lives on the row itself. A percentage handles the normal
        freelance case — gear that's mostly for work but not entirely. */
     const bz=bizOf(t.bizId), share=t.bizPct===undefined?100:num(t.bizPct);
-    return `<tr${bz?` class="bizrow" style="--bizc:${bz.color}"`:""}><td><input type="date" class="txdate" value="${esc(t.date)}" data-txdate="${t.id}" title="Change the date">${an?`<span class="tacct">${esc(an)}</span>`:""}</td><td><input class="txdesc" value="${esc(t.desc)}" data-txdesc="${t.id}">${bz?`<span class="bizmark" title="${esc(bz.name)}${share<100?` — ${share}% business`:""}">${esc(bz.name)}${share<100?` ${share}%`:""}</span>`:""}</td><td><select class="catsel" data-id="${t.id}">${catOpts(t.category)}</select>${bizList().length?`<select class="catsel bizsel" data-txbiz="${t.id}" title="Business"><option value="">Personal</option>${bizList().map(b=>`<option value="${b.id}" ${t.bizId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>${bz?`<input type="number" class="bizpct" min="0" max="100" step="5" value="${share}" data-txbizpct="${t.id}" title="How much of this is business">`:""}`:""}</td><td class="amt ${t.amount<0?'neg':'pos'}"><input type="number" step="0.01" class="txamt ${t.amount<0?'neg':'pos'}" value="${num(t.amount).toFixed(2)}" data-txamt="${t.id}"></td><td><button class="btn ghost sm" data-del="${t.id}">✕</button></td></tr>`;}).join("")}</tbody></table>`
+    return `<tr${bz?` class="bizrow" style="--bizc:${bz.color}"`:""}><td><input type="date" class="txdate" value="${esc(t.date)}" data-txdate="${t.id}" title="Change the date">${an?`<span class="tacct">${esc(an)}</span>`:""}</td><td><input class="txdesc" value="${esc(t.desc)}" data-txdesc="${t.id}">${bz?`<span class="bizmark" title="${esc(bz.name)}${share<100?` — ${share}% business`:""}">${esc(bz.name)}${share<100?` ${share}%`:""}</span>`:""}</td><td><select class="catsel" data-id="${t.id}">${catOpts(t.category)}</select>${bizList().length?`<select class="catsel bizsel" data-txbiz="${t.id}" title="Business"><option value="">Personal</option>${bizList().map(b=>`<option value="${b.id}" ${t.bizId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>${bz?`<input type="number" class="bizpct" min="0" max="100" step="5" value="${share}" data-txbizpct="${t.id}" title="How much of this is business">`:""}`:""}</td><td class="amt ${t.amount<0?'neg':'pos'}"><input type="number" step="0.01" class="txamt ${t.amount<0?'neg':'pos'}" value="${num(t.amount).toFixed(2)}" data-txamt="${t.id}"></td><td><button class="btn ghost sm" data-del="${t.id}">✕</button></td></tr>`;}).join("")}</tbody></table>`+(list.length>shownTx.length?`<button class="btn ghost" id="txMoreBtn" style="width:100%;border-radius:0 0 var(--radius) var(--radius)">Show all ${list.length} (${list.length-shownTx.length} more)</button>`:"")
     :`<div class="empty">${db.transactions.length?"Nothing matches those filters — clear one above.":"No transactions yet."}</div>`;
+  {const mb=document.getElementById("txMoreBtn"); if(mb)mb.onclick=()=>{txShowAll=true;renderTx();};}
   document.querySelectorAll(".catsel[data-id]").forEach(s=>s.onchange=e=>{const t=db.transactions.find(x=>x.id===e.target.dataset.id);if(!t)return;const cat=e.target.value;t.category=cat;
     const kw=merchantKey(t.desc); const ln=document.getElementById("learnNote");
     if(kw && !db.rules.some(r=>r.m===kw)){ db.rules.push({m:kw,c:cat});
@@ -3469,8 +3506,8 @@ function icsTrigger(days){ const d=Math.max(0,Math.round(days)); if(d<=0)return 
 function billsICS(){
   const lead=num(db.settings.billAlertDays)||3;
   const stamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+/,"");
-  const L=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Freedom Engine//Bills//EN","CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH","X-WR-CALNAME:Freedom Engine — Bills","X-WR-TIMEZONE:America/New_York"];
+  const L=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//FreeBound//Bills//EN","CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH","X-WR-CALNAME:FreeBound — Bills","X-WR-TIMEZONE:America/New_York"];
   const today=todayISO(), thisM=monthKey(today);
   db.recurring.forEach(b=>{
     const day=Math.min(Math.max(1,num(b.dueDay)||1),28);
@@ -3481,9 +3518,9 @@ function billsICS(){
     const desc=[t,billGroup(b),b.biz?"Business":null,
       fmt(num(b.amount))+" every "+f.every,
       f.n>1?fmt(billMonthly(b))+" a month set aside":null,
-      "Tracked in Freedom Engine"].filter(Boolean).join(" · ");
+      "Tracked in FreeBound"].filter(Boolean).join(" · ");
     L.push("BEGIN:VEVENT",
-      "UID:"+b.id+"@freedom-engine",
+      "UID:"+b.id+"@freedom-engine",   // frozen: new UIDs would duplicate every event for existing calendar subscribers
       "DTSTAMP:"+stamp,
       "DTSTART;VALUE=DATE:"+first.replace(/-/g,""),
       "DURATION:P1D",
@@ -3504,7 +3541,7 @@ function downloadBillsICS(){
   if(!db.recurring.length)return false;
   const blob=new Blob([billsICS()],{type:"text/calendar;charset=utf-8"});
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob); a.download="freedom-engine-bills.ics";
+  a.href=URL.createObjectURL(blob); a.download="freebound-bills.ics";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   return true;
@@ -4039,7 +4076,7 @@ const debtPayAmount=d=>num(d.payment)>0?num(d.payment):(isRevolving(d)?minPaymen
 function debtOrig(d){ const st=num(d.start), b=num(d.balance); return st>0?st:b; }
 /* Money you have actually paid while using this app. Kept separate from
    (original − balance), which on a car loan includes years of payments made
-   long before you opened Freedom Engine. */
+   long before you opened the app. */
 function debtPaidLogged(){ return (db.debts||[]).reduce((s,d)=>s+((d.payments||[]).reduce((a,p)=>a+num(p.amount),0)),0); }
 function debtPayCount(){ return (db.debts||[]).reduce((s,d)=>s+((d.payments||[]).length),0); }
 function logDebtPayment(d,amt,date,alsoTx){
@@ -5650,6 +5687,7 @@ function setView(id){
   currentView=id;
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+id));
   const t=document.getElementById("viewTitle"); if(t)t.textContent=viewLabel(id);
+  if(_dirty[id]) renderView(id);
   renderNav(); closeDrawer(); window.scrollTo(0,0);
   syncHeader();
 }
@@ -5835,20 +5873,56 @@ function collapseLeads(){
 /* Every save rebuilds the DOM, which used to snap each scrollable list back to
    the top — tick one bill mid-list and you were staring at the first one again.
    Positions are captured by container id before the rebuild and restored after. */
+const SCROLL_SEL=".scrollrows,.scrolllist,.sheetscroll";
 function captureScrolls(){ const out={};
-  document.querySelectorAll(".scrollrows,.scrolllist").forEach((el,i)=>{
+  document.querySelectorAll(SCROLL_SEL).forEach((el,i)=>{
     if(el.scrollTop>0){ const host=el.closest("[id]"); out[(host?host.id:"x")+"#"+i]=el.scrollTop; } });
   return out; }
 function restoreScrolls(map){ if(!map)return;
-  document.querySelectorAll(".scrollrows,.scrolllist").forEach((el,i)=>{
+  document.querySelectorAll(SCROLL_SEL).forEach((el,i)=>{
     const host=el.closest("[id]"); const k=(host?host.id:"x")+"#"+i;
     if(map[k]) el.scrollTop=map[k]; }); }
-function renderAll(){ const _sc=captureScrolls(); captureSnapshot(); renderNav(); renderSlotPicker(); syncTheme(); renderCats();renderDash();renderTrends();renderIncome();renderPaychecks();renderTx();renderBudget();renderGoals();renderForecast();renderNWSheet();renderTax();renderBusiness();renderInsights();renderReview();renderSTS();renderCash();renderCredit();renderInvest();renderRules(); try{collapseHelp();}catch(e){} restoreScrolls(_sc); }
+/* renderAll goes through the capture, but expanding a bill or tapping Pay calls
+   its screen's renderer DIRECTLY — eighteen call sites for renderBudget alone.
+   Rather than chase every one, the renderers themselves are wrapped once here:
+   whatever path triggers a rebuild, the list comes back where it was. */
+function _keepScroll(fn){ return function(...a){ const m=captureScrolls();
+  const r=fn.apply(this,a); restoreScrolls(m); return r; }; }
+/* Rendering every screen on every save cost ~2.4s once a few years of
+   transactions were in — per TAP. Now a save renders only the screens that are
+   actually visible and marks the rest dirty; each renders once when opened. */
+const VIEW_RENDERERS={
+  dash:()=>{renderDash();renderTrends();renderInsights();renderSTS();},
+  accounts:()=>{renderCash();},
+  income:()=>{renderIncome();renderPaychecks();},
+  expenses:()=>{renderTx();renderReview();},
+  budget:()=>{renderBudget();},
+  goals:()=>{renderGoals();renderForecast();},
+  credit:()=>{renderCredit();},
+  invest:()=>{renderInvest();},
+  tax:()=>{renderTax();},
+  business:()=>{renderBusiness();},
+  data:()=>{renderCats();renderRules();}
+};
+let _dirty={};
+function renderView(id){ const fn=VIEW_RENDERERS[id]; if(fn){ fn(); delete _dirty[id]; } }
+function renderAll(){
+  const _sc=captureScrolls(); captureSnapshot();
+  renderNav(); renderSlotPicker(); syncTheme();
+  Object.keys(VIEW_RENDERERS).forEach(v=>_dirty[v]=true);
+  renderView(currentView);
+  if(nwOpen) renderNWSheet();
+  if(stsOpen) renderSTS();
+  try{collapseHelp();}catch(e){} restoreScrolls(_sc);
+}
 
 /* ---------- events ---------- */
 document.getElementById("menuBtn").addEventListener("click",openDrawer);
 document.getElementById("scrim").addEventListener("click",closeDrawer);
 document.addEventListener("keydown",e=>{ if(e.key==="Escape")closeDrawer(); });
+["gesturestart","gesturechange","gestureend"].forEach(ev=>
+  document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
+
 document.getElementById("monthSel").addEventListener("change",e=>{curMonth=e.target.value;renderDash();});
 document.getElementById("budgetMonthSel").addEventListener("change",e=>{budgetMonth=e.target.value;renderBudget();});
 document.getElementById("csvFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>handleCSV(r.result);r.readAsText(f);e.target.value="";});
@@ -5953,10 +6027,17 @@ document.getElementById("refreshAllBtn").addEventListener("click",async e=>{
   const btn=e.currentTarget;
   const st=document.getElementById("quoteStatus"), list=db.holdings.filter(h=>h.ticker);
   if(!list.length){st.textContent="Add a ticker to at least one holding first.";return;}
-  btn.disabled=true; let ok=0;
-  for(const h of list){ if(await refreshHolding(h,st)){ recordPrice(h); ok++; } }
+  btn.disabled=true; let ok=0; const misses=[];
+  for(let i2=0;i2<list.length;i2++){ const h=list[i2];
+    if(st)st.textContent=`Updating ${i2+1} of ${list.length} — ${h.ticker.toUpperCase()}…`;
+    if(await refreshHolding(h,st)){ recordPrice(h); ok++; }
+    else misses.push(h.ticker.toUpperCase());
+    if(i2<list.length-1) await new Promise(r=>setTimeout(r,350));   // polite spacing
+  }
   btn.disabled=false;
-  st.innerHTML=`Updated ${ok} of ${list.length} holding${list.length===1?"":"s"}.`+(ok<list.length?` <span class="muted">Any that failed can be typed in manually.</span>`:"");
+  st.innerHTML=`Updated ${ok} of ${list.length}.`+(misses.length
+    ?` <span class="neg">Couldn't price ${misses.map(esc).join(", ")}</span> <span class="muted">— tap one to enter its price by hand.</span>`
+    :"");
   saveAll();});
 document.getElementById("avSave").addEventListener("click",()=>{db.settings.mdKey=document.getElementById("avKey").value.trim();
   db.settings.mdProvider=document.getElementById("mdProvider").value;
@@ -6199,7 +6280,7 @@ const SET_ICO={
 };
 const SET_CHEV='<svg class="setchev" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>';
 const SET_PANES={
-  appearance:{title:"Appearance",lead:"How Freedom Engine looks on this device."},
+  appearance:{title:"Appearance",lead:"How FreeBound looks on this device."},
   shortcuts:{title:"Bottom bar shortcuts",lead:"The two tools flanking Home on your phone's bottom bar."},
   bank:{title:"Bank connection",lead:"Pull transactions in automatically instead of importing a CSV."},
   sync:{title:"Sync across devices",lead:"An encrypted copy in the cloud so your Mac and phone agree."},
@@ -6347,7 +6428,7 @@ document.getElementById("calBillsBtn").addEventListener("click",()=>{
   const m=document.getElementById("calMsg");
   if(!db.recurring.length){ if(m)m.textContent="Add a bill first."; return; }
   const lead=num(db.settings.billAlertDays)||3;
-  if(downloadBillsICS()&&m) m.innerHTML=`Downloaded <b>freedom-engine-bills.ics</b> — open it and your calendar will add ${db.recurring.length} repeating reminder${db.recurring.length===1?"":"s"}, each alerting at 9am <b>${lead} day${lead===1?"":"s"}</b> before it's due. Re-export whenever you change a bill.`;});
+  if(downloadBillsICS()&&m) m.innerHTML=`Downloaded <b>freebound-bills.ics</b> — open it and your calendar will add ${db.recurring.length} repeating reminder${db.recurring.length===1?"":"s"}, each alerting at 9am <b>${lead} day${lead===1?"":"s"}</b> before it's due. Re-export whenever you change a bill.`;});
 document.getElementById("addBudBtn").addEventListener("click",()=>{const c=document.getElementById("budCat").value;const v=num(document.getElementById("budLimit").value);if(!c||!v)return;
   db.budgets[c]=v;
   /* starts this month, so it can't inherit a balance from before it existed */
@@ -6357,7 +6438,7 @@ document.getElementById("addBudBtn").addEventListener("click",()=>{const c=docum
 document.getElementById("addRuleBtn").addEventListener("click",()=>{const m=document.getElementById("ruleMatch").value.trim();const c=document.getElementById("ruleCat").value;if(!m)return;db.rules.push({m,c});document.getElementById("ruleMatch").value="";saveAll();});
 document.getElementById("saveBtn").addEventListener("click",()=>{db.updatedAt=new Date().toISOString();
   const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);a.download=`freedom-engine-${todayISO()}.json`;a.click();
+  a.href=URL.createObjectURL(blob);a.download=`freebound-${todayISO()}.json`;a.click();
   setNote("Backup saved ✓ — keep it in iCloud Drive so both devices can reach it.");});
 document.getElementById("loadFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
   r.onload=()=>{ try{
@@ -6366,7 +6447,7 @@ document.getElementById("loadFile").addEventListener("change",e=>{const f=e.targ
       setNote(`That backup is older (${stamp(theirs)}) than this device's data (${stamp(mine)}). Click Load again to overwrite anyway.`); e.target.value=""; return; }
     confirmedOlder=false; db=migrate(inc); normalize(); saveAll(); renderSync();
     setNote(`Loaded the backup from ${stamp(theirs)} ✓`);
-  }catch(x){ setNote("Couldn't read that file — is it a Freedom Engine backup?"); } };
+  }catch(x){ setNote("Couldn't read that file — is it a FreeBound backup?"); } };
   r.readAsText(f);});
 let confirmedOlder=false;
 document.getElementById("exportCsvBtn").addEventListener("click",()=>{const rows=[["Date","Description","Category","Amount"],...db.transactions.map(t=>[t.date,t.desc,t.category,t.amount])];const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="transactions.csv";a.click();});
@@ -6530,7 +6611,7 @@ async function encryptJSON(obj,pass){
   const salt=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
   const key=await deriveKey(pass,salt);
   const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(JSON.stringify(obj)));
-  return {app:"freedom-engine",v:1,enc:true,salt:b64(salt),iv:b64(iv),data:b64(new Uint8Array(ct))};
+  return {app:"freedom-engine",/* frozen format tag — old backups must keep loading */v:1,enc:true,salt:b64(salt),iv:b64(iv),data:b64(new Uint8Array(ct))};
 }
 async function decryptJSON(p,pass){
   const key=await deriveKey(pass,ub64(p.salt));
@@ -6546,12 +6627,12 @@ async function ghFetch(path,opts){
   if(!r.ok) throw new Error("Server said "+r.status);
   return r.json();
 }
-const FILE_NAME="freedom-engine.json";
+const FILE_NAME="freedom-engine.json";   // frozen: the existing gist stores this file name — renaming would orphan every synced device
 async function pushCloud(){
   const snapshot=JSON.parse(JSON.stringify(db));
   snapshot.updatedAt=new Date().toISOString(); snapshot.device=syncCfg.device;
   const payload=syncCfg.pass?await encryptJSON(snapshot,syncCfg.pass):{app:"freedom-engine",v:1,enc:false,data:snapshot};
-  const body={description:"Freedom Engine — encrypted personal finance backup",public:false,files:{[FILE_NAME]:{content:JSON.stringify(payload)}}};
+  const body={description:"FreeBound Financial — encrypted personal finance backup",public:false,files:{[FILE_NAME]:{content:JSON.stringify(payload)}}};
   const res=syncCfg.gistId?await ghFetch("/gists/"+syncCfg.gistId,{method:"PATCH",body:JSON.stringify(body)})
                           :await ghFetch("/gists",{method:"POST",body:JSON.stringify(body)});
   syncCfg.gistId=res.id; syncCfg.lastSync=new Date().toISOString(); saveSyncCfg();
@@ -6561,7 +6642,7 @@ async function pushCloud(){
 async function fetchCloud(){
   if(!syncCfg.gistId) throw new Error("No Backup ID yet — push from your main device first");
   const res=await ghFetch("/gists/"+syncCfg.gistId);
-  const f=res.files&&res.files[FILE_NAME]; if(!f) throw new Error("That backup doesn't contain Freedom Engine data");
+  const f=res.files&&res.files[FILE_NAME]; if(!f) throw new Error("That backup doesn't contain FreeBound data");
   let content=f.content;
   if(f.truncated&&f.raw_url) content=await (await fetch(f.raw_url)).text();
   const payload=JSON.parse(content);
@@ -6589,6 +6670,10 @@ function envSetup(){
 }
 
 /* go — never let one failure blank the whole app */
+[["renderBudget"],["renderPaychecks"],["renderInvest"],["renderCredit"],["renderGoalsList"],
+ ["renderTax"],["renderBusiness"],["renderReview"],["renderHistoryList"],["renderNWSheet"],
+ ["renderTx"],["renderIncome"],["renderDash"]].forEach(([n])=>{
+  try{ if(typeof window[n]==="function") window[n]=_keepScroll(window[n]); }catch(e){} });
 try{ load(); }catch(e){ db=seed(); normalize(); }
 try{ loadSyncCfg(); }catch(e){}
 try{ syncTheme(); }catch(e){}
