@@ -1,0 +1,15 @@
+{
+  "name": "freebound-tests",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Playwright harness for FreeBound. Dev-only — the app itself has no dependencies and no build step (see CLAUDE.md).",
+  "type": "module",
+  "scripts": {
+    "serve": "python3 -m http.server 8899 --directory ..",
+    "smoke": "node smoke.mjs",
+    "sweep": "node sweep.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.56.0"
+  }
+}
