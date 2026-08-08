@@ -1,0 +1,7 @@
+# Backups contain real financial data — never commit them (docs/decisions.md rule 3)
+freebound-*.json
+freedom-engine*.json
+*.backup.json
+
+.DS_Store
+node_modules/
