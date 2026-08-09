@@ -35,6 +35,9 @@ const view=async t=>{const r=await p.evaluate(()=>({
   console.log('  footer:',r.footer); console.log('  note:',r.hidden||'(none)');};
 await view(`DEFAULT — This month (${M0}):`);
 console.log(`  → 2 yearly bills (${M3} + ${M9}) correctly absent`);
+/* the bill filters collapse behind one summary line now — open the panel
+   before reaching for a chip */
+await p.evaluate(()=>{setBillFiltOpen(true);renderBudget();}); await p.waitForTimeout(300);
 await p.click('[data-bview="all"]'); await p.waitForTimeout(500);
 await view('All bills:');
 // the note should switch the view

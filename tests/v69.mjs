@@ -45,9 +45,11 @@ console.log('after scroll:', await p.evaluate(()=>({stuck:document.getElementByI
   view:getComputedStyle(document.getElementById('viewTitle')).opacity})));
 await p.evaluate(()=>window.scrollTo(0,0)); await p.waitForTimeout(400);
 console.log('back to top stuck:', await p.evaluate(()=>document.getElementById('topbar').classList.contains('stuck')));
+/* the label used to be present-but-hidden; it is removed outright now, since
+   the select already reads "August 2026" */
 console.log('month label gone:', await p.evaluate(()=>{
-  const f=document.getElementById('monthSel').closest('.field');
-  return getComputedStyle(f.querySelector('label')).display==='none';}));
+  const f=document.getElementById('monthSel').closest('.field'), l=f.querySelector('label');
+  return !l||getComputedStyle(l).display==='none';}));
 
 console.log('\n— DONUT —');
 console.log(await p.evaluate(()=>({

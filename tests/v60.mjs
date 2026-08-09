@@ -25,6 +25,9 @@ console.log('tier chips:', await p.$$eval('#billFloor .tchip',e=>e.map(x=>x.text
 console.log('tabs:', await p.$$eval('#billTabs .btab',e=>e.map(x=>x.textContent.trim().replace(/\s+/g,' '))));
 console.log('\ndefault tiers/groups:', await p.evaluate(()=>db.recurring.map(b=>b.name.padEnd(15)+billGroup(b).padEnd(15)+BILL_TIERS[billTier(b)].label)));
 // tab filter
+/* the bill filters collapse behind one summary line now — open the panel
+   before reaching for a chip */
+await p.evaluate(()=>{setBillFiltOpen(true);renderBudget();}); await p.waitForTimeout(300);
 await p.click('[data-btab="Subscriptions"]'); await p.waitForTimeout(500);
 console.log('\nSubscriptions tab:', await p.$$eval('#billsList .brow:not(.sum)',e=>e.map(x=>x.querySelector('.bname').textContent.trim())));
 console.log('  footer:', await p.$eval('#billsList .brow.sum',e=>e.textContent.trim().replace(/\s+/g,' ')));

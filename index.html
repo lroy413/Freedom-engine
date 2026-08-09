@@ -584,6 +584,12 @@
 
   /* ---------- bill tabs, tiers ---------- */
   .tabrow{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px;padding-bottom:2px}
+  /* Inside a collapsible panel there is no reason to run off the edge: the
+     chips wrap and stack, so every option is reachable without a sideways
+     scroll nobody knew was there. */
+  .tabrow.wrap{flex-wrap:wrap;overflow-x:visible;margin-bottom:0}
+  .filtbody .scrollchips{flex-wrap:wrap;overflow-x:visible;margin-bottom:10px}
+  .filtbody .scrollchips>*{flex:none}
   .tabrow::-webkit-scrollbar{display:none}
   .tabrow:empty{display:none}
   .btab{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);background:var(--card);
@@ -1282,7 +1288,7 @@
     <div id="insightRow" hidden></div>
     <div class="between pagerow" style="margin-bottom:14px">
       <h2 style="font-size:17px" id="dashMonthLabel">This month</h2>
-      <div class="field nolabel" style="width:auto"><label>Month</label><select id="monthSel" aria-label="Month"></select></div>
+      <div class="field nolabel" style="width:auto"><select id="monthSel" aria-label="Month"></select></div>
     </div>
     <div class="grid kpis" id="kpiRow"></div>
     <div class="sectiontitle" data-sect="spend"><h2>Spending this month</h2><span class="hint" id="spendHint"></span></div>
@@ -1419,7 +1425,7 @@
   <section class="view" id="view-budget">
     <div class="between pagerow" style="margin-bottom:8px">
       <h1 class="page">Budget</h1>
-      <div class="field" style="width:auto"><label>Month</label><select id="budgetMonthSel"></select></div>
+      <div class="field nolabel" style="width:auto"><select id="budgetMonthSel" aria-label="Month"></select></div>
     </div>
     <p class="lead">Money in, bills to cover, flexible spending to stay under — what's left is yours to save or attack debt with.</p>
     <div class="grid kpis" id="budgetKpis" style="margin-bottom:22px"></div>
@@ -1435,8 +1441,19 @@
           <button class="popitem" id="markAllBillsBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Mark this month paid</button>
         </div>
         <button class="btn sm primary" id="showAddBill">+ Bill</button></span></div>
-    <div id="billFloor"></div>
-    <div class="tabrow" id="billTabs"></div>
+    <div class="card" id="billFiltCard" style="margin-bottom:10px">
+      <button class="filthead" id="billFiltToggle" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M7 12h10M10 19h4"/></svg>
+        <span>Filter</span>
+        <span class="spacer"></span>
+        <span class="muted" id="billFiltNow" style="font-size:13px;font-weight:500"></span>
+        <svg class="filtchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="filtbody" id="billFiltBody" hidden>
+        <div id="billFloor"></div>
+        <div class="tabrow wrap" id="billTabs"></div>
+      </div>
+    </div>
     <div class="card" id="billsList"></div>
     <div id="billHidden" style="margin-top:8px"></div>
     <div id="calMsg" class="muted" style="font-size:13px;margin-top:8px"></div>
@@ -3582,6 +3599,23 @@ function activeFilterCount(){
   if(txFilter.min!=="")n++; if(txFilter.max!=="")n++;
   return n;
 }
+/* The bills filters were two rows of chips that ran off the screen edge on a
+   phone — the tier row and the group row both clipped mid-word, and the only
+   cue was that they happened to be scrollable. Collapsed behind one summary
+   line they read clean, and expanded they wrap instead of running off. */
+let billFiltOpen=false;
+function billFiltSummary(){
+  const parts=[billView==="all"?"All bills":"This month"];
+  if(billTierFilter) parts.push(billTierFilter==="biz"?"Business":(BILL_TIERS[billTierFilter]||{}).label||billTierFilter);
+  if(billTab&&billTab!=="all") parts.push(billTab);
+  return parts.join(" · ");
+}
+function setBillFiltOpen(v){
+  billFiltOpen=v;
+  const t=document.getElementById("billFiltToggle"), b=document.getElementById("billFiltBody");
+  if(t)t.setAttribute("aria-expanded",v?"true":"false");
+  if(b)b.hidden=!v;
+}
 function setFiltOpen(v){
   filtOpen=v;
   const t=document.getElementById("filtToggle"), b=document.getElementById("filtBody");
@@ -3780,9 +3814,12 @@ const CAT_GROUP={"Rent/Mortgage":"Housing",Rent:"Housing",Electric:"Utilities","
   "Auto & Gas":"Transport","Transport/Gas":"Transport",Insurance:"Insurance","Debt Payment":"Debt",
   Subscriptions:"Subscriptions",Health:"Other",Household:"Other"};
 const billGroup=b=>(BILL_GROUPS.includes(b&&b.group)?b.group:(CAT_GROUP[b&&b.category]||"Other"));
-const BILL_TIERS={essential:{label:"Essential",short:"ESS",color:"#0ca35a",note:"can't skip it — this is your floor"},
-  flexible:{label:"Flexible",short:"FLEX",color:"#e5900f",note:"needed, but you could downgrade or shop it"},
-  luxury:{label:"Luxury",short:"LUX",color:"#a855f7",note:"elective — first thing to cut when work dries up"}};
+/* Colours name a ramp hue rather than a literal, and resolve at paint time —
+   an inline hex is stuck in whichever theme was loaded when it was written. */
+const BILL_TIERS={essential:{label:"Essential",short:"ESS",hue:"--c-emerald",note:"can't skip it — this is your floor"},
+  flexible:{label:"Flexible",short:"FLEX",hue:"--c-amber",note:"needed, but you could downgrade or shop it"},
+  luxury:{label:"Luxury",short:"LUX",hue:"--c-violet",note:"elective — first thing to cut when work dries up"}};
+const hueOf=o=>cssVar((o&&o.hue)||"--c-slate","#64748b");
 const DEFAULT_TIER={Housing:"essential",Utilities:"essential",Insurance:"essential",Debt:"essential",
   Transport:"essential",Subscriptions:"luxury",Other:"flexible"};
 const billTier=b=>(BILL_TIERS[b&&b.tier]?b.tier:(DEFAULT_TIER[billGroup(b)]||"flexible"));
@@ -4014,9 +4051,9 @@ function renderBudget(){
       <span class="chipdiv" aria-hidden="true"></span>
       ${tiers.map(t=>{const o=BILL_TIERS[t],on=billTierFilter===t;
         return `<button class="tchip${on?" on":""}" data-btier="${t}" title="${esc(o.note)}">
-          <span class="tdot" style="background:${o.color}"></span>${o.label} <b>${fmt(tierTotal(t))}</b></button>`;}).join("")}
+          <span class="tdot" style="background:${hueOf(o)}"></span>${o.label} <b>${fmt(tierTotal(t))}</b></button>`;}).join("")}
       ${biz?`<button class="tchip${billTierFilter==="biz"?" on":""}" data-btier="biz" title="Marked as a business expense — worth pulling out at tax time">
-        <span class="tdot" style="background:#2563eb"></span>Business <b>${fmt(biz)}</b></button>`:""}
+        <span class="tdot" style="background:${cssVar("--c-blue","#2563eb")}"></span>Business <b>${fmt(biz)}</b></button>`:""}
       ${billTierFilter?`<button class="fclear" data-btier="">Show all</button>`:""}
       <button class="tchip ichip" data-floorinfo="1" aria-label="What the tiers mean" aria-expanded="false">i</button>
     </div>
@@ -4039,6 +4076,10 @@ function renderBudget(){
   const pool=db.recurring.filter(inView);
   const groupsPresent=BILL_GROUPS.filter(g=>pool.some(b=>billGroup(b)===g));
   if(billTab!=="all"&&!groupsPresent.includes(billTab))billTab="all";
+  {const n=document.getElementById("billFiltNow"); if(n)n.textContent=billFiltSummary();
+   const t=document.getElementById("billFiltToggle"), bb=document.getElementById("billFiltBody");
+   if(t)t.setAttribute("aria-expanded",billFiltOpen?"true":"false");
+   if(bb)bb.hidden=!billFiltOpen;}
   const tabsEl=document.getElementById("billTabs");
   if(tabsEl) tabsEl.innerHTML=(pool.length&&groupsPresent.length>1)?
     [["all","All"]].concat(groupsPresent.map(g=>[g,g])).map(([v,l])=>{
@@ -4064,7 +4105,7 @@ function renderBudget(){
           :`<span class="chk ghosted"></span>`}
         <div class="binfo">
           <div class="bname">${esc(b.name)}${b.biz?` <span class="bizmark" title="Business expense">BIZ</span>`:""}</div>
-          <div class="bmeta"><span class="bdot" style="background:${to.color}" title="${esc(to.label)} — ${esc(to.note)}"></span><span class="bcat">${esc(billGroup(b))} · </span>${f.n>1?`${esc(f.label.toLowerCase())} · `:""}${dueNow?(b.open?`no set amount`:`due the ${ord(num(b.dueDay)||1)}`):`next in ${esc(shortMonth(nextM))}`}${dueNow&&st.k!=="paid"&&(st.cls||b.open)?` · <span class="${st.cls==='bad'?'bneg':st.cls==='warn'?'bwarn':''}">${esc(st.label)}</span>`:""}${part&&!b.open?` · <span class="bpart">${fmt(paidAmt)} paid${billCredit(b,mk)>0.005?" (incl. credit)":""}</span>`:""}</div>
+          <div class="bmeta"><span class="bdot" style="background:${hueOf(to)}" title="${esc(to.label)} — ${esc(to.note)}"></span><span class="bcat">${esc(billGroup(b))} · </span>${f.n>1?`${esc(f.label.toLowerCase())} · `:""}${dueNow?(b.open?`no set amount`:`due the ${ord(num(b.dueDay)||1)}`):`next in ${esc(shortMonth(nextM))}`}${dueNow&&st.k!=="paid"&&(st.cls||b.open)?` · <span class="${st.cls==='bad'?'bneg':st.cls==='warn'?'bwarn':''}">${esc(st.label)}</span>`:""}${part&&!b.open?` · <span class="bpart">${fmt(paidAmt)} paid${billCredit(b,mk)>0.005?" (incl. credit)":""}</span>`:""}</div>
         </div>
         <div class="bamt${f.n>1||part||b.open?" roll":""}">${b.open?fmt(dueNow?billPaidRaw(b,mk):0):fmt(dueNow&&part?left:num(b.amount))}${b.open?`<em>~${fmt(num(b.amount))} typical</em>`:part?`<em>of ${fmt(num(b.amount))} left</em>`:(f.n>1?`<em>${fmt(billMonthly(b))}/mo</em>`:"")}</div>
         ${dueNow&&(!paid||b.open)?`<button class="btn ghost sm bpay" data-billpay="${b.id}">${payBill===b.id?"Cancel":"Pay"}</button>`:""}
@@ -5085,17 +5126,17 @@ function reserveFromPaycheck(p){
    payoff goal watches the debt balance — so progress moves on its own and can't
    drift out of step with reality. Only "custom" needs you to log deposits. */
 const GOAL_KINDS={
-  cash:{label:"Cash savings",short:"Cash",color:"#0ca35a",
+  cash:{label:"Cash savings",short:"Cash",hue:"--c-emerald",
     blurb:"Watches your bank and cash accounts. Leave the accounts blank to track all of them.",dir:"up",auto:true},
-  invest:{label:"Investment portfolio",short:"Portfolio",color:"#7c5cf0",
+  invest:{label:"Investment portfolio",short:"Portfolio",hue:"--c-violet",
     blurb:"Watches what your holdings are worth. Pick specific ones or track the whole portfolio.",dir:"up",auto:true},
-  networth:{label:"Net worth",short:"Net worth",color:"#059669",
+  networth:{label:"Net worth",short:"Net worth",hue:"--c-teal",
     blurb:"Everything you own minus everything you owe. The one number that captures all of it.",dir:"up",auto:true},
-  debt:{label:"Pay off a debt",short:"Payoff",color:"#e5900f",
+  debt:{label:"Pay off a debt",short:"Payoff",hue:"--c-amber",
     blurb:"Watches a debt balance falling to zero. Progress counts from what you owed at the start.",dir:"down",auto:true},
-  income:{label:"Monthly income",short:"Income",color:"#0ea5a0",
+  income:{label:"Monthly income",short:"Income",hue:"--c-cyan",
     blurb:"Watches your income streams. Tick passive only to track money that arrives without you working.",dir:"up",auto:true,unit:"/mo"},
-  custom:{label:"Save up for something",short:"Custom",color:"#d946a0",
+  custom:{label:"Save up for something",short:"Custom",hue:"--c-fuchsia",
     blurb:"A gear purchase, a trip, a buffer — you log what you put aside and it tracks the total.",dir:"up",auto:false}
 };
 const goalKindOf=g=>GOAL_KINDS[g&&g.kind]||GOAL_KINDS.custom;
@@ -5426,7 +5467,7 @@ function renderNWSheet(){
     ${nextG?`<div class="gbarwrap">
       <div class="between" style="font-size:13px;margin-bottom:6px"><span class="muted">Next milestone · ${esc(nextG.name)}</span>
         <b>${Math.round(goalPct(nextG))}%</b></div>
-      <div class="gbar"><span style="width:${goalPct(nextG).toFixed(1)}%;background:${GOAL_KINDS.networth.color}"></span></div>
+      <div class="gbar"><span style="width:${goalPct(nextG).toFixed(1)}%;background:${hueOf(GOAL_KINDS.networth)}"></span></div>
       <div class="gbarnums"><span>${fmt(P.net)}</span><span class="muted">${fmt(num(nextG.target))}</span></div>
     </div>`:`<div class="note" style="margin-bottom:14px">No net worth milestone set. <b>Goals → + Goal → Net worth</b> puts a target line on this chart and a progress bar on your dashboard.</div>`}
 
@@ -5889,7 +5930,7 @@ function renderGoalsList(){
   const row=g=>{ const k=goalKindOf(g), pct=goalPct(g), open=openGoal===g.id, hit=goalReached(g);
     return `<div class="brow${open?" editing":""}">
       <div class="bmain" data-goalopen="${g.id}">
-        <span class="gring" style="--p:${pct.toFixed(1)};--c:${k.color}"><span>${Math.round(pct)}</span></span>
+        <span class="gring" style="--p:${pct.toFixed(1)};--c:${hueOf(k)}"><span>${Math.round(pct)}</span></span>
         <div class="binfo">
           <div class="bname">${esc(g.name||k.label)}</div>
           <div class="bmeta">${goalMeta(g)}</div>
@@ -5911,7 +5952,7 @@ function renderGoalsList(){
     const dt=document.getElementById("doneToggle"); dt.setAttribute("aria-expanded",doneOpen?"true":"false");
     const db_=document.getElementById("doneBody"); db_.hidden=!doneOpen;
     db_.innerHTML=done.map(g=>`<div class="brow"><div class="bmain" style="cursor:default">
-      <span class="tdot" style="background:${goalKindOf(g).color};flex:none"></span>
+      <span class="tdot" style="background:${hueOf(goalKindOf(g))};flex:none"></span>
       <div class="binfo"><div class="bname">${esc(g.name)}</div>
         <div class="bmeta">${fmt(num(g.target))} · reached ${esc(shortDate(g.doneDate||g.created))}</div></div>
       <button class="btn ghost sm" data-goalreopen="${g.id}" style="flex:none">Reopen</button>
@@ -5963,7 +6004,7 @@ function goalPanel(g){
     return "";
   })();
   return `<div class="bpanel">
-    <div class="gbarwrap"><div class="gbar"><span style="width:${goalPct(g).toFixed(1)}%;background:${k.color}"></span>
+    <div class="gbarwrap"><div class="gbar"><span style="width:${goalPct(g).toFixed(1)}%;background:${hueOf(k)}"></span>
       ${[25,50,75].map(mk=>`<i style="left:${mk}%"></i>`).join("")}</div>
       <div class="gbarnums"><span>${fmt(goalNow(g))}${k.unit||""}</span><span class="muted">${fmt(num(g.target))}${k.unit||""}</span></div></div>
     ${ms?`<div class="gnext">Next marker <b>${ms.pct}%</b> at ${fmt(ms.at)} — ${fmt(ms.gap)} away</div>`:""}
@@ -6400,6 +6441,7 @@ document.getElementById("budgetMonthSel").addEventListener("change",e=>{budgetMo
 document.getElementById("csvFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>handleCSV(r.result);r.readAsText(f);e.target.value="";});
 document.getElementById("txSearch").addEventListener("input",renderTx);
 document.getElementById("filtToggle").addEventListener("click",()=>{setFiltOpen(!filtOpen);setPref("filtOpen",filtOpen);});
+document.getElementById("billFiltToggle").addEventListener("click",()=>{setBillFiltOpen(!billFiltOpen);setPref("billFiltOpen",billFiltOpen);});
 ["acct","cat","when","dir","sort"].forEach(k=>{const el=document.getElementById("f-"+k);
   if(el)el.addEventListener("change",e=>{txFilter[k]=e.target.value;renderTx();});});
 ["min","max"].forEach(k=>{const el=document.getElementById("f-"+k);
@@ -7154,6 +7196,7 @@ try{ collapseLeads(); }catch(e){}
 /* put every remembered view preference back before the first paint */
 try{
   filtOpen=pref("filtOpen",false); setFiltOpen(filtOpen);
+  billFiltOpen=pref("billFiltOpen",false); setBillFiltOpen(billFiltOpen);
   billView=pref("billView","month");
   goalSort=pref("goalSort","pct");
   divOpen=pref("divOpen",false);

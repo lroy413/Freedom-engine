@@ -50,6 +50,9 @@ await p.click('#filtToggle'); await p.waitForTimeout(400);
 await p.evaluate(()=>setView('goals')); await p.waitForTimeout(400);
 await p.selectOption('#goalSort','size'); await p.waitForTimeout(400);
 await p.evaluate(()=>setView('budget')); await p.waitForTimeout(400);
+/* the bill filters collapse behind one summary line now — open the panel
+   before reaching for a chip */
+await p.evaluate(()=>{setBillFiltOpen(true);renderBudget();}); await p.waitForTimeout(300);
 const bv=await p.$('[data-bview="all"]'); if(bv){await bv.click(); await p.waitForTimeout(400);}
 console.log('saved:', await p.evaluate(()=>db.settings.ui));
 await p.reload(); await p.waitForTimeout(1100);
