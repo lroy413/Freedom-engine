@@ -108,6 +108,28 @@ chk('backup leaks no credentials',bk.leaksToken,false);
 chk('credentials live in their own key',
   await p.evaluate(()=>Object.keys(localStorage).includes('fe_sync_v1')||!localStorage.getItem('moneymachine_v1').includes('github_pat')),true);
 
+console.log('\n— the category list grows without disturbing what is already tagged —');
+const cats=await p.evaluate(()=>{
+  db.categories=["Income","Food","Misc","Uncategorized"];      // an older, shorter list
+  db.budgets={Food:400}; db.budgetMeta={};
+  db.transactions=[{id:"ct1",date:todayISO(),desc:"old",amount:-20,category:"Food"}];
+  saveAll(); normalize();
+  return {hasGroceries:db.categories.includes("Groceries"),
+    hasRestaurants:db.categories.includes("Restaurants"),
+    keptFood:db.categories.includes("Food"),
+    txStillFood:db.transactions[0].category==="Food",
+    budgetKept:db.budgets.Food===400,
+    groceriesTier:budgetTier("Groceries"), restaurantsTier:budgetTier("Restaurants"),
+    hueDiffers:catColorOf("Groceries")!==catColorOf("Restaurants")};});
+chk('a new default reaches an existing book',cats.hasGroceries,true);
+chk('eating out is its own category now',cats.hasRestaurants,true);
+chk('the old catch-all is never removed',cats.keptFood,true);
+chk('transactions keep the category they had',cats.txStillFood,true);
+chk('so do budgets',cats.budgetKept,true);
+chk('groceries count toward Survive',cats.groceriesTier,'essential');
+chk('eating out does not',cats.restaurantsTier,'luxury');
+chk('and they are told apart by colour',cats.hueDiffers,true);
+
 console.log('\n— safe to spend reserves what is already promised —');
 const sts=await p.evaluate(()=>{
   const rel=n=>{const d=dayOf(todayISO());d.setDate(d.getDate()+n);return isoOf(d);};

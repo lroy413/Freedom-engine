@@ -1478,6 +1478,8 @@
       <b style="font-size:13px">Add a budget</b>
       <div class="formgrid" style="margin-top:10px">
         <div class="field"><label>Category</label><select id="budCat"></select></div>
+        <div class="field" id="budNewWrap" hidden><label>New category name</label>
+          <input id="budNew" placeholder="Date nights" autocomplete="off"></div>
         <div class="field"><label>Monthly limit</label><input id="budLimit" type="number" placeholder="400"></div>
         <button class="btn primary" id="addBudBtn">Add budget</button>
         <button class="btn ghost" data-hideadd="addBudgetPanel">Cancel</button>
@@ -1817,8 +1819,15 @@ const DEFAULT_RULES=[
       {m:"payment",c:"Debt Payment"},{m:"autopay",c:"Debt Payment"},
       {m:"payroll",c:"Income"},{m:"direct dep",c:"Income"},{m:"deposit",c:"Income"}
     ];
+/* "Food" covered the weekly shop and a Tuesday burrito equally, which is no
+   use when Survive counts groceries and not eating out. Both exist now, and
+   the everyday categories people actually reach for came with them. Food is
+   kept, never removed — books already tagged with it must not be orphaned.
+   normalize() adds anything new here to an existing book on next load. */
 const DEFAULT_CATS=["Income","Rent/Mortgage","Electric","Gas (Utility)","Water","Trash","Internet","Phone",
-  "Car Payment","Auto & Gas","Insurance","Subscriptions","Food","Household","Shopping","Health","Entertainment",
+  "Car Payment","Auto & Gas","Transit & Parking","Insurance","Subscriptions","Food","Groceries","Restaurants",
+  "Coffee","Household","Home Maintenance","Shopping","Clothing","Health","Personal Care","Fitness","Pets",
+  "Childcare","Education","Entertainment","Travel","Gifts","Charity","Gear",
   "Debt Payment","Savings","Transfer","Fees","Misc","Uncategorized"];
 function seedAccounts(){
   const bank=uid();
@@ -2714,8 +2723,12 @@ const RAMP={emerald:"--c-emerald",teal:"--c-teal",cyan:"--c-cyan",sky:"--c-sky",
 const CAT_HUE={Income:"emerald",Savings:"teal","Rent/Mortgage":"violet",
   Electric:"amber","Gas (Utility)":"orange",Water:"cyan",Trash:"slate",
   Internet:"sky",Phone:"fuchsia","Car Payment":"blue","Auto & Gas":"orange",
-  Insurance:"cyan",Subscriptions:"sky",Food:"lime",Household:"violet",
-  Shopping:"teal",Health:"rose",Entertainment:"fuchsia","Debt Payment":"rose",
+  "Transit & Parking":"blue",Insurance:"cyan",Subscriptions:"sky",
+  Food:"lime",Groceries:"lime",Restaurants:"orange",Coffee:"amber",
+  Household:"violet","Home Maintenance":"violet",Shopping:"teal",Clothing:"fuchsia",
+  Health:"rose","Personal Care":"fuchsia",Fitness:"rose",Pets:"teal",
+  Childcare:"cyan",Education:"blue",Entertainment:"fuchsia",Travel:"sky",
+  Gifts:"rose",Charity:"teal",Gear:"slate","Debt Payment":"rose",
   Transfer:"slate",Fees:"slate",Misc:"slate",Uncategorized:"slate",
   Rent:"violet","Transport/Gas":"orange"};
 const catHueVar=c=>RAMP[CAT_HUE[c]||"slate"]||"--c-slate";
@@ -3828,10 +3841,14 @@ const tierTotal=t=>db.recurring.filter(b=>billTier(b)===t).reduce((s,b)=>s+billM
    costs: groceries and the gas that gets you to a shoot are as essential as
    rent, while eating out is not. Splitting them is the whole reason Survive
    can mean something. */
-const DEFAULT_BUDGET_TIER={Food:"essential","Auto & Gas":"essential",Health:"essential",
+const DEFAULT_BUDGET_TIER={Food:"essential",Groceries:"essential","Auto & Gas":"essential",
+  "Transit & Parking":"essential",Health:"essential","Personal Care":"essential",
   Household:"essential",Fees:"essential","Debt Payment":"essential",
-  Shopping:"flexible",Misc:"flexible",Uncategorized:"flexible",
-  Entertainment:"luxury",Subscriptions:"luxury"};
+  Childcare:"essential",Education:"essential",Pets:"essential",
+  "Home Maintenance":"flexible",Shopping:"flexible",Clothing:"flexible",
+  Misc:"flexible",Uncategorized:"flexible",Gifts:"flexible",Charity:"flexible",Gear:"flexible",
+  Restaurants:"luxury",Coffee:"luxury",Entertainment:"luxury",Subscriptions:"luxury",
+  Travel:"luxury",Fitness:"luxury"};
 const budgetTier=c=>{const m=(db.budgetMeta||{})[c]||{};
   return BILL_TIERS[m.tier]?m.tier:(DEFAULT_BUDGET_TIER[c]||"flexible");};
 const budgetTierTotal=t=>Object.keys(db.budgets||{})
@@ -4309,7 +4326,13 @@ function renderBudget(){
   const rc=document.getElementById("recCat"); if(rc)rc.innerHTML=db.categories.filter(c=>c!=="Income").map(c=>`<option>${c}</option>`).join("");
   {const rf=document.getElementById("recFreq");
    if(rf&&!rf.options.length)rf.innerHTML=Object.entries(BILL_FREQ).map(([v,o])=>`<option value="${v}">${o.label}</option>`).join("");}
-  const bc=document.getElementById("budCat"); if(bc)bc.innerHTML=db.categories.filter(c=>c!=="Income").map(c=>`<option>${c}</option>`).join("");
+  /* the list can't cover everyone, so the last option makes one up on the spot */
+  const bc=document.getElementById("budCat");
+  if(bc){ const keep=bc.value;
+    bc.innerHTML=db.categories.filter(c=>c!=="Income").map(c=>`<option>${esc(c)}</option>`).join("")
+      +`<option value="__new">+ New category…</option>`;
+    if(keep&&[...bc.options].some(o=>o.value===keep)) bc.value=keep;
+    const w=document.getElementById("budNewWrap"); if(w)w.hidden=bc.value!=="__new"; }
 }
 
 /* CREDIT & DEBT */
@@ -6943,7 +6966,24 @@ document.getElementById("calBillsBtn").addEventListener("click",()=>{
   if(!db.recurring.length){ if(m)m.textContent="Add a bill first."; return; }
   const lead=num(db.settings.billAlertDays)||3;
   if(downloadBillsICS()&&m) m.innerHTML=`Downloaded <b>freebound-bills.ics</b> — open it and your calendar will add ${db.recurring.length} repeating reminder${db.recurring.length===1?"":"s"}, each alerting at 9am <b>${lead} day${lead===1?"":"s"}</b> before it's due. Re-export whenever you change a bill.`;});
-document.getElementById("addBudBtn").addEventListener("click",()=>{const c=document.getElementById("budCat").value;const v=num(document.getElementById("budLimit").value);if(!c||!v)return;
+document.getElementById("budCat").addEventListener("change",e=>{
+  const w=document.getElementById("budNewWrap"); if(!w)return;
+  w.hidden=e.currentTarget.value!=="__new";
+  if(!w.hidden){const n=document.getElementById("budNew"); if(n)n.focus();}});
+document.getElementById("addBudBtn").addEventListener("click",()=>{
+  const sel=document.getElementById("budCat").value;
+  const typed=(document.getElementById("budNew").value||"").trim();
+  /* a made-up category joins the real list, so it is pickable everywhere after
+     — on a transaction, a bill, the next budget — not just here */
+  let c=sel;
+  if(sel==="__new"){
+    if(!typed)return;
+    c=db.categories.find(x=>x.toLowerCase()===typed.toLowerCase())||typed;
+    if(db.categories.indexOf(c)<0) db.categories.push(c);
+  }
+  const v=num(document.getElementById("budLimit").value);if(!c||!v)return;
+  document.getElementById("budNew").value="";
+  document.getElementById("budNewWrap").hidden=true;
   db.budgets[c]=v;
   /* starts this month, so it can't inherit a balance from before it existed */
   db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]={since:monthKey(todayISO()),roll:true};
