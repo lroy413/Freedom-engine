@@ -4397,17 +4397,16 @@ function renderBudget(){
       ${editing?`<div class="bpanel">
         <div class="formgrid">
           <div class="field"><label>Monthly limit</label><input type="number" value="${bud||''}" data-blim="${esc(c)}"></div>
-          <div class="field"><label>How essential is it?</label>
+          <div class="field"><label>How essential is it?<span class="muted" style="font-weight:400">Essential envelopes count toward <b>Survive</b> on the freedom road — groceries and the gas that gets you to a shoot belong there; eating out does not.</span></label>
             <select data-btier="${esc(c)}">${Object.entries(BILL_TIERS).map(([v,o])=>
               `<option value="${v}" ${budgetTier(c)===v?"selected":""}>${o.label} — ${o.note}</option>`).join("")}</select></div>
-          <div class="field"><label>Last month it runs <span class="muted" style="font-weight:400">blank = ongoing</span></label>
+          <div class="field"><label>Last month it runs<span class="muted" style="font-weight:400">Blank means ongoing. Give it a last month for something temporary — a trip, a course, a move — and it bows out by itself.</span></label>
             <input type="month" value="${esc(budgetUntil(c))}" data-buntil="${esc(c)}"></div>
         </div>
-        <div class="note" style="margin-top:12px;font-size:13px">
-          Essential envelopes count toward <b>Survive</b> on the freedom road — groceries and the gas
-          that gets you to a shoot belong there; eating out does not.
-          ${budgetUntil(c)?`<br>Runs until <b>${esc(prettyMonth(budgetUntil(c)))}</b>${budgetEnded(c)?" — finished, so it no longer asks for money or counts toward your floor.":", then stops on its own."}`
-            :"<br>Give it a last month for something temporary — a trip, a course, a move — and it bows out by itself."}</div>
+        <!-- the explanations moved into the two field labels, where collapseHelp
+             turns them into (i) chips — a paragraph repeated on every envelope
+             is noise once you have read it. Only live state stays visible. -->
+        ${budgetUntil(c)?`<div class="note" style="margin-top:12px;font-size:13px">Runs until <b>${esc(prettyMonth(budgetUntil(c)))}</b>${budgetEnded(c)?" — finished, so it no longer asks for money or counts toward your floor.":", then stops on its own."}</div>`:""}
         <label class="flex" style="font-size:15px;margin-top:12px;gap:8px;align-items:flex-start">
           <input type="checkbox" data-broll="${esc(c)}" ${rolls?"checked":""} style="margin-top:3px">
           <span>Roll unspent into next month<br><span class="muted" style="font-size:13px">Envelope style — what you don't spend stays in it, and overspending eats into next month. Turn it off and the budget resets clean every month.</span></span></label>
