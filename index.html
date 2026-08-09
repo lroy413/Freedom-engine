@@ -885,6 +885,42 @@
   .dh-goal{flex:1 1 140px;min-width:120px}
   .dh-gbar{height:6px;border-radius:16px;background:rgba(255,255,255,.25);margin-top:8px;overflow:hidden}
   .dh-gbar span{display:block;height:100%;border-radius:16px;background:#fff;transition:width .5s cubic-bezier(.4,0,.2,1)}
+  /* ---- the freedom road ----
+     The card's base is the app's thesis drawn as a road: passive income
+     travelling toward Survive, Maintain, Thrive. Monochrome white on the
+     hero ground so it reads as part of the card, not a chart pasted on. */
+  .dh-road{position:relative;z-index:1;display:block;width:100%;background:none;border:0;padding:0;margin-top:16px;color:inherit;text-align:left;cursor:pointer;font:inherit}
+  .dh-road:hover .jyou{box-shadow:0 0 0 6px rgba(255,255,255,.3)}
+  .dh-rhead{display:flex;justify-content:space-between;align-items:baseline;gap:2px 12px;flex-wrap:wrap}
+  .dh-rhead .k{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:660;opacity:.78;flex:none}
+  .dh-rhead .s{font-size:12px;font-weight:560;opacity:.92;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dh-rtrack{position:relative;height:44px;margin-top:6px}
+  .dh-rtrack svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
+  /* No vector-effect here on purpose: the track's height equals the viewBox
+     height so vertical scale is 1:1 and near-horizontal strokes keep their
+     width — while non-scaling-stroke makes Chromium measure dashes in screen
+     units, which painted phantom cap-dots down the road every 100px. */
+  .dh-rtrack .jbase{fill:none;stroke:rgba(255,255,255,.28);stroke-width:2.2px;stroke-linecap:round}
+  .dh-rtrack .jfill{fill:none;stroke:#fff;stroke-width:2.6px;stroke-linecap:round;animation:roadin 1s cubic-bezier(.22,1,.36,1)}
+  @keyframes roadin{from{stroke-dasharray:0 999}}
+  .jstop{position:absolute;width:8px;height:8px;border-radius:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.4)}
+  .jstop.nxt{width:10px;height:10px;background:transparent;border:2px solid #fff}
+  .jstop.done{background:#fff}
+  .jyou{position:absolute;width:11px;height:11px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);
+    box-shadow:0 0 0 4px rgba(255,255,255,.22);transition:box-shadow .2s}
+  .jyou::after{content:"";position:absolute;inset:-8px;border-radius:50%;border:1.5px solid rgba(255,255,255,.55);animation:youpulse 2.6s ease-out infinite}
+  @keyframes youpulse{0%{transform:scale(.55);opacity:.9}70%{transform:scale(1.2);opacity:0}100%{transform:scale(1.2);opacity:0}}
+  .dh-rstops{position:relative;height:28px;margin-top:2px}
+  .jlab{position:absolute;transform:translateX(-50%);text-align:center;line-height:1.3;white-space:nowrap}
+  .jlab.end{transform:translateX(-92%);text-align:right}
+  .jlab.lo{margin-top:15px}
+  .dh-rstops:has(.jlab.lo){height:42px}
+  .jlab .n{font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:680;opacity:.85;display:block}
+  .jlab .a{font-size:10px;opacity:.62;font-weight:560}
+  /* below zero the ground stops celebrating: deep wine until the number
+     crosses — the emerald is earned, not given */
+  .dashhero.below{background:linear-gradient(135deg,#9f1239 0%,#7f1d3a 46%,#581c30 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 16px 38px -20px rgba(159,18,57,.7)}
   @media(max-width:820px){ .dashhero{padding:20px 18px 16px;border-radius:16px} .dh-val{font-size:36px}
     .dh-spark{display:none} .dh-stats{gap:12px 10px} .dh-stat{flex:1 1 28%;min-width:0} .dh-stat .k{font-size:10px;letter-spacing:.05em} .dh-stat .v{font-size:16px} .dh-goal{flex:1 1 100%} }
 
@@ -1067,7 +1103,8 @@
     .bmeta{white-space:normal;overflow:visible;text-overflow:clip;flex-wrap:wrap;row-gap:1px}
   }
   @media(prefers-reduced-motion:reduce){
-    .bar span,.gbar>span,.bprog span{animation:none}
+    .bar span,.gbar>span,.bprog span,.dh-rtrack .jfill{animation:none}
+    .jyou::after{animation:none;opacity:0}
   }
 </style>
 </head>
@@ -2760,13 +2797,51 @@ function renderDashHero(){
       <path d="${d}" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
       <circle cx="${X(pts.length-1).toFixed(1)}" cy="${Y(pts[pts.length-1]).toFixed(1)}" r="4" fill="#fff"/></svg></div>`;
   }
-  /* A net worth milestone belongs on the net worth hero. Fall back to whichever
-     goal is closest to done so the bar is never showing nothing useful. */
-  const heroGoal=(()=>{ const act=db.goals.filter(g=>!g.done&&num(g.target)>0);
+  /* The freedom road: the app's one question drawn as a path — how far
+     passive income has travelled toward covering each tier of the month.
+     The stops sit ON the curve: t for a given x is solved by bisection. */
+  const road=(()=>{
+    const fs=freedomState(), th=fs.tiers[fs.tiers.length-1];
+    if(!(th&&th.need>0)) return "";
+    const cov=Math.min(1,fs.passive.total/th.need);
+    const P0=[0,34],P1=[58,30],P2=[100,9];
+    const q=(t,a,b,c)=>(1-t)*(1-t)*a+2*(1-t)*t*b+t*t*c;
+    const tFor=x=>{let lo=0,hi=1;for(let i=0;i<24;i++){const m=(lo+hi)/2;(q(m,P0[0],P1[0],P2[0])<x)?lo=m:hi=m;}return (lo+hi)/2;};
+    const yFor=x=>q(tFor(x),P0[1],P1[1],P2[1]);
+    const d=`M${P0[0]},${P0[1]} Q${P1[0]},${P1[1]} ${P2[0]},${P2[1]}`;
+    const stops=fs.tiers.map(t2=>{const x=Math.min(100,t2.need/th.need*100);
+      return {x,lx:x,y:yFor(x),lab:t2.label,amt:t2.need,cleared:t2.cleared,nxt:fs.next&&fs.next.key===t2.key};});
+    /* dots stay on their true positions; when two tiers price close together
+       the later label steps down a row instead of colliding — a percent nudge
+       can't know the rendered width, a stagger works at any width */
+    for(let i=1;i<stops.length;i++)
+      if(stops[i].lx-stops[i-1].lx<18&&!stops[i-1].lo) stops[i].lo=true;
+    const yx=cov*100, yy=yFor(Math.min(99.5,yx));
+    const sub=fs.next
+      ?`${fmt(fs.passive.total)}/mo passive · ${Math.round(fs.next.pct)}% of ${fs.next.label} · ${fmtK(fs.next.gap)}/mo to go`
+      :`${fmt(fs.passive.total)}/mo passive — every tier covered`;
+    return `<button class="dh-road" data-go="goals" aria-label="Freedom road — open the freedom tracker">
+      <div class="dh-rhead"><span class="k">Freedom road</span><span class="s">${sub}</span></div>
+      <div class="dh-rtrack">
+        <svg viewBox="0 0 100 44" preserveAspectRatio="none" aria-hidden="true">
+          <path class="jbase" d="${d}"/>
+          ${cov>0.004?`<path class="jfill" d="${d}" pathLength="100" style="stroke-dasharray:${(cov*100).toFixed(2)} 999"/>`:""}
+        </svg>
+        ${stops.map(s2=>`<span class="jstop${s2.cleared?" done":s2.nxt?" nxt":""}" style="left:${s2.x.toFixed(1)}%;top:${(s2.y/44*100).toFixed(1)}%"></span>`).join("")}
+        <span class="jyou" style="left:${yx.toFixed(1)}%;top:${(yy/44*100).toFixed(1)}%"></span>
+      </div>
+      <div class="dh-rstops">
+        ${stops.map(s2=>`<span class="jlab${s2.lx>90?" end":""}${s2.lo?" lo":""}" style="left:${s2.lx.toFixed(1)}%"><span class="n">${esc(s2.lab)}</span><span class="a">${fmtK(s2.amt)}/mo</span></span>`).join("")}
+      </div>
+    </button>`;})();
+  /* Without bills/budgets there is no road yet — fall back to the nearest
+     goal bar so the base of the card is never empty. (A net worth milestone
+     belongs on the net worth hero.) */
+  const heroGoal=road?null:(()=>{ const act=db.goals.filter(g=>!g.done&&num(g.target)>0);
     const nwg=act.filter(g=>g.kind==="networth").sort((a,b)=>num(a.target)-num(b.target));
     return nwg.find(g=>num(g.target)>nw)||nwg[0]||act.sort((a,b)=>goalPct(b)-goalPct(a))[0]||null; })();
   const gp=heroGoal?goalPct(heroGoal):null;
-  const personal=`<div class="dashhero">
+  const personal=`<div class="dashhero${nw<0?" below":""}">
     <div class="dh-top">
       <button class="dh-tap" data-nwopen="1" aria-label="Open net worth detail">
         <div class="dh-greet">${esc(when)}</div>
@@ -2789,6 +2864,7 @@ function renderDashHero(){
         <div class="k" style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:660;opacity:.78">${esc(heroGoal.name)} ${gp.toFixed(0)}%</div>
         <div class="dh-gbar"><span style="width:${gp.toFixed(1)}%"></span></div></button>`:""}
     </div>
+    ${road}
   </div>`;
   /* One card per business behind the personal one. Native horizontal scroll with
      snap points, so it swipes on a phone and drags or arrows on a desktop —
