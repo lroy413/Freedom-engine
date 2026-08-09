@@ -108,6 +108,29 @@ chk('backup leaks no credentials',bk.leaksToken,false);
 chk('credentials live in their own key',
   await p.evaluate(()=>Object.keys(localStorage).includes('fe_sync_v1')||!localStorage.getItem('moneymachine_v1').includes('github_pat')),true);
 
+console.log('\n— safe to spend reserves what is already promised —');
+const sts=await p.evaluate(()=>{
+  const rel=n=>{const d=dayOf(todayISO());d.setDate(d.getDate()+n);return isoOf(d);};
+  db.accounts=[{id:"sa",name:"Checking",kind:"checking",value:5000,parentId:null}];
+  db.recurring=[]; db.budgets={}; db.budgetMeta={}; db.holdings=[]; db.income=[];
+  db.debts=[{id:"sd",name:"Loan",kind:"auto",balance:9000,start:12000,payment:400,payments:[]}];
+  db.goals=[{id:"sg",kind:"cash",name:"Cushion",target:5600,link:[],contribs:[],deadline:rel(365)},
+    {id:"sg2",kind:"custom",name:"Someday",target:9999,link:[],contribs:[]}];  // no deadline
+  saveAll();
+  const a=safeToSpend();
+  /* a debt the app mirrored into Bills must not be counted twice */
+  const mirrored=db.debts.some(d=>debtBill(d));
+  return {cash:Math.round(a.cash),debt:Math.round(a.debt),goals:Math.round(a.goals),
+    safe:Math.round(a.safe),bills:Math.round(a.bills),mirrored};});
+chk('a debt payment is reserved',sts.debt>0,true);
+chk('a dated goal reserves its monthly share',sts.goals,50);
+chk('an undated goal reserves nothing',sts.goals<100,true);
+chk('safe = cash − bills − envelopes − debt − goals',
+  sts.safe, sts.cash-sts.bills-sts.debt-sts.goals);
+chk('promised money is no longer counted as spendable',sts.safe<sts.cash,true);
+const sts2=await p.evaluate(()=>{db.goals=[];db.debts=[];saveAll();return Math.round(safeToSpend().safe);});
+chk('with nothing promised it returns to cash',sts2,5000);
+
 console.log('\n— freedom tiers: envelopes carry a tier, and Thrive needs margin —');
 const fr=await p.evaluate(()=>{
   db.recurring=[{id:"f1",name:"Rent",category:"Rent/Mortgage",amount:1000,dueDay:1,freq:"monthly",tier:"essential"},

@@ -21,7 +21,14 @@
     --accent:#059669; --accent-soft:#e6f6ee; --accent-ink:#047857;
     /* --warn/--debt are fills; --warn-ink is the same amber dark enough to read as small text (4.7:1) */
     --pos:#0ca35a; --neg:#e0463e; --debt:#e5900f; --warn:#e5900f; --warn-ink:#9a6206; --goal:#0ea5a0; --invest:#7c5cf0;
-    --s1:#059669; --s2:#6366f1; --s3:#e0463e; --s4:#0ca35a; --s5:#eb6834;
+    /* Emerald leads, but a finance app has more than one kind of number, and a
+       screen where everything is the brand colour reads as unfinished rather
+       than considered. Five supporting hues, matched in saturation and weight
+       so they sit together, each carrying a meaning: money in, money out,
+       what's planned, what's owed, what's invested. */
+    --c-emerald:#059669; --c-teal:#0d9488; --c-sky:#0284c7;
+    --c-violet:#7c5cf0; --c-amber:#d97706; --c-rose:#e11d48;
+    --s1:#059669; --s2:#0284c7; --s3:#e11d48; --s4:#d97706; --s5:#7c5cf0;
     --barbg:rgba(255,255,255,.85); --barbg2:rgba(255,255,255,.97); --glass:rgba(255,255,255,.62);
     /* Depth is three layers doing different jobs: a crisp contact line, a close
        ambient, and a wide soft diffuse. One flat shadow reads as a border. */
@@ -41,7 +48,9 @@
     --track:#2a2d36; --grid:#24262e;
     --accent:#10b981; --accent-soft:#0c2f23; --accent-ink:#6ee7b7;
     --pos:#3ecf8e; --neg:#f4736a; --debt:#f0ad3e; --warn:#f0ad3e; --warn-ink:#f0ad3e; --goal:#2dd4bf; --invest:#a78bfa;
-    --s1:#34d399; --s2:#8b83ff; --s3:#f4736a; --s4:#2dd4bf; --s5:#fb923c;
+    --c-emerald:#34d399; --c-teal:#2dd4bf; --c-sky:#38bdf8;
+    --c-violet:#a78bfa; --c-amber:#fbbf24; --c-rose:#fb7185;
+    --s1:#34d399; --s2:#38bdf8; --s3:#fb7185; --s4:#fbbf24; --s5:#a78bfa;
     --barbg:rgba(24,26,32,.85); --barbg2:rgba(24,26,32,.97); --glass:rgba(24,26,32,.6);
     --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px -8px rgba(0,0,0,.5),0 24px 60px -20px rgba(0,0,0,.6);
     --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 8px 22px -12px rgba(0,0,0,.5);
@@ -715,6 +724,20 @@
   .sheetx svg{width:17px;height:17px}
   .sheetscroll{overflow-y:auto;overscroll-behavior:contain;padding:16px 20px 24px;-webkit-overflow-scrolling:touch}
   body.sheetopen{overflow:hidden}
+  /* A full-screen sheet in a home-screen app has no browser chrome to escape
+     through, so getting out has to be obvious: a grab handle you can drag, a
+     close button that says what it is, and the system back gesture (see
+     sheetPush). Three ways out, because one small X was not enough. */
+  .sheetgrab{display:none}
+  .sheetx span{display:none}
+  @media(max-width:720px){
+    .sheetgrab{display:block;padding:10px 0 2px;flex:none;touch-action:none}
+    .sheetgrab i{display:block;width:38px;height:4px;border-radius:999px;background:var(--line2h);margin:0 auto}
+    .sheetbody{transition:transform .26s cubic-bezier(.32,.72,0,1)}
+    .sheetbody.dragging{transition:none}
+    .sheetx{width:auto;padding:0 12px;gap:6px;font-size:13px;font-weight:640}
+    .sheetx span{display:inline}
+  }
   .nwsec{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--muted);
     margin:20px 0 2px;display:flex;align-items:center;justify-content:space-between;gap:10px}
   .nwsec:first-child{margin-top:0}
@@ -1017,6 +1040,8 @@
     --track:#2a2431; --grid:#231e28;
     --accent:#c1272d; --accent-soft:#2b1418; --accent-ink:#ec6a63;
     --pos:#5fae76; --neg:#d1495b; --debt:#c9a227; --warn:#c9a227; --goal:#c9a227; --invest:#9b7fd4;
+    --c-emerald:#5fae76; --c-teal:#5aa9a3; --c-sky:#6f97c4;
+    --c-violet:#a98cc4; --c-amber:#c9a227; --c-rose:#d1495b;
     --s1:#ec6a63; --s2:#c9a227; --s3:#d1495b; --s4:#5fae76; --s5:#e0873c;
     --barbg:rgba(22,19,26,.85); --barbg2:rgba(22,19,26,.97); --glass:rgba(22,19,26,.6);
     --shadow:0 1px 2px rgba(0,0,0,.55),0 10px 28px -8px rgba(0,0,0,.65),0 26px 64px -20px rgba(0,0,0,.7);
@@ -1190,9 +1215,10 @@
 <div class="sheet" id="nwSheet" hidden>
   <div class="sheetscrim" data-nwclose="1"></div>
   <div class="sheetbody" role="dialog" aria-label="Net worth detail">
+    <div class="sheetgrab" data-sheetgrab="1"><i></i></div>
     <div class="sheethead">
       <div><div class="sheetkicker">Net worth</div><div class="sheettitle" id="nwSheetVal">—</div></div>
-      <button class="sheetx" data-nwclose="1" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      <button class="sheetx" data-nwclose="1" aria-label="Close"><span>Close</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="sheetscroll" id="nwSheetBody"></div>
   </div>
@@ -1201,9 +1227,10 @@
 <div class="sheet" id="stsSheet" hidden>
   <div class="sheetscrim" data-stsclose="1"></div>
   <div class="sheetbody" role="dialog" aria-label="Safe to spend detail">
+    <div class="sheetgrab" data-sheetgrab="1"><i></i></div>
     <div class="sheethead">
       <div><div class="sheetkicker">Safe to spend</div><div class="sheettitle" id="stsVal">—</div></div>
-      <button class="sheetx" data-stsclose="1" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      <button class="sheetx" data-stsclose="1" aria-label="Close"><span>Close</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="sheetscroll" id="stsBody"></div>
   </div>
@@ -2336,10 +2363,10 @@ async function refreshHolding(h,statusEl){
    HOLDERS (bank, credit union…) contain accounts and have no balance of their own.
    LEAVES (checking, savings, wallet, cash…) hold the actual money. */
 const ACCT_KINDS={
-  bank:{label:"Bank",group:"Bank accounts",color:"#059669",holder:true},
+  bank:{label:"Bank",group:"Bank accounts",color:"#0284c7",holder:true},
   creditunion:{label:"Credit union",group:"Bank accounts",color:"#4338ca",holder:true},
   institution:{label:"Other institution",group:"Other",color:"#565a66",holder:true},
-  checking:{label:"Checking",group:"Bank accounts",color:"#059669"},
+  checking:{label:"Checking",group:"Bank accounts",color:"#0284c7"},
   savings:{label:"Savings",group:"Bank accounts",color:"#0ea5a0"},
   moneymarket:{label:"Money market",group:"Bank accounts",color:"#0e9c98"},
   cd:{label:"CD / term deposit",group:"Bank accounts",color:"#0891b2"},
@@ -2725,11 +2752,24 @@ function safeToSpend(){
   const bills=db.recurring.reduce((s,b)=>s+(billDueIn(b,mk)?billRemaining(b,mk):0),0);
   /* what's still sitting in envelopes is planned spending, not free money */
   const env=Object.keys(db.budgets).reduce((s,c)=>s+Math.max(0,availableFor(c,mk)),0);
-  const safe=cash-bills-env;
+  /* Money already promised to the plan is not spendable either. A debt payment
+     you owe this month and a goal you said you'd hit by a date are both claims
+     on this cash — leaving them out is what made the number read as "go ahead".
+     A debt that already rides in Bills is skipped, or it would count twice. */
+  const debt=db.debts.reduce((s,d)=>{
+    if(num(d.balance)<=0||debtBill(d)) return s;
+    const due=num(d.payment); if(due<=0) return s;
+    const paid=(d.payments||[]).reduce((a,x)=>a+(monthKey(x.date)===mk?num(x.amount):0),0);
+    return s+Math.max(0,due-paid);},0);
+  const goals=(db.goals||[]).reduce((s,g)=>{
+    if(g.done||!num(g.target)) return s;
+    const need=goalPace(g).need;                            // null when no deadline is set
+    return s+(need>0?need:0);},0);
+  const safe=cash-bills-env-debt-goals;
   const d=dayOf(todayISO());
   const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
   const daysLeft=Math.max(1,last-d.getDate()+1);
-  return {cash,bills,env,tax:taxHeld(),safe,daysLeft,perDay:safe/daysLeft};
+  return {cash,bills,env,debt,goals,tax:taxHeld(),safe,daysLeft,perDay:safe/daysLeft};
 }
 const reviewQueue=()=>db.transactions.filter(t=>t.review);
 
@@ -3106,7 +3146,9 @@ function renderDash(){
    if(el)el.textContent=(curMonth===monthKey(todayISO()))?"This month":prettyMonth(curMonth);}
   const spendCats={}; for(const t of db.transactions){ const a=personalAmt(t); if(monthKey(t.date)===curMonth&&a<0&&!isNeutral(t))spendCats[t.category]=(spendCats[t.category]||0)+(-a); }
   const entriesCount=Object.keys(spendCats).length;
-  const C={pos:cssVar("--pos","#0ca35a"),neg:cssVar("--neg","#e0463e"),acc:cssVar("--accent","#059669"),goal:cssVar("--goal","#0ea5a0"),warn:cssVar("--warn","#e5900f"),inv:cssVar("--invest","#7c5cf0")};
+  const C={pos:cssVar("--pos","#0ca35a"),neg:cssVar("--neg","#e0463e"),acc:cssVar("--accent","#059669"),goal:cssVar("--goal","#0ea5a0"),warn:cssVar("--warn","#e5900f"),inv:cssVar("--invest","#7c5cf0"),
+    emerald:cssVar("--c-emerald","#059669"),teal:cssVar("--c-teal","#0d9488"),sky:cssVar("--c-sky","#0284c7"),
+    violet:cssVar("--c-violet","#7c5cf0"),amber:cssVar("--c-amber","#d97706"),rose:cssVar("--c-rose","#e11d48")};
   // The hero already carries net worth / on hand / owed / runway, so these cards
   // cover this month's activity and the things you can act on instead of repeating it.
   const pcNet=db.paychecks.filter(p=>monthKey(p.date)===curMonth).reduce((a,p)=>a+num(p.net),0);
@@ -3125,37 +3167,40 @@ function renderDash(){
   const dStart=db.debts.reduce((a,d)=>a+debtOrig(d),0), dNow=totalDebt(), dPaid=debtPaidLogged(), dN=debtPayCount();
   const goalPct=num(g.target)?Math.min(100,Math.round(cash/num(g.target)*100)):null;
   const kpis=[
-    {go:"income",label:"Income this month",val:fmt((gotIn||monthlyIncomeNet())+bizDrawMonthly()),cls:"pos",icon:"income",c:C.pos,
+    {go:"income",label:"Income this month",val:fmt((gotIn||monthlyIncomeNet())+bizDrawMonthly()),cls:"pos",icon:"income",c:C.emerald,
      sub:(()=>{const d=bizDrawMonthly(), pc=db.paychecks.filter(p=>monthKey(p.date)===curMonth).length;
        const base=gotIn?`${pc} paycheck${pc===1?"":"s"} logged`:"estimated — none logged yet";
        return d>0.5?`${base} · ${fmt(d)}/mo from business`:base;})()},
-    {go:"expenses",label:"Spending this month",val:fmt(mt.exp),cls:"",icon:"spend",c:C.warn,
+    {go:"expenses",label:"Spending this month",val:fmt(mt.exp),cls:"",icon:"spend",c:C.amber,
      sub:pace==null?`${entriesCount} categories`:`${Math.abs(pace)}% ${pace>=0?"ahead of":"behind"} last month's pace`},
     /* the DollarWise lesson: one derived number beats ten accurate ones for daily
        use. Ours is honest about the tax reserve, which theirs never heard of. */
     (()=>{ const st=safeToSpend();
-      return {sts:true,label:"Safe to spend",val:fmt(st.safe),cls:st.safe>=0?"pos":"neg",icon:"cash",c:C.goal,
+      return {sts:true,label:"Safe to spend",val:fmt(st.safe),cls:st.safe>=0?"pos":"neg",icon:"cash",c:C.teal,
         sub:st.safe>=0?`≈ ${fmt(Math.max(0,st.perDay))}/day for ${st.daysLeft} more day${st.daysLeft===1?"":"s"} · tap for the maths`
           :"bills + envelopes exceed cash — tap to see why"};})(),
-    {go:"budget",label:"Bills left",val:db.recurring.length?fmt(billsLeft):"—",cls:billsLeft>0?"":"pos",icon:"debt",c:C.acc,
+    {go:"budget",label:"Bills left",val:db.recurring.length?fmt(billsLeft):"—",cls:billsLeft>0?"":"pos",icon:"debt",c:C.sky,
      sub:db.recurring.length?(billsLeft<=0.005
        ?("all "+fmt(billsTot)+" covered"+(billsPaidAmtDash-billsTot>0.5?" · "+fmt(billsPaidAmtDash-billsTot)+" ahead":""))
        :(billsPaid.length+" of "+db.recurring.filter(b=>billDueIn(b,curMonth)).length+" paid · of "+fmt(billsTot)+" due")):"add your bills"},
-    {go:"credit",label:"Payments logged",val:db.debts.length?fmt(dPaid):"—",cls:"pos",icon:"net",c:C.neg,
+    {go:"credit",label:"Payments logged",val:db.debts.length?fmt(dPaid):"—",cls:"pos",icon:"net",c:C.rose,
      sub:!db.debts.length?"add your debts":dN?`${dN} payment${dN===1?"":"s"} · ${fmt(dNow)} still owed`:`${fmt(dNow)} owed — log a payment to track this`},
     /* was reading the pre-multi-goal single target; now it reports the thing the
        whole app is for, falling back to whichever goal is closest to done */
     (()=>{ const st=freedomState(), nx=st.next;
-      if(st.need.thrive>0) return {go:"goals",label:"Freedom",val:nx?Math.round(nx.pct)+"%":"100%",cls:"",icon:"clock",c:C.inv,
+      if(st.need.thrive>0) return {go:"goals",label:"Freedom",val:nx?Math.round(nx.pct)+"%":"100%",cls:"",icon:"clock",c:C.violet,
         sub:nx?`to ${nx.label} · ${fmt(nx.gap)}/mo to cover`:"every tier covered"};
       const act=db.goals.filter(x=>!x.done&&num(x.target)>0).sort((a,b2)=>goalPct(b2)-goalPct(a));
       const gg=act[0];
-      return {go:"goals",label:gg?esc(gg.name):"Goals",val:gg?Math.round(goalPct(gg))+"%":"—",cls:"",icon:"clock",c:C.inv,
+      return {go:"goals",label:gg?esc(gg.name):"Goals",val:gg?Math.round(goalPct(gg))+"%":"—",cls:"",icon:"clock",c:C.violet,
         sub:gg?`${fmtK(goalNow(gg))} of ${fmtK(num(gg.target))}`:"set a goal to track this"};})()
   ];
   /* One tint for every card — six competing hues meant nothing ranked. The
      value's pos/neg class is the only color left, so it reads as the signal. */
-  document.getElementById("kpiRow").innerHTML=kpis.map(k=>`<div class="card kpi tappable" ${k.sts?`data-stsopen="1"`:`data-go="${k.go}"`}><div class="kpitop">${kpiIcon(k.icon,C.acc)}<div class="label">${k.label}</div></div><div class="val ${k.cls}">${k.val}</div><div class="sub">${k.sub}</div></div>`).join("");
+  /* The icon chip carries the hue; the big value stays semantic (pos/neg) so
+     colour never competes with the number. Six flat accent chips read as one
+     undifferentiated screen — six palette hues read as a system. */
+  document.getElementById("kpiRow").innerHTML=kpis.map(k=>`<div class="card kpi tappable" ${k.sts?`data-stsopen="1"`:`data-go="${k.go}"`}><div class="kpitop">${kpiIcon(k.icon,k.c)}<div class="label">${k.label}</div></div><div class="val ${k.cls}">${k.val}</div><div class="sub">${k.sub}</div></div>`).join("");
   const cats={}; for(const t of db.transactions){ if(monthKey(t.date)===curMonth&&t.amount<0&&!isNeutral(t))cats[t.category]=(cats[t.category]||0)+(-t.amount); }
   const entries=Object.entries(cats).sort((a,b)=>b[1]-a[1]); const max=entries.length?entries[0][1]:1;
   document.getElementById("spendHint").textContent=entries.length?`${fmt(mt.exp)} across ${entries.length} categories`:"";
@@ -5168,9 +5213,9 @@ function freedomState(){
 /* ---------- safe to spend sheet ---------- */
 let stsOpen=false;
 function openSTS(){ stsOpen=true; document.body.classList.add("sheetopen");
-  document.getElementById("stsSheet").hidden=false; renderSTS(); }
+  document.getElementById("stsSheet").hidden=false; renderSTS(); sheetPush(); }
 function closeSTS(){ stsOpen=false; document.body.classList.remove("sheetopen");
-  document.getElementById("stsSheet").hidden=true; }
+  document.getElementById("stsSheet").hidden=true; sheetPop(); }
 function renderSTS(){
   if(!stsOpen)return;
   const el=document.getElementById("stsBody"), st=safeToSpend();
@@ -5182,11 +5227,13 @@ function renderSTS(){
       ${st.tax>0?row("Held for tax","−"+fmt(st.tax),"neg","the IRS's share of 1099 income — already spent"):""}
       ${row("Bills still due this month","−"+fmt(st.bills),"neg","what remains unpaid on everything due")}
       ${row("Left in your envelopes","−"+fmt(st.env),"neg","planned spending — groceries, gas — not free money")}
+      ${st.debt>0?row("Debt payments still owed","−"+fmt(st.debt),"neg","this month's payments on debts that aren't already bills"):""}
+      ${st.goals>0?row("Set aside for your goals","−"+fmt(st.goals),"neg","this month's share of the goals you gave a deadline"):""}
       ${row("<b>Safe to spend</b>","<b class='"+(st.safe>=0?"pos":"neg")+"'>"+fmt(st.safe)+"</b>","")}
     </div>
     ${st.safe>=0
-      ? `<div class="note ok" style="margin-top:14px">About <b>${fmt(Math.max(0,st.perDay))}/day</b> for the next ${st.daysLeft} day${st.daysLeft===1?"":"s"}. Spend it on anything without touching a bill, an envelope, or the tax reserve.</div>`
-      : `<div class="note warn" style="margin-top:14px">Short by <b>${fmt(-st.safe)}</b> — this month's bills and envelopes add up to more than the cash on hand. An envelope may need trimming, or a payday lands first: the forecast on Goals shows which.</div>`}
+      ? `<div class="note ok" style="margin-top:14px">About <b>${fmt(Math.max(0,st.perDay))}/day</b> for the next ${st.daysLeft} day${st.daysLeft===1?"":"s"}. Spend it on anything without setting back a bill, an envelope, a debt payment or a goal.</div>`
+      : `<div class="note warn" style="margin-top:14px">Short by <b>${fmt(-st.safe)}</b> — what you owe and what you've promised yourself this month add up to more than the cash on hand. Something gives: trim an envelope, ease a goal's deadline, or wait for the payday that lands first — the forecast on Goals shows which.</div>`}
     <div class="muted" style="font-size:13px;margin-top:12px">Built from money you actually have, not projected income — a promised invoice isn't spendable yet. Logging a paycheck moves this number the moment it lands.</div>`;
 }
 /* ---------- import review queue ---------- */
@@ -5241,9 +5288,46 @@ let rvOpen=true;
 let nwOpen=false, hsFormOpen=false, nwOpenList={};
 function openNW(){ nwOpen=true; document.body.classList.add("sheetopen");
   const sh=document.getElementById("nwSheet"); sh.hidden=false; renderNWSheet();
-  const sc=sh.querySelector(".sheetscroll"); if(sc)sc.scrollTop=0; }
+  const sc=sh.querySelector(".sheetscroll"); if(sc)sc.scrollTop=0; sheetPush(); }
 function closeNW(){ nwOpen=false; hsFormOpen=false; document.body.classList.remove("sheetopen");
-  document.getElementById("nwSheet").hidden=true; }
+  document.getElementById("nwSheet").hidden=true; sheetPop(); }
+
+/* A sheet is a place you can be, so the system's Back has to leave it. Added
+   to the app's own history: the phone's back gesture and Android's back button
+   both close the sheet instead of leaving the app — which, installed to a home
+   screen with no browser chrome, was the difference between "go back" and
+   "hunt for the X". _sheetNav guards the pop we cause ourselves. */
+let _sheetNav=0;
+function sheetPush(){ try{ history.pushState({fbSheet:1},""); _sheetNav++; }catch(e){} }
+function sheetPop(){ if(_sheetNav>0){ _sheetNav--; try{ history.back(); }catch(e){} } }
+/* Drag the handle down to dismiss. Past a third of the sheet's height, or a
+   flick, it goes; anything less springs back so a mis-grab costs nothing. */
+(function wireSheetDrag(){
+  let body=null,y0=0,dy=0,t0=0;
+  const at=e=>(e.touches&&e.touches[0]?e.touches[0].clientY:e.clientY);
+  const start=e=>{ const g=e.target.closest("[data-sheetgrab]"); if(!g)return;
+    body=g.closest(".sheetbody"); if(!body)return;
+    y0=at(e); dy=0; t0=Date.now(); body.classList.add("dragging"); };
+  const move=e=>{ if(!body)return; dy=Math.max(0,at(e)-y0);
+    if(dy>0&&e.cancelable)e.preventDefault();
+    body.style.transform="translateY("+dy+"px)"; };
+  const end=()=>{ if(!body)return;
+    const far=dy>body.getBoundingClientRect().height/3, quick=dy>70&&Date.now()-t0<300;
+    body.classList.remove("dragging"); body.style.transform="";
+    if(far||quick){ if(stsOpen)closeSTS(); else if(nwOpen)closeNW(); }
+    body=null; };
+  addEventListener("touchstart",start,{passive:true});
+  addEventListener("touchmove",move,{passive:false});
+  addEventListener("touchend",end,{passive:true});
+  addEventListener("mousedown",start); addEventListener("mousemove",move); addEventListener("mouseup",end);
+})();
+addEventListener("popstate",()=>{
+  if(_sheetNav>0) _sheetNav--;            // this pop is the one we asked for
+  if(stsOpen){ stsOpen=false; document.body.classList.remove("sheetopen");
+    document.getElementById("stsSheet").hidden=true; }
+  if(nwOpen){ nwOpen=false; hsFormOpen=false; document.body.classList.remove("sheetopen");
+    document.getElementById("nwSheet").hidden=true; }
+});
 
 /* Everything that feeds the number, grouped the way you'd check it. */
 function nwParts(){
