@@ -746,6 +746,19 @@
      through, so getting out has to be obvious: a grab handle you can drag, a
      close button that says what it is, and the system back gesture (see
      sheetPush). Three ways out, because one small X was not enough. */
+  /* month in review: big soft statements rather than a table, because the
+     point is to be read once and enjoyed, not audited */
+  .rcstat{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0}
+  .rccard{background:var(--raise);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+  .rccard .k{font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:680;color:var(--muted)}
+  .rccard .v{font-size:22px;font-weight:720;letter-spacing:-.02em;margin-top:4px;line-height:1.1}
+  .rccard .s{font-size:12px;color:var(--muted);margin-top:3px}
+  .rcline{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line);font-size:15px}
+  .rcline .rcn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rcline .rcv{font-weight:660;font-variant-numeric:tabular-nums;flex:none}
+  .rcdot{width:9px;height:9px;border-radius:50%;flex:none}
+  .rcbig{font-size:17px;line-height:1.5;margin:2px 0 4px}
+  .rcquiet{color:var(--muted);font-size:13px}
   .sheetgrab{display:none}
   .sheetx span{display:none}
   @media(max-width:720px){
@@ -1255,6 +1268,18 @@
     <div class="sheetscroll" id="stsBody"></div>
   </div>
 </div>
+<!-- Month in review — the month read back to you. -->
+<div class="sheet" id="recapSheet" hidden>
+  <div class="sheetscrim" data-recapclose="1"></div>
+  <div class="sheetbody" role="dialog" aria-label="Month in review">
+    <div class="sheetgrab" data-sheetgrab="1"><i></i></div>
+    <div class="sheethead">
+      <div><div class="sheetkicker" id="recapKicker">Month in review</div><div class="sheettitle" id="recapTitle">—</div></div>
+      <button class="sheetx" data-recapclose="1" aria-label="Close"><span>Close</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="sheetscroll" id="recapBody"></div>
+  </div>
+</div>
 <aside class="sidebar" id="sidebar">
   <div class="sbbrand"><span class="brandmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="blade" d="M9.5 9.6 L5.4 20.5"/><path class="blade" d="M14.5 9.6 L18.6 20.5"/><path class="blade" d="M12 18.9 V16.8" stroke-width="2.3"/><path class="blade" d="M12 14.6 V12.9" stroke-width="2"/><path class="blade" d="M12 10.8 V9.7" stroke-width="1.7"/><path class="bhead" d="M8.9 6.6 L12 3.6 L15.1 6.6"/></svg></span> FreeBound</div>
   <nav id="sbnav"></nav>
@@ -1288,7 +1313,12 @@
     <div id="insightRow" hidden></div>
     <div class="between pagerow" style="margin-bottom:14px">
       <h2 style="font-size:17px" id="dashMonthLabel">This month</h2>
-      <div class="field nolabel" style="width:auto"><select id="monthSel" aria-label="Month"></select></div>
+      <span class="flex" style="gap:8px">
+        <button class="btn sm" data-recapopen="1" title="How this month actually went">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><path d="M12 3v4M5.6 5.6l2.9 2.9M3 12h4M21 12h-4M18.4 5.6l-2.9 2.9"/><circle cx="12" cy="15" r="5"/></svg>
+          Recap</button>
+        <div class="field nolabel" style="width:auto"><select id="monthSel" aria-label="Month"></select></div>
+      </span>
     </div>
     <div class="grid kpis" id="kpiRow"></div>
     <div class="sectiontitle" data-sect="spend"><h2>Spending this month</h2><span class="hint" id="spendHint"></span></div>
@@ -2839,6 +2869,77 @@ function safeToSpend(){
   return {cash,bills,env,debt,goals,tax:taxHeld(),safe,daysLeft,perDay:safe/daysLeft};
 }
 const reviewQueue=()=>db.transactions.filter(t=>t.review);
+
+/* ---------- month in review ----------
+   A month of a freelancer's money is mostly texture — a week with nothing in
+   it, one bad Tuesday, the merchant you visited nine times. The numbers to
+   answer "how did I do" are all already in the book; this reads them out with
+   some warmth, because a summary nobody enjoys opening gets opened once. */
+function monthRecap(mk){
+  const tx=db.transactions.filter(t=>monthKey(t.date)===mk&&!isNeutral(t));
+  const spendTx=tx.filter(t=>t.amount<0);
+  const tot=monthTotals(mk);
+  /* paychecks live in their own list, not as transactions — the dashboard
+     counts both and so must this, or a month of real work reads as $0 in */
+  const pcNet=db.paychecks.filter(x=>monthKey(x.date)===mk).reduce((a,x)=>a+num(x.net),0);
+  const income=tot.inc+pcNet;
+  const spend=spendTx.reduce((a,t)=>a+Math.abs(personalAmt(t)),0);
+  /* by category */
+  const byCat={}; spendTx.forEach(t=>{byCat[t.category]=(byCat[t.category]||0)+Math.abs(personalAmt(t));});
+  const cats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  /* by merchant, normalised the way the rules engine sees them */
+  const byMerch={}; spendTx.forEach(t=>{const k=(t.desc||"").trim()||"—";
+    byMerch[k]=byMerch[k]||{n:0,amt:0}; byMerch[k].n++; byMerch[k].amt+=Math.abs(personalAmt(t));});
+  const merch=Object.entries(byMerch).sort((a,b)=>b[1].n-a[1].n||b[1].amt-a[1].amt);
+  const biggest=spendTx.slice().sort((a,b)=>Math.abs(personalAmt(b))-Math.abs(personalAmt(a)))[0]||null;
+  /* days: how many of the month's elapsed days had no spending at all */
+  const [yy,mm]=mk.split("-").map(Number);
+  const lastDay=new Date(yy,mm,0).getDate();
+  const isNow=mk===monthKey(todayISO());
+  const elapsed=isNow?dayOf(todayISO()).getDate():lastDay;
+  const spentDays=new Set(spendTx.map(t=>t.date));
+  const noSpend=Math.max(0,elapsed-spentDays.size);
+  /* the longest run of days without spending */
+  let streak=0,best=0;
+  for(let d=1;d<=elapsed;d++){
+    const iso=`${yy}-${String(mm).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    if(spentDays.has(iso)) streak=0; else { streak++; if(streak>best)best=streak; }
+  }
+  /* bills */
+  const due=db.recurring.filter(b=>billDueIn(b,mk));
+  const paid=due.filter(b=>billPaid(b,mk));
+  /* net worth movement from the snapshots */
+  const snaps=(db.snapshots||[]).slice().sort((a,b)=>String(a.m).localeCompare(String(b.m)));
+  const here=snaps.filter(x=>x.m<=mk).pop(), prev=snaps.filter(x=>x.m<mk).pop();
+  const nwMove=(here&&prev)?num(here.net)-num(prev.net):null;
+  /* freedom */
+  const fs=freedomState();
+  /* envelopes that held */
+  const budCats=Object.keys(db.budgets||{}).filter(c=>budgetActiveIn(c,mk));
+  const held=budCats.filter(c=>spentFor(c,mk)<=budgetedFor(c,mk));
+  /* how this month compares with the one before */
+  const pm=(()=>{const d=new Date(yy,mm-1,1);d.setMonth(d.getMonth()-1);return monthOf(d);})();
+  const prevSpend=monthTotals(pm).exp;
+  return {mk,tx:tx.length,spendCount:spendTx.length,income,pcNet,spend,
+    cats,merch,biggest,noSpend,elapsed,bestStreak:best,
+    billsDue:due.length,billsPaid:paid.length,
+    nwMove,prevSpend,held:held.length,budgets:budCats.length,
+    freedomPct:fs.next?fs.next.pct:100,freedomLabel:fs.next?fs.next.label:"every tier",
+    passive:fs.passive.total,isNow};
+}
+/* A month earns a name from whatever it actually did most. Not a score — a
+   nickname, so the recap opens with something human instead of a total. */
+function recapTitle(r){
+  if(!r.spendCount) return {t:"The Quiet One",s:"Not a single thing logged. Either a very good month or a very forgotten one."};
+  if(r.bestStreak>=7) return {t:"The Long Walk",s:`${r.bestStreak} days straight without spending a penny.`};
+  if(r.nwMove!=null&&r.nwMove>0&&r.spend<r.prevSpend) return {t:"The Turn",s:"Spent less than last month and came out further ahead."};
+  if(r.billsDue&&r.billsPaid===r.billsDue) return {t:"The Clean Sweep",s:"Every bill due this month, paid."};
+  if(r.cats.length&&r.cats[0][1]>r.spend*0.4) return {t:`The ${r.cats[0][0]} Month`,s:`${esc(r.cats[0][0])} took ${Math.round(r.cats[0][1]/r.spend*100)}% of everything you spent.`};
+  if(r.merch.length&&r.merch[0][1].n>=6) return {t:"The Regular",s:`${esc(r.merch[0][0])} saw you ${r.merch[0][1].n} times.`};
+  if(r.spend>r.prevSpend*1.25&&r.prevSpend>0) return {t:"The Splurge",s:"A heavier month than the last one. Worth a look at what changed."};
+  return {t:"The Steady One",s:"No drama. Bills covered, nothing wild — most months should look like this."};
+}
+
 
 /* ---------- insights ----------
    A handful of honest rules computed from numbers already on hand — no server,
@@ -5332,6 +5433,56 @@ function openSTS(){ stsOpen=true; document.body.classList.add("sheetopen");
   document.getElementById("stsSheet").hidden=false; renderSTS(); sheetPush(); }
 function closeSTS(){ stsOpen=false; document.body.classList.remove("sheetopen");
   document.getElementById("stsSheet").hidden=true; sheetPop(); }
+let recapOpen=false, recapMonth="";
+function openRecap(mk){ recapOpen=true; recapMonth=mk||monthKey(todayISO());
+  document.body.classList.add("sheetopen");
+  document.getElementById("recapSheet").hidden=false; renderRecap(); sheetPush();
+  const sc=document.querySelector("#recapSheet .sheetscroll"); if(sc)sc.scrollTop=0; }
+function closeRecap(){ recapOpen=false; document.body.classList.remove("sheetopen");
+  document.getElementById("recapSheet").hidden=true; sheetPop(); }
+function renderRecap(){
+  if(!recapOpen)return;
+  const el=document.getElementById("recapBody"); if(!el)return;
+  const r=monthRecap(recapMonth), t=recapTitle(r);
+  document.getElementById("recapKicker").textContent=
+    prettyMonth(recapMonth)+(r.isNow?" · so far":"");
+  document.getElementById("recapTitle").textContent=t.t;
+  const line=(name,val,hue)=>`<div class="rcline">${hue?`<span class="rcdot" style="background:${hue}"></span>`:""}<span class="rcn">${esc(name)}</span><span class="rcv">${val}</span></div>`;
+  const months=monthsWithData();
+  el.innerHTML=`
+    <div class="rcbig">${esc(t.s)}</div>
+    <div class="rcstat">
+      <div class="rccard"><div class="k">Spent</div><div class="v">${fmt(r.spend)}</div>
+        <div class="s">${(()=>{ if(!(r.prevSpend>0)) return "nothing logged last month to compare";
+          const d=r.spend-r.prevSpend, pct=Math.abs(Math.round(d/r.prevSpend*100));
+          /* past a point the percentage stops meaning anything — say the money */
+          if(pct>200) return `${fmt(Math.abs(d))} ${d>=0?"more":"less"} than last month`;
+          return `${pct}% ${d>=0?"more":"less"} than last month`; })()}</div></div>
+      <div class="rccard"><div class="k">Came in</div><div class="v pos">${fmt(r.income)}</div>
+        <div class="s">${r.income>r.spend?`${fmt(r.income-r.spend)} more than went out`:`${fmt(r.spend-r.income)} short of what went out`}</div></div>
+      <div class="rccard"><div class="k">No-spend days</div><div class="v">${r.noSpend}</div>
+        <div class="s">of ${r.elapsed}${r.bestStreak>1?` · best run ${r.bestStreak}`:""}</div></div>
+      <div class="rccard"><div class="k">Bills</div><div class="v">${r.billsDue?`${r.billsPaid}/${r.billsDue}`:"—"}</div>
+        <div class="s">${r.billsDue?(r.billsPaid===r.billsDue?"all paid":`${r.billsDue-r.billsPaid} still open`):"none due"}</div></div>
+    </div>
+    ${r.nwMove!=null?`<div class="note ${r.nwMove>=0?"ok":"warn"}" style="font-size:13px">Net worth moved <b>${r.nwMove>=0?"up":"down"} ${fmt(Math.abs(r.nwMove))}</b> this month.</div>`:""}
+    ${r.cats.length?`<div class="nwsec" style="margin-top:18px"><span class="t">Where it went</span></div>
+      ${r.cats.slice(0,5).map(([c,v])=>line(c,`${fmt(v)} <span class="rcquiet">${Math.round(v/r.spend*100)}%</span>`,catColorOf(c))).join("")}`:""}
+    ${r.merch.length?`<div class="nwsec" style="margin-top:18px"><span class="t">Places you kept going back to</span></div>
+      ${r.merch.slice(0,3).map(([m,o])=>line(m,`${o.n}× <span class="rcquiet">${fmt(o.amt)}</span>`)).join("")}`:""}
+    ${r.biggest?`<div class="nwsec" style="margin-top:18px"><span class="t">The single biggest thing</span></div>
+      ${line(r.biggest.desc||"—",fmt(Math.abs(personalAmt(r.biggest))),catColorOf(r.biggest.category))}
+      <div class="rcquiet" style="margin-top:2px">${esc(shortDate(r.biggest.date))} · ${esc(r.biggest.category||"Uncategorized")}</div>`:""}
+    ${r.budgets?`<div class="nwsec" style="margin-top:18px"><span class="t">Envelopes</span></div>
+      ${line(`${r.held} of ${r.budgets} stayed inside their limit`,r.held===r.budgets?"clean":`${r.budgets-r.held} over`)}`:""}
+    <div class="nwsec" style="margin-top:18px"><span class="t">The long game</span></div>
+    ${line(`${fmt(r.passive)}/mo arriving without you`,`${Math.round(r.freedomPct)}% of ${esc(r.freedomLabel)}`)}
+    <div class="rcquiet" style="margin-top:14px">Built from what you logged — a month you didn't track will look quieter than it was.</div>
+    <div class="field" style="margin-top:16px"><label>Look at another month</label>
+      <select id="recapMonthSel">${months.slice().reverse().map(m=>`<option value="${m}" ${m===recapMonth?"selected":""}>${esc(prettyMonth(m))}</option>`).join("")}</select></div>`;
+  const sel=document.getElementById("recapMonthSel");
+  if(sel) sel.onchange=e=>{recapMonth=e.currentTarget.value;renderRecap();};
+}
 function renderSTS(){
   if(!stsOpen)return;
   const el=document.getElementById("stsBody"), st=safeToSpend();
@@ -5430,7 +5581,7 @@ function sheetPop(){ if(_sheetNav>0){ _sheetNav--; try{ history.back(); }catch(e
   const end=()=>{ if(!body)return;
     const far=dy>body.getBoundingClientRect().height/3, quick=dy>70&&Date.now()-t0<300;
     body.classList.remove("dragging"); body.style.transform="";
-    if(far||quick){ if(stsOpen)closeSTS(); else if(nwOpen)closeNW(); }
+    if(far||quick){ if(stsOpen)closeSTS(); else if(nwOpen)closeNW(); else if(recapOpen)closeRecap(); }
     body=null; };
   addEventListener("touchstart",start,{passive:true});
   addEventListener("touchmove",move,{passive:false});
@@ -5443,6 +5594,8 @@ addEventListener("popstate",()=>{
     document.getElementById("stsSheet").hidden=true; }
   if(nwOpen){ nwOpen=false; hsFormOpen=false; document.body.classList.remove("sheetopen");
     document.getElementById("nwSheet").hidden=true; }
+  if(recapOpen){ recapOpen=false; document.body.classList.remove("sheetopen");
+    document.getElementById("recapSheet").hidden=true; }
 });
 
 /* Everything that feeds the number, grouped the way you'd check it. */
@@ -6602,8 +6755,10 @@ function addHistoryEntry(){
 document.addEventListener("click",e=>{ if(e.target.closest("[data-nwclose]")) closeNW();
   else if(e.target.closest("[data-nwopen]")) openNW();
   else if(e.target.closest("[data-stsclose]")) closeSTS();
+  else if(e.target.closest("[data-recapclose]")) closeRecap();
+  else if(e.target.closest("[data-recapopen]")) openRecap();
   else if(e.target.closest("[data-stsopen]")) openSTS(); });
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(nwOpen)closeNW(); if(stsOpen)closeSTS(); } });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(nwOpen)closeNW(); if(stsOpen)closeSTS(); if(recapOpen)closeRecap(); } });
 /* ---- goals ---- */
 document.getElementById("showAddBiz").addEventListener("click",()=>{
   addBizOpen=!addBizOpen; openBiz=null; renderBusiness();

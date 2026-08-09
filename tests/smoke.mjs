@@ -108,6 +108,33 @@ chk('backup leaks no credentials',bk.leaksToken,false);
 chk('credentials live in their own key',
   await p.evaluate(()=>Object.keys(localStorage).includes('fe_sync_v1')||!localStorage.getItem('moneymachine_v1').includes('github_pat')),true);
 
+console.log('\n— month in review reads the month back —');
+const rc=await p.evaluate(()=>{
+  const rel=n=>{const d=dayOf(todayISO());d.setDate(d.getDate()+n);return isoOf(d);};
+  const mk=monthKey(todayISO());
+  db.budgets={}; db.budgetMeta={}; db.goals=[]; db.debts=[];
+  db.recurring=[{id:"rr",name:"Rent",category:"Rent/Mortgage",amount:1000,dueDay:1,freq:"monthly",tier:"essential"}];
+  db.paychecks=[{id:"rp",date:rel(-2),source:"Gig",gross:1200,net:1000}];
+  db.transactions=[
+    {id:"r1",date:rel(-1),desc:"Kroger",amount:-40,category:"Groceries"},
+    {id:"r2",date:rel(-1),desc:"Kroger",amount:-30,category:"Groceries"},
+    {id:"r3",date:rel(-2),desc:"Kroger",amount:-30,category:"Groceries"},
+    {id:"r4",date:rel(-3),desc:"B&H Photo",amount:-500,category:"Gear"},
+    {id:"r5",date:rel(-1),desc:"Moved money",amount:-999,category:"Transfer"}];
+  saveAll();
+  const r=monthRecap(mk);
+  return {income:r.income, spend:Math.round(r.spend), count:r.spendCount,
+    topCat:r.cats[0][0], topMerchName:r.merch[0][0], topMerchN:r.merch[0][1].n,
+    biggest:r.biggest.desc, titleIsString:typeof recapTitle(r).t==="string"};});
+chk('a logged paycheck counts as income',rc.income,1000);
+chk('transfers are left out of the spend',rc.spend,600);
+chk('  and out of the count',rc.count,4);
+chk('the biggest category is found',rc.topCat,'Gear');
+chk('so is the most-visited merchant',rc.topMerchName,'Kroger');
+chk('  with its visit count',rc.topMerchN,3);
+chk('and the single largest purchase',rc.biggest,'B&H Photo');
+chk('every month earns a title',rc.titleIsString,true);
+
 console.log('\n— temporary envelopes and goal savings plans —');
 const tb=await p.evaluate(()=>{
   const relM=n=>{const d=dayOf(todayISO());d.setDate(1);d.setMonth(d.getMonth()+n);return monthOf(d);};
