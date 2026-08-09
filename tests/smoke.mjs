@@ -108,6 +108,37 @@ chk('backup leaks no credentials',bk.leaksToken,false);
 chk('credentials live in their own key',
   await p.evaluate(()=>Object.keys(localStorage).includes('fe_sync_v1')||!localStorage.getItem('moneymachine_v1').includes('github_pat')),true);
 
+console.log('\n— freedom tiers: envelopes carry a tier, and Thrive needs margin —');
+const fr=await p.evaluate(()=>{
+  db.recurring=[{id:"f1",name:"Rent",category:"Rent/Mortgage",amount:1000,dueDay:1,freq:"monthly",tier:"essential"},
+    {id:"f2",name:"Netflix",category:"Subscriptions",amount:20,dueDay:8,freq:"monthly",tier:"luxury"}];
+  db.budgets={Food:400,Entertainment:100};      // Food defaults essential, Entertainment luxury
+  db.budgetMeta={};                              // force the category defaults
+  db.income=[{id:"fi",name:"Rent from roommate",model:"monthly",amount:100,payFreq:"monthly",passive:true,notax:true}];
+  /* earlier sections leave linked debts (and the bills that mirror them) in the
+     book — the tier maths must be read against this fixture alone */
+  db.debts=[]; db.holdings=[]; saveAll();
+  const n=freedomNeed();
+  return {foodTier:budgetTier("Food"), entTier:budgetTier("Entertainment"),
+    essBills:Math.round(n.essBills), essBudget:Math.round(n.essBudget),
+    survive:Math.round(n.survive), maintain:Math.round(n.maintain),
+    thrive:Math.round(n.thrive), margin:Math.round(n.margin)};});
+chk('the fixture owns the bills',fr.essBills,1000);
+chk('groceries default to essential',fr.foodTier,'essential');
+chk('going out does not',fr.entTier,'luxury');
+chk('survive = essential bills + essential envelopes',fr.survive,1400);
+chk('  (essential envelopes counted, luxury ones not)',fr.essBudget,400);
+chk('maintain = every bill + every envelope',fr.maintain,1520);
+chk('thrive = maintain + 25% margin',fr.thrive,1900);
+chk('margin is reported for the tracker',fr.margin,380);
+const fr2=await p.evaluate(()=>{db.settings.thriveMargin=50;saveAll();
+  return Math.round(freedomNeed().thrive);});
+chk('the margin is settable',fr2,2280);
+chk('re-tiering an envelope moves the floor',
+  await p.evaluate(()=>{db.settings.thriveMargin=25;
+    db.budgetMeta.Entertainment={since:monthKey(todayISO()),roll:true,tier:"essential"};saveAll();
+    return Math.round(freedomNeed().survive);}),1500);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
 await b.close();

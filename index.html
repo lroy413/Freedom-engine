@@ -922,12 +922,19 @@
      The card's base is the app's thesis drawn as a road: passive income
      travelling toward Survive, Maintain, Thrive. Monochrome white on the
      hero ground so it reads as part of the card, not a chart pasted on. */
-  .dh-road{position:relative;z-index:1;display:block;width:100%;background:none;border:0;padding:0;margin-top:16px;color:inherit;text-align:left;cursor:pointer;font:inherit}
-  .dh-road:hover .jyou{box-shadow:0 0 0 6px rgba(255,255,255,.3)}
-  .dh-rhead{display:flex;justify-content:space-between;align-items:baseline;gap:2px 12px;flex-wrap:wrap}
+  .dh-road{position:relative;z-index:1;display:block;width:100%;margin-top:22px;color:inherit}
+  .dh-rhead{display:flex;justify-content:space-between;align-items:center;gap:2px 12px}
   .dh-rhead .k{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:660;opacity:.78;flex:none}
-  .dh-rhead .s{font-size:12px;font-weight:560;opacity:.92;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .dh-rtrack{position:relative;height:44px;margin-top:6px}
+  .dh-rhead .s{font-size:12px;font-weight:560;opacity:.92;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  /* the road no longer swallows the whole card's tap — one small control goes
+     to the tracker, and the stops speak for themselves */
+  .dh-rgo{flex:none;width:26px;height:26px;border-radius:50%;border:1px solid rgba(255,255,255,.35);
+    background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;cursor:pointer;
+    transition:background .16s,transform .16s;position:relative}
+  .dh-rgo svg{width:13px;height:13px}
+  .dh-rgo:hover{background:rgba(255,255,255,.24);transform:translateX(1px)}
+  .dh-rgo::before{content:"";position:absolute;left:-9px;right:-9px;top:-9px;bottom:-9px}
+  .dh-rtrack{position:relative;height:44px;margin-top:10px}
   .dh-rtrack svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
   /* No vector-effect here on purpose: the track's height equals the viewBox
      height so vertical scale is 1:1 and near-horizontal strokes keep their
@@ -936,9 +943,16 @@
   .dh-rtrack .jbase{fill:none;stroke:rgba(255,255,255,.28);stroke-width:2.2px;stroke-linecap:round}
   .dh-rtrack .jfill{fill:none;stroke:#fff;stroke-width:2.6px;stroke-linecap:round;animation:roadin 1s cubic-bezier(.22,1,.36,1)}
   @keyframes roadin{from{stroke-dasharray:0 999}}
-  .jstop{position:absolute;width:8px;height:8px;border-radius:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.4)}
-  .jstop.nxt{width:10px;height:10px;background:transparent;border:2px solid #fff}
-  .jstop.done{background:#fff}
+  /* stops are controls now: each carries its tier's colour, and tapping one
+     names it — which is what freed the labels from being crammed underneath */
+  .jstop{position:absolute;width:12px;height:12px;border-radius:50%;transform:translate(-50%,-50%);
+    border:2px solid var(--jc,#fff);background:rgba(255,255,255,.2);padding:0;cursor:pointer;
+    transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s,background .18s}
+  .jstop::before{content:"";position:absolute;left:-13px;right:-13px;top:-13px;bottom:-13px;border-radius:50%}
+  .jstop.done{background:var(--jc,#fff)}
+  .jstop.nxt{box-shadow:0 0 0 5px color-mix(in srgb,var(--jc,#fff) 26%,transparent)}
+  .jstop:hover,.jstop.sel{transform:translate(-50%,-50%) scale(1.3)}
+  .jstop.sel{background:var(--jc,#fff);box-shadow:0 0 0 6px color-mix(in srgb,var(--jc,#fff) 42%,transparent)}
   /* the dotted stretch ahead of the marker is the 12-month projection at the
      recent investing pace — visibly a sketch, not yet earned road */
   .dh-rtrack .jproj{fill:none;stroke:rgba(255,255,255,.62);stroke-width:2.2px;stroke-linecap:round;stroke-dasharray:.14 2.6}
@@ -949,14 +963,12 @@
     box-shadow:0 0 0 4px rgba(255,255,255,.22);transition:box-shadow .2s}
   .jyou::after{content:"";position:absolute;inset:-8px;border-radius:50%;border:1.5px solid rgba(255,255,255,.55);animation:youpulse 2.6s ease-out infinite}
   @keyframes youpulse{0%{transform:scale(.55);opacity:.9}70%{transform:scale(1.2);opacity:0}100%{transform:scale(1.2);opacity:0}}
-  .dh-rstops{position:relative;height:28px;margin-top:2px}
-  .jlab{position:absolute;transform:translateX(-50%);text-align:center;line-height:1.3;white-space:nowrap}
-  .jlab.end{transform:translateX(-92%);text-align:right}
-  /* a staggered label must clear the full two-line label above it, not one */
-  .jlab.lo{margin-top:28px}
-  .dh-rstops:has(.jlab.lo){height:58px}
-  .jlab .n{font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:680;opacity:.85;display:block}
-  .jlab .a{font-size:10px;opacity:.62;font-weight:560}
+  /* one caption line replaces three crammed labels: it names what you tapped,
+     or reports the next tier when nothing is selected */
+  .dh-rcap{display:flex;align-items:center;gap:8px;margin-top:9px;min-height:18px}
+  .dh-rcap .cdot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--jc,#fff)}
+  .dh-rcap .cname{font-size:12px;font-weight:680;letter-spacing:.02em;flex:none}
+  .dh-rcap .cval{font-size:12px;font-weight:560;opacity:.8;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* below zero the ground stops celebrating: deep wine until the number
      crosses — the emerald is earned, not given */
   .dashhero.below{background:linear-gradient(135deg,#9f1239 0%,#7f1d3a 46%,#581c30 100%);
@@ -1844,6 +1856,8 @@ function normalize(){
     const m=db.budgetMeta[c]=db.budgetMeta[c]||{};
     if(m.since===undefined) m.since=monthKey(todayISO());
     if(m.roll===undefined) m.roll=!(db.settings&&db.settings.rollover===false);
+    /* left unset on purpose — budgetTier() falls back to the category default,
+       so renaming or re-tiering the defaults reaches existing books too */
   });
   Object.keys(db.budgetMeta).forEach(c=>{ if(db.budgets&&db.budgets[c]===undefined) delete db.budgetMeta[c]; });
   if(!db.monthBudgets||typeof db.monthBudgets!=='object') db.monthBudgets={};
@@ -2806,7 +2820,7 @@ function renderInsights(){
   el.querySelectorAll("[data-idismiss]").forEach(b=>b.onclick=e=>{e.stopPropagation();dismissInsight(b.dataset.idismiss);});
 }
 
-let heroIdx=0, heroWired=false;
+let heroIdx=0, heroWired=false, roadPick=null;
 /* Keeps the dots in step with wherever the scroll actually is, and restores the
    card you were on after a re-render so logging something doesn't snap you back. */
 function wireHero(n){
@@ -2862,18 +2876,15 @@ function renderDashHero(){
     const tFor=x=>{let lo=0,hi=1;for(let i=0;i<24;i++){const m=(lo+hi)/2;(q(m,P0[0],P1[0],P2[0])<x)?lo=m:hi=m;}return (lo+hi)/2;};
     const yFor=x=>q(tFor(x),P0[1],P1[1],P2[1]);
     const d=`M${P0[0]},${P0[1]} Q${P1[0]},${P1[1]} ${P2[0]},${P2[1]}`;
+    /* the tier tokens are tuned for a card, not for emerald — these keep the
+       same green -> cyan -> violet progression while staying legible on it */
+    const HUE={survive:"#7cf0b8",maintain:"#5ee7f5",thrive:"#c4b5fd"};
     const stops=fs.tiers.map(t2=>{const x=Math.min(100,t2.need/th.need*100);
-      return {x,lx:x,y:yFor(x),lab:t2.label,amt:t2.need,cleared:t2.cleared,nxt:fs.next&&fs.next.key===t2.key};});
-    /* dots stay on their true positions; when two tiers price close together
-       the later label steps down a row instead of colliding — a percent nudge
-       can't know the rendered width, a stagger works at any width */
-    for(let i=1;i<stops.length;i++)
-      if(stops[i].lx-stops[i-1].lx<18&&!stops[i-1].lo) stops[i].lo=true;
-    /* tiers can price nearly the same (Survive and Maintain a few dollars
-       apart) — two dots a hair's width apart read as a glitch, so the pair
-       merges into one, keeping the ring if one of them is the next tier */
-    for(let i=1;i<stops.length;i++)
-      if(stops[i].x-stops[i-1].x<2.5){ if(stops[i-1].nxt) stops[i].hideDot=true; else stops[i-1].hideDot=true; }
+      return {key:t2.key,x,y:yFor(x),lab:t2.label,amt:t2.need,color:HUE[t2.key]||"#fff",
+        cleared:t2.cleared,pct:t2.pct,gap:t2.gap,nxt:fs.next&&fs.next.key===t2.key};});
+    /* Stops no longer carry labels underneath, so they never collide and never
+       need nudging — two tiers priced a dollar apart simply sit close, and
+       tapping either one names it. */
     const yx=cov*100, yy=yFor(Math.min(99.5,yx));
     /* The dotted stretch ahead: where the marker lands in 12 months if
        invested capital keeps its recent pace, converted to income at the
@@ -2905,25 +2916,33 @@ function renderDashHero(){
         }
       }
     }
-    const sub=fs.next
-      ?`${fmt(fs.passive.total)}/mo passive · ${fs.next.label} ${Math.round(fs.next.pct)}% · ${fmtK(fs.next.gap)}/mo to go`
-      :`${fmt(fs.passive.total)}/mo passive — every tier covered`;
-    return `<button class="dh-road" data-go="goals" aria-label="Freedom road — open the freedom tracker">
-      <div class="dh-rhead"><span class="k">Freedom road</span><span class="s">${sub}</span></div>
+    /* the caption line below reports the tier, so this stays one clean fact */
+    const sub=`${fmt(fs.passive.total)}/mo passive`;
+    /* the caption reflects the tapped stop, or the next tier by default */
+    const sel=stops.find(s2=>s2.key===roadPick)||null;
+    const cap=sel
+      ? `<span class="cdot" style="--jc:${sel.color}"></span><span class="cname">${esc(sel.lab)}</span>
+         <span class="cval">${fmtK(sel.amt)}/mo${sel.cleared?" · covered":` · ${Math.round(sel.pct)}% there · ${fmtK(sel.gap)}/mo to go`}</span>`
+      : (fs.next
+        ? `<span class="cdot" style="--jc:${HUE[fs.next.key]||'#fff'}"></span><span class="cname">Next: ${esc(fs.next.label)}</span>
+           <span class="cval">tap a stop to read it</span>`
+        : `<span class="cdot" style="--jc:#7cf0b8"></span><span class="cname">Every tier covered</span>`);
+    return `<div class="dh-road">
+      <div class="dh-rhead"><span class="k">Freedom road</span><span class="s">${sub}</span>
+        <button class="dh-rgo" data-go="goals" aria-label="Open the freedom tracker">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></div>
       <div class="dh-rtrack">
         <svg viewBox="0 0 100 44" preserveAspectRatio="none" aria-hidden="true">
           <path class="jbase" d="${d}"/>
           ${cov>0.004?`<path class="jfill" d="${d}" pathLength="100" style="stroke-dasharray:${(cov*100).toFixed(2)} 999"/>`:""}
           ${proj}
         </svg>
-        ${stops.filter(s2=>!s2.hideDot).map(s2=>`<span class="jstop${s2.cleared?" done":s2.nxt?" nxt":""}" style="left:${s2.x.toFixed(1)}%;top:${(s2.y/44*100).toFixed(1)}%"></span>`).join("")}
+        ${stops.map(s2=>`<button class="jstop${s2.cleared?" done":""}${s2.nxt?" nxt":""}${roadPick===s2.key?" sel":""}" data-roadpick="${s2.key}" aria-label="${esc(s2.lab)} — ${fmtK(s2.amt)} a month" style="left:${s2.x.toFixed(1)}%;top:${(s2.y/44*100).toFixed(1)}%;--jc:${s2.color}"></button>`).join("")}
         ${projGhost}
         <span class="jyou" style="left:${yx.toFixed(1)}%;top:${(yy/44*100).toFixed(1)}%"></span>
       </div>
-      <div class="dh-rstops">
-        ${stops.map(s2=>`<span class="jlab${s2.lx>90?" end":""}${s2.lo?" lo":""}" style="left:${s2.lx.toFixed(1)}%"><span class="n">${esc(s2.lab)}</span><span class="a">${fmtK(s2.amt)}/mo</span></span>`).join("")}
-      </div>
-    </button>`;})();
+      <div class="dh-rcap">${cap}</div>
+    </div>`;})();
   /* Without bills/budgets there is no road yet — fall back to the nearest
      goal bar so the base of the card is never empty. (A net worth milestone
      belongs on the net worth hero.) */
@@ -2997,6 +3016,12 @@ function renderDashHero(){
        </div>`
     : personal;
   if(cards.length>1) wireHero(cards.length);
+  /* tapping a stop names its tier in the caption; tapping the selected one
+     clears it. Kept off the global click delegate so it can't be mistaken for
+     navigation — the road no longer travels anywhere on its own. */
+  el.querySelectorAll("[data-roadpick]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); const k=e.currentTarget.dataset.roadpick;
+    roadPick=roadPick===k?null:k; renderDashHero();});
   /* the hero carries the screen's (i) now that the "Home" title is gone */
   const ib=el.querySelector("#dashInfoBtn"), dlead=document.querySelector("#view-dash p.lead");
   if(ib&&dlead) ib.onclick=e=>{ e.stopPropagation(); const show=dlead.hidden; dlead.hidden=!show;
@@ -3683,6 +3708,18 @@ const DEFAULT_TIER={Housing:"essential",Utilities:"essential",Insurance:"essenti
   Transport:"essential",Subscriptions:"luxury",Other:"flexible"};
 const billTier=b=>(BILL_TIERS[b&&b.tier]?b.tier:(DEFAULT_TIER[billGroup(b)]||"flexible"));
 const tierTotal=t=>db.recurring.filter(b=>billTier(b)===t).reduce((s,b)=>s+billMonthly(b),0);
+/* Envelopes carry a tier too, and it is the one that decides what survival
+   costs: groceries and the gas that gets you to a shoot are as essential as
+   rent, while eating out is not. Splitting them is the whole reason Survive
+   can mean something. */
+const DEFAULT_BUDGET_TIER={Food:"essential","Auto & Gas":"essential",Health:"essential",
+  Household:"essential",Fees:"essential","Debt Payment":"essential",
+  Shopping:"flexible",Misc:"flexible",Uncategorized:"flexible",
+  Entertainment:"luxury",Subscriptions:"luxury"};
+const budgetTier=c=>{const m=(db.budgetMeta||{})[c]||{};
+  return BILL_TIERS[m.tier]?m.tier:(DEFAULT_BUDGET_TIER[c]||"flexible");};
+const budgetTierTotal=t=>Object.keys(db.budgets||{})
+  .filter(c=>budgetTier(c)===t).reduce((s,c)=>s+num(db.budgets[c]),0);
 const bizTotal=()=>db.recurring.filter(b=>b.biz).reduce((s,b)=>s+billMonthly(b),0);
 const monthlyFloor=()=>tierTotal("essential");
 /* bills: due dates */
@@ -4106,7 +4143,13 @@ function renderBudget(){
       ${editing?`<div class="bpanel">
         <div class="formgrid">
           <div class="field"><label>Monthly limit</label><input type="number" value="${bud||''}" data-blim="${esc(c)}"></div>
+          <div class="field"><label>How essential is it?</label>
+            <select data-btier="${esc(c)}">${Object.entries(BILL_TIERS).map(([v,o])=>
+              `<option value="${v}" ${budgetTier(c)===v?"selected":""}>${o.label} — ${o.note}</option>`).join("")}</select></div>
         </div>
+        <div class="note" style="margin-top:12px;font-size:13px">
+          Essential envelopes count toward <b>Survive</b> on the freedom road — groceries and the gas
+          that gets you to a shoot belong there; eating out does not.</div>
         <label class="flex" style="font-size:15px;margin-top:12px;gap:8px;align-items:flex-start">
           <input type="checkbox" data-broll="${esc(c)}" ${rolls?"checked":""} style="margin-top:3px">
           <span>Roll unspent into next month<br><span class="muted" style="font-size:13px">Envelope style — what you don't spend stays in it, and overspending eats into next month. Turn it off and the budget resets clean every month.</span></span></label>
@@ -4136,6 +4179,9 @@ function renderBudget(){
   bl2.querySelectorAll("[data-broll]").forEach(inp=>inp.onchange=e=>{const c=e.currentTarget.dataset.broll;
     db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]=db.budgetMeta[c]||{since:monthKey(todayISO())};
     db.budgetMeta[c].roll=e.currentTarget.checked; saveAll();});
+  bl2.querySelectorAll("[data-btier]").forEach(sel=>sel.onchange=e=>{const c=e.currentTarget.dataset.btier;
+    db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]=db.budgetMeta[c]||{since:monthKey(todayISO())};
+    db.budgetMeta[c].tier=e.currentTarget.value; saveAll();});
   bl2.querySelectorAll("[data-buddel]").forEach(btn=>btn.onclick=e=>{const c=e.currentTarget.dataset.buddel;
     delete db.budgets[c]; if(db.budgetMeta)delete db.budgetMeta[c];
     Object.keys(db.monthBudgets||{}).forEach(m=>{ if(db.monthBudgets[m])delete db.monthBudgets[m][c]; });
@@ -5079,17 +5125,25 @@ function goalMilestone(g){
    is reachable years before the last, and crossing it is real progress. */
 const FREE_TIERS=[
   {key:"survive",label:"Survive",color:"--pos",
-    note:"Essential bills only — roof, power, insurance, minimum debt payments. The month can't go worse than this."},
+    note:"Essential bills and essential envelopes — roof, power, insurance, minimum debt payments, groceries, the gas that gets you to a shoot. The month can't go worse than this."},
   {key:"maintain",label:"Maintain",color:"--goal",
-    note:"Every standing bill you have, nothing cut, subscriptions included."},
+    note:"Every bill and every envelope at the level you actually set them. Life exactly as you live it now, nothing cut."},
   {key:"thrive",label:"Thrive",color:"--invest",
-    note:"Bills plus your flexible budgets — groceries, gas, going out. Life the way you actually live it."}
+    note:"Everything you spend, plus room over the top — margin to save, invest and absorb a bad month without touching the plan."}
 ];
+const thrivePct=()=>{const v=num((db.settings||{}).thriveMargin); return v>0?v:25;};
+/* Survive is the floor: essential bills AND essential envelopes, because
+   groceries are not optional. Maintain is the whole of life as currently
+   budgeted. Thrive is Maintain plus margin — covering the plan exactly is
+   not thriving, it is breaking even with extra steps. */
 function freedomNeed(){
-  const ess=tierTotal("essential");
+  const essBills=tierTotal("essential"), essBudget=budgetTierTotal("essential");
+  const ess=essBills+essBudget;
   const bills=db.recurring.reduce((s,b)=>s+billMonthly(b),0);
   const flex=Object.keys(db.budgets||{}).reduce((s,c)=>s+num(db.budgets[c]),0);
-  return {survive:ess,maintain:bills,thrive:bills+flex,bills,flex,ess};
+  const maintain=bills+flex;
+  return {survive:ess,maintain,thrive:maintain*(1+thrivePct()/100),
+    bills,flex,ess,essBills,essBudget,margin:maintain*(thrivePct()/100)};
 }
 /* Passive means it arrives without you on set: dividends, and any stream you've
    ticked as passive (rent from a roommate, royalties, a licensing cheque). */
@@ -5668,6 +5722,10 @@ function renderFreedom(){
         <div class="defrow"><span class="k">Passive income now</span><span class="v pos">${fmt2(p.total)}</span></div>
         <div class="defrow"><span class="k">${open.cleared?"Surplus":"Still to cover"}</span><span class="v ${open.cleared?"pos":"neg"}">${fmt2(open.cleared?p.total-open.need:open.gap)}</span></div>
       </div>
+      ${open.key==="thrive"?`<div class="note" style="margin-top:12px;font-size:13px">
+        Thrive is everything you spend plus <input id="frMargin" class="miniedit" style="width:46px" value="${thrivePct()}">% over the top —
+        <b>${fmt(freedomNeed().margin)}/mo</b> of margin on a <b>${fmt(freedomNeed().maintain)}/mo</b> life. Covering the plan
+        to the dollar is breaking even; the margin is what makes it thriving.</div>`:""}
       ${open.cleared?`<div class="note ok" style="margin-top:12px">Your passive income already covers this tier. That is not a small thing.</div>`
       :`<div class="frcap">
         <div class="frcapval">${fmt(capitalFor(open.gap))}</div>
@@ -5686,6 +5744,8 @@ function renderFreedom(){
     freeOpen=freeOpen===b.dataset.frtier?null:b.dataset.frtier; renderFreedom();});
   const y=el.querySelector("#frYield");
   if(y) y.onchange=()=>{db.settings.passiveYield=Math.max(0.1,num(y.value)||4);saveAll();};
+  const mg=el.querySelector("#frMargin");
+  if(mg) mg.onchange=()=>{db.settings.thriveMargin=Math.max(0,num(mg.value)||25);saveAll();};
 }
 
 /* ---------- the goal list ---------- */
