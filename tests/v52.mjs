@@ -43,7 +43,9 @@ await table('AFTER refresh (detected):');
 console.log('\nupcoming 4 months:');
 console.log(await p.$$eval('#divUpcoming .upitem',e=>e.map(x=>'  '+x.querySelector('.upname').textContent.padEnd(24)+x.querySelector('.upwhen').textContent.padEnd(24)+x.querySelector('.upamt').textContent).join('\n')));
 // manual override
-await p.evaluate(()=>{expHolding="h2";renderInvest();}); await p.waitForTimeout(400);
+/* the editable fields live behind the Edit button now — a holding opens
+   read-only, so the form has to be asked for before it can be driven */
+await p.evaluate(()=>{expHolding="h2";editHolding="h2";renderInvest();}); await p.waitForTimeout(400);
 await p.selectOption('[data-hfreq="h2"]','semiannual'); await p.waitForTimeout(500);
 console.log('\nafter manual override to semiannual:', await p.evaluate(()=>({freq:db.holdings[1].divFreq,auto:db.holdings[1].divFreqAuto})));
 console.log('note:', await p.$eval('.hdetail .note',e=>e.textContent.trim().replace(/\s+/g,' ')));

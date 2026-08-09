@@ -28,7 +28,8 @@ console.log('  (O: 40 sh × $0.264 × 12 = $126.72 · SCHD: 60 × $0.2745 × 4 =
 await p.reload(); await p.waitForTimeout(900);
 console.log('\nafter a second load (no double conversion):', await p.evaluate(()=>db.holdings.map(h=>h.ticker+'='+h.divPerShare)));
 // the editor
-await p.evaluate(()=>{setView('invest');expHolding="h1";renderInvest();}); await p.waitForTimeout(600);
+/* editHolding too: a holding opens read-only and the fields sit behind Edit */
+await p.evaluate(()=>{setView('invest');expHolding="h1";editHolding="h1";renderInvest();}); await p.waitForTimeout(600);
 console.log('\nfield label:', await p.$$eval('.hdetail .field label',e=>e.map(l=>l.textContent.trim())));
 console.log('note:', await p.$eval('.hdetail .note',e=>e.textContent.trim().replace(/\s+/g,' ')));
 // change frequency -> annual figure must move, per-payment must stay

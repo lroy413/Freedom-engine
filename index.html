@@ -394,7 +394,7 @@
      --glass on purpose: these labels are 10px over whatever is scrolling
      past, where the header only ever has a page title behind it. */
   .bottombar{position:fixed;left:0;right:0;z-index:40;display:none;align-items:flex-end;justify-content:space-around;
-    width:min(460px,calc(100% - 20px));margin:0 auto;bottom:calc(8px + env(safe-area-inset-bottom));
+    width:min(460px,calc(100% - 20px));margin:0 auto;bottom:calc(2px + env(safe-area-inset-bottom));
     border-radius:22px;border:1px solid var(--line2);
     background:color-mix(in srgb,var(--card) 76%,transparent);
     -webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);
@@ -444,6 +444,7 @@
   .hrow.open{background:var(--raise)}
   .htick{font-size:16px;font-weight:680;letter-spacing:-.01em}
   .hsub{font-size:13px;color:var(--muted);margin-top:2px}
+  .qstale{color:var(--warn-ink);font-weight:600;font-size:12px;margin-top:2px}
   .hmain{flex:1;min-width:0}
   .hspark{width:120px;height:38px;flex:none}
   .hbadge{flex:none;min-width:96px;text-align:center;padding:8px 12px;border-radius:8px;font-size:15px;font-weight:670;font-variant-numeric:tabular-nums}
@@ -4349,7 +4350,17 @@ function logDebtPayment(d,amt,date,alsoTx){
 }
 
 /* INVESTMENTS */
-let expHolding=null,expDiv=null,divOpen=false;
+let expHolding=null,expDiv=null,divOpen=false,editHolding=null;
+/* A stale price looks exactly like a fresh one, which is how "why aren't my
+   tickers updating?" becomes a mystery instead of a glance. Only speaks up
+   when there is something to say. */
+function quoteAgeNote(h){
+  if(!num(h.price)) return "";
+  if(!h.lastQuote) return `<div class="qstale">typed by hand</div>`;
+  const d=daysBetween(h.lastQuote,todayISO());
+  if(d<=1) return "";
+  return `<div class="qstale">priced ${d<7?d+" days ago":esc(shortDate(h.lastQuote))}</div>`;
+}
 function recordPrice(h){
   const p=num(h.price); if(!p)return;
   if(!Array.isArray(h.hist))h.hist=[];
@@ -4378,7 +4389,7 @@ function renderInvest(){
     const open=expHolding===h.id;
     const shares=num(h.shares), sh=shares?(shares%1?String(parseFloat(shares.toFixed(6))):shares)+" share"+(shares===1?"":"s"):"no shares";
     return `<div class="hrow${open?" open":""}" data-hexp="${h.id}">
-        <div class="hmain"><div class="htick">${esc(h.ticker||h.name||"—")}</div><div class="hsub">${esc(sh)}</div></div>
+        <div class="hmain"><div class="htick">${esc(h.ticker||h.name||"—")}</div><div class="hsub">${esc(sh)}</div>${quoteAgeNote(h)}</div>
         ${sparkFor(h,dir)}
         <div class="hbadge ${dir}">${num(h.price)?fmt2(num(h.price)):"—"}</div>
       </div>
@@ -4389,7 +4400,7 @@ function renderInvest(){
           <div class="hstat"><div class="k">Gain / loss</div><div class="v ${gain>=0?'pos':'neg'}">${gain>=0?"+":""}${fmt2(gain)}${cost>0?` <span class="muted" style="font-size:13px">(${((gain/cost)*100).toFixed(1)}%)</span>`:""}</div></div>
           <div class="hstat"><div class="k">Est. dividends /yr</div><div class="v">${fmt2(divAnnualFor(h))}</div></div>
         </div>
-        <div class="formgrid">
+        ${editHolding===h.id?`<div class="formgrid">
           <div class="field"><label>Name</label><input value="${esc(h.name||"")}" data-hname="${h.id}"></div>
           <div class="field"><label>Ticker</label><input value="${esc(h.ticker||"")}" placeholder="SCHD" style="text-transform:uppercase" data-htk="${h.id}"></div>
           <div class="field"><label>Shares</label><input type="number" step="any" value="${shares}" data-hsh="${h.id}"></div>
@@ -4399,7 +4410,7 @@ function renderInvest(){
           <div class="field"><label>Pays${h.divFreqAuto?` <span class="muted" style="font-weight:400">· detected</span>`:""}</label>
             <select data-hfreq="${h.id}">${Object.entries(DIV_FREQ).map(([v,o2])=>`<option value="${v}" ${(h.divFreq||"quarterly")===v?"selected":""}>${o2.label}</option>`).join("")}</select></div>
           <div class="field"><label>Last payment${h.divFreqAuto?" (from data)":""}</label><input type="date" value="${esc(h.lastDiv||"")}" data-hlastdiv="${h.id}"></div>
-        </div>
+        </div>`:""}
         ${(()=>{ if(!num(h.divPerShare))return "";
           const f=divFreqOf(h), yr=divAnnualFor(h), per=divPerPayment(h), nx=nextDivDate(h);
           return `<div class="note" style="margin-top:12px">
@@ -4408,15 +4419,18 @@ function renderInvest(){
             <br>On ${shares} share${shares===1?"":"s"}: ${f.n?`<b>${fmt2(per)}</b> per payment, `:""}<b>${fmt2(yr)}</b>/yr, averaging <b>${fmt2(yr/12)}</b>/mo.
             ${f.n?(nx?`<br>Next payment expected around <b>${esc(shortDate(nx))}</b>.`:`<br><span class="muted">Set a <b>last payment</b> date and the schedule fills in below.</span>`):""}</div>`;})()}
         <div class="toolbar" style="margin:14px 0 0">
+          <button class="btn sm${editHolding===h.id?" primary":""}" data-hedit="${h.id}">${editHolding===h.id?"Done":"Edit"}</button>
           <button class="btn sm" data-href="${h.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>Refresh price</button>
-          <span class="muted" style="font-size:13px">${h.lastQuote?"updated "+h.lastQuote:"never fetched"}</span>
+          <span class="muted" style="font-size:13px">${h.lastQuote?"updated "+h.lastQuote:"never fetched — price typed by hand"}</span>
           <div class="spacer"></div>
           <button class="btn sm danger" data-hdel="${h.id}">Remove</button>
         </div>
       </div>`:""}`;}).join(""):`<div class="empty">No holdings yet — add one to start tracking.</div>`;
   box.querySelectorAll("[data-hexp]").forEach(r=>r.onclick=e=>{
     if(e.target.closest("input,button,select"))return;
-    const id=r.dataset.hexp; expHolding=expHolding===id?null:id; renderInvest();});
+    /* a holding always opens read-only — the edit state must not survive a
+       collapse, or the next tap lands you in a form you didn't ask for */
+    const id=r.dataset.hexp; expHolding=expHolding===id?null:id; editHolding=null; renderInvest();});
   box.querySelectorAll("[data-hname]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hname);if(h){h.name=e.currentTarget.value;saveAll();}});
   box.querySelectorAll("[data-htk]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.htk);if(h){h.ticker=e.currentTarget.value.trim().toUpperCase();saveAll();}});
   box.querySelectorAll("[data-hsh]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hsh);if(h){h.shares=num(e.currentTarget.value);saveAll();}});
@@ -4429,7 +4443,9 @@ function renderInvest(){
   box.querySelectorAll("[data-hac]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hac);if(h){h.avgCost=num(e.currentTarget.value);saveAll();}});
   box.querySelectorAll("[data-href]").forEach(b=>b.onclick=async e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.href);
     if(h&&await refreshHolding(h,document.getElementById("quoteStatus"))){recordPrice(h);saveAll();}});
-  box.querySelectorAll("[data-hdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{db.holdings=db.holdings.filter(x=>x.id!==b.dataset.hdel);expHolding=null;saveAll();}));
+  box.querySelectorAll("[data-hedit]").forEach(b=>b.onclick=e=>{const id=e.currentTarget.dataset.hedit;
+    editHolding=editHolding===id?null:id; renderInvest();});
+  box.querySelectorAll("[data-hdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{db.holdings=db.holdings.filter(x=>x.id!==b.dataset.hdel);expHolding=null;editHolding=null;saveAll();}));
   const payers=db.holdings.filter(h=>num(h.divPerShare)>0&&num(h.shares)>0)
     .slice().sort((a,b)=>divAnnualFor(b)-divAnnualFor(a));
   const projEl=document.getElementById("divProjected");
