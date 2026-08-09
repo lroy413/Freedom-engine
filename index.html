@@ -1280,6 +1280,18 @@
     <div class="sheetscroll" id="recapBody"></div>
   </div>
 </div>
+<!-- Editors open here rather than unfolding inside the list. -->
+<div class="sheet" id="editSheet" hidden>
+  <div class="sheetscrim" data-editclose="1"></div>
+  <div class="sheetbody" role="dialog" aria-label="Edit">
+    <div class="sheetgrab" data-sheetgrab="1"><i></i></div>
+    <div class="sheethead">
+      <div><div class="sheetkicker" id="editKicker">Edit</div><div class="sheettitle" id="editTitle">—</div></div>
+      <button class="sheetx" data-editclose="1" aria-label="Close"><span>Done</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="sheetscroll" id="editSheetBody"></div>
+  </div>
+</div>
 <aside class="sidebar" id="sidebar">
   <div class="sbbrand"><span class="brandmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="blade" d="M9.5 9.6 L5.4 20.5"/><path class="blade" d="M14.5 9.6 L18.6 20.5"/><path class="blade" d="M12 18.9 V16.8" stroke-width="2.3"/><path class="blade" d="M12 14.6 V12.9" stroke-width="2"/><path class="blade" d="M12 10.8 V9.7" stroke-width="1.7"/><path class="bhead" d="M8.9 6.6 L12 3.6 L15.1 6.6"/></svg></span> FreeBound</div>
   <nav id="sbnav"></nav>
@@ -3897,6 +3909,12 @@ function budgetActiveIn(cat,m){ const u=budgetUntil(cat);
   return m>=budgetSince(cat) && (!u||m<=u); }
 const budgetEnded=cat=>{const u=budgetUntil(cat); return !!u&&u<monthKey(todayISO());};
 function budgetRolls(cat){ const m=budgetMetaOf(cat); return m.roll===undefined?true:!!m.roll; }
+/* Rollover was all or nothing. Some envelopes deserve a share: keep half of a
+   good grocery month and let the rest go free rather than compounding forever.
+   The old boolean still decides the default, so nothing existing shifts. */
+function budgetRollPct(cat){ const m=budgetMetaOf(cat);
+  if(m.rollPct===undefined) return budgetRolls(cat)?100:0;
+  return Math.max(0,Math.min(100,num(m.rollPct))); }
 function budgetedFor(cat,m){
   /* nothing was budgeted before this budget existed, or after it ended */
   if(!budgetActiveIn(cat,m)) return 0;
@@ -3922,9 +3940,17 @@ function monthsUpTo(m){
   return out;
 }
 function carriedInto(cat,m){
-  if(!budgetRolls(cat)) return 0;
+  const pct=budgetRollPct(cat)/100;
   const since=budgetSince(cat);
-  let a=0; for(const mm of monthsUpTo(m)){ if(mm===m)break; if(mm<since)continue; a+=budgetedFor(cat,mm)-spentFor(cat,mm); }
+  let a=0;
+  for(const mm of monthsUpTo(m)){ if(mm===m)break; if(mm<since)continue;
+    const bal=a+budgetedFor(cat,mm)-spentFor(cat,mm);
+    /* A share of what's left rolls on; an overspend carries in full. Scaling a
+       negative would forgive half of it, which is just hiding the overspend
+       from yourself — the one thing an envelope exists to stop. */
+    a=bal>0?bal*pct:bal;
+    if(pct<=0&&bal>0) a=0;
+  }
   return a;
 }
 const catOpts=c=>db.categories.map(x=>`<option ${x===c?"selected":""}>${x}</option>`).join("");
@@ -4132,7 +4158,89 @@ function setBillPaid(bill,mk,paid){
   else { const keep=new Set(billTxs(bill,mk).map(t=>t.id));
     db.transactions=db.transactions.filter(t=>!keep.has(t.id)); }
 }
+/* The budget editor, drawn into the shared sheet. Everything it needs is
+   recomputed here rather than closed over, so a save redraws it in place.
+   The panel body is embedded verbatim — its nested templates are real
+   template literals and must not be escaped. */
+function budgetEditorHTML(c){
+  const mk=budgetMonth||monthKey(todayISO());
+  const bud=budgetedFor(c,mk), sp=spentFor(c,mk), carry=carriedInto(c,mk), avail=carry+bud-sp;
+  const rolls=budgetRolls(c), rollPct=budgetRollPct(c), since=budgetSince(c);
+  return `      <div class="bpanel">
+        <div class="formgrid">
+          <div class="field"><label>Monthly limit</label><input type="number" value="${bud||''}" data-blim="${esc(c)}"></div>
+          <div class="field"><label>How essential is it?<span class="muted" style="font-weight:400">Essential envelopes count toward <b>Survive</b> on the freedom road — groceries and the gas that gets you to a shoot belong there; eating out does not.</span></label>
+            <select data-btier="${esc(c)}">${Object.entries(BILL_TIERS).map(([v,o])=>
+              `<option value="${v}" ${budgetTier(c)===v?"selected":""}>${o.label} — ${o.note}</option>`).join("")}</select></div>
+          <div class="field"><label>Last month it runs<span class="muted" style="font-weight:400">Blank means ongoing. Give it a last month for something temporary — a trip, a course, a move — and it bows out by itself.</span></label>
+            <input type="month" value="${esc(budgetUntil(c))}" data-buntil="${esc(c)}"></div>
+        </div>
+        <!-- the explanations moved into the two field labels, where collapseHelp
+             turns them into (i) chips — a paragraph repeated on every envelope
+             is noise once you have read it. Only live state stays visible. -->
+        ${budgetUntil(c)?`<div class="note" style="margin-top:12px;font-size:13px">Runs until <b>${esc(prettyMonth(budgetUntil(c)))}</b>${budgetEnded(c)?" — finished, so it no longer asks for money or counts toward your floor.":", then stops on its own."}</div>`:""}
+        <div class="field" style="margin-top:12px"><label>Roll unspent into next month<span class="muted" style="font-weight:400">Envelope style — what you don't spend stays in it. Roll a share instead of all of it and the rest is simply free money. An overspend always carries in full, whatever you pick: forgiving half of it would only hide it from you.</span></label>
+          <select data-brollpct="${esc(c)}">
+            ${[[0,"Nothing — start fresh each month"],[25,"25% of what's left"],[50,"Half of what's left"],[75,"75% of what's left"],[100,"All of it"]]
+              .map(([v,l])=>`<option value="${v}" ${rollPct===v?"selected":""}>${l}</option>`).join("")}
+            ${[0,25,50,75,100].includes(rollPct)?"":`<option value="${rollPct}" selected>${rollPct}% of what's left</option>`}
+          </select></div>
+        <div class="note" style="margin-top:12px;font-size:13px">
+          ${rollPct>0?`Rolling <b>${rollPct}%</b> since <b>${esc(prettyMonth(since))}</b>${carry?` · ${fmt(Math.abs(carry))} ${carry>=0?"carried in":"owed from earlier months"}`:` · nothing carried in yet`}.`
+            :`Resets to ${fmt(bud)} on the 1st of every month.`}
+          ${avail<0?`<br>You're ${fmt(-avail)} over${rollPct>0?" — that comes out of next month":" — trim it or raise the limit"}.`:""}
+        </div>
+        <div class="toolbar" style="margin:12px 0 0">
+          <div class="spacer"></div>
+          <button class="btn sm danger" data-buddel="${esc(c)}">Delete budget</button>
+          <button class="btn sm primary" data-buddone="1">Done</button>
+        </div>
+      </div>`;
+}
+function openBudgetEditor(c){
+  editBudget=c;
+  openEditor({kicker:"Envelope", title:c,
+    html:()=>budgetEditorHTML(c),
+    wire:body=>wireBudgetPanel(body),
+    onClose:()=>{ editBudget=null; renderBudget(); }});
+}
+/* Scoped to the sheet on purpose: data-btier is also the bill tier chips on
+   this very screen, so a document-wide wiring would cross the two. */
+function wireBudgetPanel(scope){
+  /* the month came from renderBudget's scope before these moved out here —
+     a limit typed into the sheet was writing to monthBudgets[undefined] */
+  const mk=budgetMonth||monthKey(todayISO());
+  scope.querySelectorAll("[data-buddone]").forEach(b=>b.onclick=()=>closeEditor());
+  scope.querySelectorAll("[data-blim]").forEach(inp=>inp.onchange=e=>{const c=e.currentTarget.dataset.blim;const v=num(e.currentTarget.value);
+    if(v>0){ db.budgets[c]=v; db.monthBudgets=db.monthBudgets||{}; db.monthBudgets[mk]=db.monthBudgets[mk]||{}; db.monthBudgets[mk][c]=v; }
+    else { delete db.budgets[c]; if(db.monthBudgets&&db.monthBudgets[mk])delete db.monthBudgets[mk][c]; }
+    saveAll();});
+  scope.querySelectorAll("[data-brollpct]").forEach(sel=>sel.onchange=e=>{const c=e.currentTarget.dataset.brollpct;
+    db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]=db.budgetMeta[c]||{since:monthKey(todayISO())};
+    const v=Math.max(0,Math.min(100,num(e.currentTarget.value)));
+    db.budgetMeta[c].rollPct=v;
+    /* the old boolean stays truthful, so anything still reading it agrees */
+    db.budgetMeta[c].roll=v>0; saveAll();});
+  scope.querySelectorAll("[data-buntil]").forEach(inp=>inp.onchange=e=>{const c=e.currentTarget.dataset.buntil;
+    db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]=db.budgetMeta[c]||{since:monthKey(todayISO())};
+    db.budgetMeta[c].until=(e.currentTarget.value||"").trim(); saveAll();});
+  scope.querySelectorAll("[data-btier]").forEach(sel=>sel.onchange=e=>{const c=e.currentTarget.dataset.btier;
+    db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]=db.budgetMeta[c]||{since:monthKey(todayISO())};
+    db.budgetMeta[c].tier=e.currentTarget.value; saveAll();});
+  /* This one deleted on a single tap while sixteen other destructive paths
+     ask twice — and it drops the envelope's whole history with it. armConfirm
+     is attached on click, never at wire time, or every button arrives armed. */
+  scope.querySelectorAll("[data-buddel]").forEach(btn=>btn.onclick=e=>{
+    const b2=e.currentTarget, c=b2.dataset.buddel;
+    armConfirm(b2,()=>{
+      delete db.budgets[c]; if(db.budgetMeta)delete db.budgetMeta[c];
+      Object.keys(db.monthBudgets||{}).forEach(m=>{ if(db.monthBudgets[m])delete db.monthBudgets[m][c]; });
+      saveAll(); closeEditor();});});
+}
 function renderBudget(){
+  /* the editor is a sheet now; a save redraws it in place so its figures keep up */
+  if(_editor&&editBudget&&db.budgets[editBudget]===undefined) closeEditor();
+  else if(_editor&&editBudget) renderEditor();
   const months=monthsWithData(); if(!budgetMonth||!months.includes(budgetMonth))budgetMonth=months[0];
   const mk=budgetMonth;
   document.getElementById("budgetMonthSel").innerHTML=months.map(m=>`<option value="${m}" ${m===mk?"selected":""}>${prettyMonth(m)}</option>`).join("");
@@ -4370,13 +4478,13 @@ function renderBudget(){
   document.getElementById("budgetList").innerHTML=rows.length?rows.map(c=>{
     const bud=budgetedFor(c,mk), sp=spent[c]||0, carry=carriedInto(c,mk), avail=carry+bud-sp;
     const pool=carry+bud, pct=pool>0?Math.min(100,sp/pool*100):(sp>0?100:0);
-    const rolls=budgetRolls(c), since=budgetSince(c), editing=editBudget===c;
+    const rolls=budgetRolls(c), rollPct=budgetRollPct(c), since=budgetSince(c), editing=editBudget===c;
     const state=avail<0?"bad":pool>0&&sp/pool>0.85?"warn":"ok";
     const col=avail<0?"var(--neg)":pool>0&&sp/pool>0.85?"var(--warn)":"var(--pos)";
     const ended=!budgetActiveIn(c,mk);
     const meta=[ended?`ended ${esc(prettyMonth(budgetUntil(c)))}`:`${fmt(sp)} of ${fmt(bud)}`,
-      ended?null:(rolls&&carry?`${carry>=0?"+":""}${fmt(carry)} rolled in`:null),
-      ended?null:(rolls?null:"no rollover"),
+      ended?null:(rollPct>0&&carry?`${carry>=0?"+":""}${fmt(carry)} rolled in${rollPct<100?` (${rollPct}%)`:""}`:null),
+      ended?null:(rollPct>0?null:"no rollover"),
       (!ended&&budgetUntil(c))?`until ${esc(prettyMonth(budgetUntil(c)))}`:null].filter(Boolean).join(" · ");
     return `<div class="brow${editing?" editing":""}">
       <div class="bmain" data-budopen="${esc(c)}">
@@ -4394,58 +4502,17 @@ function renderBudget(){
         :`<div class="bar"><span style="width:${pct.toFixed(1)}%;background:${col}"></span></div>`}
         <span class="tag ${state}" style="flex:none">${avail<0?'OVER':state==='warn'?'CLOSE':'OK'}</span>
       </div>
-      ${editing?`<div class="bpanel">
-        <div class="formgrid">
-          <div class="field"><label>Monthly limit</label><input type="number" value="${bud||''}" data-blim="${esc(c)}"></div>
-          <div class="field"><label>How essential is it?<span class="muted" style="font-weight:400">Essential envelopes count toward <b>Survive</b> on the freedom road — groceries and the gas that gets you to a shoot belong there; eating out does not.</span></label>
-            <select data-btier="${esc(c)}">${Object.entries(BILL_TIERS).map(([v,o])=>
-              `<option value="${v}" ${budgetTier(c)===v?"selected":""}>${o.label} — ${o.note}</option>`).join("")}</select></div>
-          <div class="field"><label>Last month it runs<span class="muted" style="font-weight:400">Blank means ongoing. Give it a last month for something temporary — a trip, a course, a move — and it bows out by itself.</span></label>
-            <input type="month" value="${esc(budgetUntil(c))}" data-buntil="${esc(c)}"></div>
-        </div>
-        <!-- the explanations moved into the two field labels, where collapseHelp
-             turns them into (i) chips — a paragraph repeated on every envelope
-             is noise once you have read it. Only live state stays visible. -->
-        ${budgetUntil(c)?`<div class="note" style="margin-top:12px;font-size:13px">Runs until <b>${esc(prettyMonth(budgetUntil(c)))}</b>${budgetEnded(c)?" — finished, so it no longer asks for money or counts toward your floor.":", then stops on its own."}</div>`:""}
-        <label class="flex" style="font-size:15px;margin-top:12px;gap:8px;align-items:flex-start">
-          <input type="checkbox" data-broll="${esc(c)}" ${rolls?"checked":""} style="margin-top:3px">
-          <span>Roll unspent into next month<br><span class="muted" style="font-size:13px">Envelope style — what you don't spend stays in it, and overspending eats into next month. Turn it off and the budget resets clean every month.</span></span></label>
-        <div class="note" style="margin-top:12px;font-size:13px">
-          ${rolls?`Rolling since <b>${esc(prettyMonth(since))}</b>${carry?` · ${fmt(Math.abs(carry))} ${carry>=0?"carried in":"owed from earlier months"}`:` · nothing carried in yet`}.`
-            :`Resets to ${fmt(bud)} on the 1st of every month.`}
-          ${avail<0?`<br>You're ${fmt(-avail)} over${rolls?" — that comes out of next month":" — trim it or raise the limit"}.`:""}
-        </div>
-        <div class="toolbar" style="margin:12px 0 0">
-          <div class="spacer"></div>
-          <button class="btn sm danger" data-buddel="${esc(c)}">Delete budget</button>
-          <button class="btn sm primary" data-buddone="1">Done</button>
-        </div>
-      </div>`:""}
+      <!-- the editor opens in its own sheet now (see openBudgetEditor) instead
+           of unfolding here and shoving the rest of the list off screen -->
     </div>`; }).join(""):`<div class="empty" style="padding:22px">No flexible budgets yet. Add one below — e.g. Food $400.</div>`;
   const bl2=document.getElementById("budgetList");
   bl2.querySelectorAll("[data-budopen]").forEach(el=>el.onclick=e=>{
     if(e.target.closest("[data-budedit]"))return;
-    const c=el.dataset.budopen; editBudget=editBudget===c?null:c; renderBudget();});
+    openBudgetEditor(el.dataset.budopen);});
   bl2.querySelectorAll("[data-budedit]").forEach(b=>b.onclick=e=>{e.stopPropagation();
-    const c=b.dataset.budedit; editBudget=editBudget===c?null:c; renderBudget();});
-  bl2.querySelectorAll("[data-buddone]").forEach(b=>b.onclick=()=>{editBudget=null;renderBudget();});
-  bl2.querySelectorAll("[data-blim]").forEach(inp=>inp.onchange=e=>{const c=e.currentTarget.dataset.blim;const v=num(e.currentTarget.value);
-    if(v>0){ db.budgets[c]=v; db.monthBudgets=db.monthBudgets||{}; db.monthBudgets[mk]=db.monthBudgets[mk]||{}; db.monthBudgets[mk][c]=v; }
-    else { delete db.budgets[c]; if(db.monthBudgets&&db.monthBudgets[mk])delete db.monthBudgets[mk][c]; }
-    saveAll();});
-  bl2.querySelectorAll("[data-broll]").forEach(inp=>inp.onchange=e=>{const c=e.currentTarget.dataset.broll;
-    db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]=db.budgetMeta[c]||{since:monthKey(todayISO())};
-    db.budgetMeta[c].roll=e.currentTarget.checked; saveAll();});
-  bl2.querySelectorAll("[data-buntil]").forEach(inp=>inp.onchange=e=>{const c=e.currentTarget.dataset.buntil;
-    db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]=db.budgetMeta[c]||{since:monthKey(todayISO())};
-    db.budgetMeta[c].until=(e.currentTarget.value||"").trim(); saveAll();});
-  bl2.querySelectorAll("[data-btier]").forEach(sel=>sel.onchange=e=>{const c=e.currentTarget.dataset.btier;
-    db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]=db.budgetMeta[c]||{since:monthKey(todayISO())};
-    db.budgetMeta[c].tier=e.currentTarget.value; saveAll();});
-  bl2.querySelectorAll("[data-buddel]").forEach(btn=>btn.onclick=e=>{const c=e.currentTarget.dataset.buddel;
-    delete db.budgets[c]; if(db.budgetMeta)delete db.budgetMeta[c];
-    Object.keys(db.monthBudgets||{}).forEach(m=>{ if(db.monthBudgets[m])delete db.monthBudgets[m][c]; });
-    editBudget=null; saveAll();});
+    openBudgetEditor(b.dataset.budedit);});
+  /* the panel's own handlers live in wireBudgetPanel now, wired when the
+     editor sheet renders rather than with the list */
   const rc=document.getElementById("recCat"); if(rc)rc.innerHTML=db.categories.filter(c=>c!=="Income").map(c=>`<option>${c}</option>`).join("");
   {const rf=document.getElementById("recFreq");
    if(rf&&!rf.options.length)rf.innerHTML=Object.entries(BILL_FREQ).map(([v,o])=>`<option value="${v}">${o.label}</option>`).join("");}
@@ -5432,6 +5499,36 @@ function openSTS(){ stsOpen=true; document.body.classList.add("sheetopen");
   document.getElementById("stsSheet").hidden=false; renderSTS(); sheetPush(); }
 function closeSTS(){ stsOpen=false; document.body.classList.remove("sheetopen");
   document.getElementById("stsSheet").hidden=true; sheetPop(); }
+/* An inline editor pushes the rest of the list off the screen and leaves you
+   scrolling a form inside a page that also scrolls. Editors get their own
+   sheet: fixed, scrollable, dismissed like every other sheet — back gesture,
+   grab handle, Escape. _editor holds what to draw and how to wire it, so a
+   re-render after a save refreshes the sheet in place. */
+let _editor=null;
+function openEditor(cfg){
+  _editor=cfg; document.body.classList.add("sheetopen");
+  const sh=document.getElementById("editSheet"); if(!sh)return;
+  const wasOpen=!sh.hidden; sh.hidden=false;
+  renderEditor();
+  if(!wasOpen){ const sc=sh.querySelector(".sheetscroll"); if(sc)sc.scrollTop=0; sheetPush(); }
+}
+function renderEditor(){
+  if(!_editor)return;
+  const body=document.getElementById("editSheetBody"); if(!body)return;
+  document.getElementById("editKicker").textContent=_editor.kicker||"Edit";
+  document.getElementById("editTitle").textContent=_editor.title||"";
+  body.innerHTML=_editor.html();
+  if(_editor.wire)_editor.wire(body);
+  try{collapseHelp(body);}catch(e){}
+}
+function closeEditor(){
+  const done=_editor&&_editor.onClose; _editor=null;
+  document.body.classList.remove("sheetopen");
+  const sh=document.getElementById("editSheet"); if(sh)sh.hidden=true;
+  sheetPop();
+  if(done)done();
+}
+const editorOpen=()=>!!_editor;
 let recapOpen=false, recapMonth="";
 function openRecap(mk){ recapOpen=true; recapMonth=mk||monthKey(todayISO());
   document.body.classList.add("sheetopen");
@@ -5580,7 +5677,7 @@ function sheetPop(){ if(_sheetNav>0){ _sheetNav--; try{ history.back(); }catch(e
   const end=()=>{ if(!body)return;
     const far=dy>body.getBoundingClientRect().height/3, quick=dy>70&&Date.now()-t0<300;
     body.classList.remove("dragging"); body.style.transform="";
-    if(far||quick){ if(stsOpen)closeSTS(); else if(nwOpen)closeNW(); else if(recapOpen)closeRecap(); }
+    if(far||quick){ if(stsOpen)closeSTS(); else if(nwOpen)closeNW(); else if(recapOpen)closeRecap(); else if(_editor)closeEditor(); }
     body=null; };
   addEventListener("touchstart",start,{passive:true});
   addEventListener("touchmove",move,{passive:false});
@@ -5595,6 +5692,8 @@ addEventListener("popstate",()=>{
     document.getElementById("nwSheet").hidden=true; }
   if(recapOpen){ recapOpen=false; document.body.classList.remove("sheetopen");
     document.getElementById("recapSheet").hidden=true; }
+  if(_editor){ const d=_editor.onClose; _editor=null; document.body.classList.remove("sheetopen");
+    document.getElementById("editSheet").hidden=true; if(d)d(); }
 });
 
 /* Everything that feeds the number, grouped the way you'd check it. */
@@ -6755,9 +6854,10 @@ document.addEventListener("click",e=>{ if(e.target.closest("[data-nwclose]")) cl
   else if(e.target.closest("[data-nwopen]")) openNW();
   else if(e.target.closest("[data-stsclose]")) closeSTS();
   else if(e.target.closest("[data-recapclose]")) closeRecap();
+  else if(e.target.closest("[data-editclose]")) closeEditor();
   else if(e.target.closest("[data-recapopen]")) openRecap();
   else if(e.target.closest("[data-stsopen]")) openSTS(); });
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(nwOpen)closeNW(); if(stsOpen)closeSTS(); if(recapOpen)closeRecap(); } });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(nwOpen)closeNW(); if(stsOpen)closeSTS(); if(recapOpen)closeRecap(); if(_editor)closeEditor(); } });
 /* ---- goals ---- */
 document.getElementById("showAddBiz").addEventListener("click",()=>{
   addBizOpen=!addBizOpen; openBiz=null; renderBusiness();

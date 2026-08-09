@@ -108,6 +108,33 @@ chk('backup leaks no credentials',bk.leaksToken,false);
 chk('credentials live in their own key',
   await p.evaluate(()=>Object.keys(localStorage).includes('fe_sync_v1')||!localStorage.getItem('moneymachine_v1').includes('github_pat')),true);
 
+console.log('\n— rollover is a share, not a switch —');
+const rl=await p.evaluate(()=>{
+  const relM=n=>{const d=dayOf(todayISO());d.setDate(1);d.setMonth(d.getMonth()+n);return monthOf(d);};
+  const on=(mo,day)=>{const d=dayOf(todayISO());d.setDate(1);d.setMonth(d.getMonth()+mo);d.setDate(day);return isoOf(d);};
+  const now=monthKey(todayISO());
+  db.accounts=[{id:"rk",name:"Chk",kind:"checking",value:5000,parentId:null}];
+  db.recurring=[]; db.debts=[]; db.goals=[]; db.budgets={Food:400};
+  db.transactions=[{id:"q1",date:on(-2,5),desc:"shop",amount:-300,category:"Food"},
+                   {id:"q2",date:on(-1,5),desc:"shop",amount:-300,category:"Food"}];
+  const out={};
+  for(const pct of [100,50,0]){
+    db.budgetMeta={Food:{since:relM(-2),roll:pct>0,rollPct:pct}}; saveAll();
+    out["p"+pct]=Math.round(carriedInto("Food",now));
+  }
+  db.transactions=[{id:"q3",date:on(-1,5),desc:"blowout",amount:-700,category:"Food"}];
+  db.budgetMeta={Food:{since:relM(-1),roll:true,rollPct:50}}; saveAll();
+  out.overspend=Math.round(carriedInto("Food",now));
+  db.budgetMeta={Food:{since:relM(-1),roll:true}};  saveAll(); out.legacyOn=budgetRollPct("Food");
+  db.budgetMeta={Food:{since:relM(-1),roll:false}}; saveAll(); out.legacyOff=budgetRollPct("Food");
+  return out;});
+chk('all of it still rolls all of it',rl.p100,200);
+chk('half compounds correctly month to month',rl.p50,75);
+chk('none rolls nothing',rl.p0,0);
+chk('an overspend carries in full whatever the share',rl.overspend,-300);
+chk('a book with only the old switch reads 100',rl.legacyOn,100);
+chk('  and 0 when it was off',rl.legacyOff,0);
+
 console.log('\n— month in review reads the month back —');
 const rc=await p.evaluate(()=>{
   const rel=n=>{const d=dayOf(todayISO());d.setDate(d.getDate()+n);return isoOf(d);};
