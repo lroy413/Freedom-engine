@@ -22,7 +22,7 @@
     /* --warn/--debt are fills; --warn-ink is the same amber dark enough to read as small text (4.7:1) */
     --pos:#0ca35a; --neg:#e0463e; --debt:#e5900f; --warn:#e5900f; --warn-ink:#9a6206; --goal:#0ea5a0; --invest:#7c5cf0;
     --s1:#059669; --s2:#6366f1; --s3:#e0463e; --s4:#0ca35a; --s5:#eb6834;
-    --barbg:rgba(255,255,255,.85); --barbg2:rgba(255,255,255,.97);
+    --barbg:rgba(255,255,255,.85); --barbg2:rgba(255,255,255,.97); --glass:rgba(255,255,255,.62);
     /* Depth is three layers doing different jobs: a crisp contact line, a close
        ambient, and a wide soft diffuse. One flat shadow reads as a border. */
     --shadow:0 1px 2px rgba(16,18,27,.05),0 6px 16px -6px rgba(16,18,27,.08),0 20px 44px -18px rgba(16,18,27,.16);
@@ -42,7 +42,7 @@
     --accent:#10b981; --accent-soft:#0c2f23; --accent-ink:#6ee7b7;
     --pos:#3ecf8e; --neg:#f4736a; --debt:#f0ad3e; --warn:#f0ad3e; --warn-ink:#f0ad3e; --goal:#2dd4bf; --invest:#a78bfa;
     --s1:#34d399; --s2:#8b83ff; --s3:#f4736a; --s4:#2dd4bf; --s5:#fb923c;
-    --barbg:rgba(24,26,32,.85); --barbg2:rgba(24,26,32,.97);
+    --barbg:rgba(24,26,32,.85); --barbg2:rgba(24,26,32,.97); --glass:rgba(24,26,32,.6);
     --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px -8px rgba(0,0,0,.5),0 24px 60px -20px rgba(0,0,0,.6);
     --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 8px 22px -12px rgba(0,0,0,.5);
     /* on a dark surface the light comes from the top edge, not from underneath */
@@ -68,9 +68,18 @@
 
   /* Border only once you've scrolled — a hairline under a title that's flush with
      the page above it is what made this feel like a toolbar bolted on top. */
-  header.topbar{position:sticky;top:0;z-index:20;background:var(--barbg);backdrop-filter:saturate(180%) blur(14px);
-    border-bottom:1px solid transparent;transition:border-color .2s ease,box-shadow .2s ease}
-  header.topbar.stuck{border-bottom-color:var(--line);box-shadow:0 1px 12px -6px rgba(0,0,0,.28)}
+  /* The bar starts invisible — at the top of the page it IS the page — and
+     condenses into frosted glass once content scrolls beneath it. The blur
+     stays on permanently (only the tint fades) so the transition is pure
+     opacity, never a filter popping in. -webkit- prefix: iOS won't blur
+     without it, which is why the bar used to read as a flat strip there. */
+  header.topbar{position:sticky;top:0;z-index:20;background:transparent;
+    -webkit-backdrop-filter:saturate(180%) blur(16px);backdrop-filter:saturate(180%) blur(16px);
+    border-bottom:1px solid transparent;transition:background .25s ease,border-color .25s ease,box-shadow .25s ease}
+  header.topbar.stuck{background:var(--glass);border-bottom-color:var(--line);box-shadow:0 1px 12px -6px rgba(0,0,0,.28)}
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    header.topbar.stuck{background:var(--barbg2)}
+  }
   .topinner{max-width:1060px;margin:0 auto;padding:10px 18px;display:flex;align-items:center;gap:12px;min-height:60px}
   .brand{display:flex;align-items:center;gap:12px;font-weight:760;font-size:20px;white-space:nowrap;letter-spacing:-.03em;min-width:0}
   /* both titles occupy the same grid cell so one can cross-fade into the other */
@@ -283,7 +292,6 @@
     /* backdrop-filter on an ancestor traps position:fixed children — drop it so the bottom nav anchors to the viewport */
     /* no blur here (it would trap position:fixed children), so the bar must be
        fully opaque or page content ghosts through it as you scroll */
-    header.topbar{backdrop-filter:none;background:var(--card)}
     .topinner{padding:12px 16px}
     main{max-width:100%;padding:20px 16px 108px}
     nav.tabs{position:fixed;bottom:0;left:0;right:0;margin:0;z-index:40;background:var(--barbg2);backdrop-filter:saturate(180%) blur(14px);border-top:1px solid var(--line2);padding:8px 8px calc(8px + env(safe-area-inset-bottom));gap:2px;justify-content:flex-start;box-shadow:0 -2px 16px -6px rgba(20,22,31,.12)}
@@ -881,7 +889,9 @@
   .dh-spark{flex:1;max-width:340px;min-width:0;align-self:flex-end;opacity:.92}
   .dh-spark svg{display:block;width:100%;height:74px}
   .dh-rule{position:relative;z-index:1;height:1px;background:rgba(255,255,255,.22);margin:18px 0 14px}
-  .dh-stats{position:relative;z-index:1;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}
+  /* flex-start, not flex-end: the Safe-to-spend cell is taller (it carries a
+     per-day sub), and bottom-aligning shoved every other label off its line */
+  .dh-stats{position:relative;z-index:1;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
   .dh-stat{flex:1 1 0;min-width:84px}
   .dh-stat .k{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:660;opacity:.78}
   .dh-stat .v{font-size:20px;font-weight:720;margin-top:3px;letter-spacing:-.02em;white-space:nowrap}
@@ -937,7 +947,10 @@
        air — it stays now, compact, riding beside the number block */
     .dh-spark{flex:0 0 112px;max-width:112px;align-self:flex-end;margin-bottom:26px}
     .dh-spark svg{height:52px}
-    .dh-stats{gap:12px 10px} .dh-stat{flex:1 1 28%;min-width:0} .dh-stat .k{font-size:10px;letter-spacing:.05em} .dh-stat .v{font-size:16px} .dh-goal{flex:1 1 100%} }
+    /* a strict 3-column grid on phones: every label starts on the same line,
+       every value lines up — flex basis percentages drifted with content */
+    .dh-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 10px}
+    .dh-stat{min-width:0} .dh-stat .k{font-size:10px;letter-spacing:.05em} .dh-stat .v{font-size:16px} .dh-goal{grid-column:1/-1} }
 
   /* ---------- richer KPI cards ---------- */
   .kpi{position:relative;overflow:hidden}
@@ -974,7 +987,7 @@
     --accent:#c1272d; --accent-soft:#2b1418; --accent-ink:#ec6a63;
     --pos:#5fae76; --neg:#d1495b; --debt:#c9a227; --warn:#c9a227; --goal:#c9a227; --invest:#9b7fd4;
     --s1:#ec6a63; --s2:#c9a227; --s3:#d1495b; --s4:#5fae76; --s5:#e0873c;
-    --barbg:rgba(22,19,26,.85); --barbg2:rgba(22,19,26,.97);
+    --barbg:rgba(22,19,26,.85); --barbg2:rgba(22,19,26,.97); --glass:rgba(22,19,26,.6);
     --shadow:0 1px 2px rgba(0,0,0,.55),0 10px 28px -8px rgba(0,0,0,.65),0 26px 64px -20px rgba(0,0,0,.7);
     --shadow-sm:0 1px 2px rgba(0,0,0,.5),0 8px 24px -12px rgba(0,0,0,.6);
     --card-hi:inset 0 1px 0 rgba(255,255,255,.045);
@@ -6140,6 +6153,10 @@ function renderAll(){
   const _sc=captureScrolls(); captureSnapshot();
   renderNav(); renderSlotPicker(); syncTheme();
   Object.keys(VIEW_RENDERERS).forEach(v=>_dirty[v]=true);
+  /* the collapsed bar's view title is written by setView, which boot never
+     calls — without this line the frosted bar had no name until the first
+     navigation */
+  const _vt=document.getElementById("viewTitle"); if(_vt)_vt.textContent=viewLabel(currentView);
   renderView(currentView);
   if(nwOpen) renderNWSheet();
   if(stsOpen) renderSTS();
