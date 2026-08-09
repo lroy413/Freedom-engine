@@ -906,6 +906,12 @@
   .jstop{position:absolute;width:8px;height:8px;border-radius:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.4)}
   .jstop.nxt{width:10px;height:10px;background:transparent;border:2px solid #fff}
   .jstop.done{background:#fff}
+  /* the dotted stretch ahead of the marker is the 12-month projection at the
+     recent investing pace — visibly a sketch, not yet earned road */
+  .dh-rtrack .jproj{fill:none;stroke:rgba(255,255,255,.62);stroke-width:2.2px;stroke-linecap:round;stroke-dasharray:.14 2.6}
+  .jghost{position:absolute;width:9px;height:9px;border-radius:50%;transform:translate(-50%,-50%);border:1.6px solid rgba(255,255,255,.65);background:transparent}
+  .jeta{position:absolute;transform:translate(-50%,9px);font-size:9px;text-transform:uppercase;letter-spacing:.08em;font-weight:660;opacity:.62;white-space:nowrap}
+  button.dh-stat{background:none;border:0;padding:0;color:inherit;text-align:left;cursor:pointer;font:inherit}
   .jyou{position:absolute;width:11px;height:11px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);
     box-shadow:0 0 0 4px rgba(255,255,255,.22);transition:box-shadow .2s}
   .jyou::after{content:"";position:absolute;inset:-8px;border-radius:50%;border:1.5px solid rgba(255,255,255,.55);animation:youpulse 2.6s ease-out infinite}
@@ -2817,8 +2823,38 @@ function renderDashHero(){
     for(let i=1;i<stops.length;i++)
       if(stops[i].lx-stops[i-1].lx<18&&!stops[i-1].lo) stops[i].lo=true;
     const yx=cov*100, yy=yFor(Math.min(99.5,yx));
+    /* The dotted stretch ahead: where the marker lands in 12 months if
+       invested capital keeps its recent pace, converted to income at the
+       same assumed yield the tracker's capital figures use. Drawn only when
+       the snapshots actually show growth — no history, no promises. */
+    let proj="", projGhost="";
+    const isnaps=(db.snapshots||[]).filter(s=>s.invest!=null)
+      .slice().sort((a,b)=>String(a.m).localeCompare(String(b.m))).slice(-7);
+    if(cov<1&&isnaps.length>=2){
+      const mo=(a,b)=>{const [y1,m1]=String(a).split("-").map(Number),[y2,m2]=String(b).split("-").map(Number);return (y2*12+m2)-(y1*12+m1);};
+      const span=mo(isnaps[0].m,isnaps[isnaps.length-1].m);
+      const slope=span>0?(num(isnaps[isnaps.length-1].invest)-num(isnaps[0].invest))/span:0;
+      if(slope>0){
+        const extraMonthly=(slope*12)*(assumedYield()/100)/12;
+        const covP=Math.min(1,(fs.passive.total+extraMonthly)/th.need);
+        /* below ~4% of road the sketch just crowds the marker — a projection
+           too small to draw legibly isn't worth pixels */
+        if(covP-cov>=0.04){
+          const t0=tFor(yx), t1=tFor(covP*100);
+          /* polar form of the quadratic gives the exact sub-curve between t0 and t1 */
+          const pf=(u,v,a,b2,c)=>(1-u)*(1-v)*a+(u*(1-v)+(1-u)*v)*b2+u*v*c;
+          const Q=[[q(t0,P0[0],P1[0],P2[0]),q(t0,P0[1],P1[1],P2[1])],
+                   [pf(t0,t1,P0[0],P1[0],P2[0]),pf(t0,t1,P0[1],P1[1],P2[1])],
+                   [q(t1,P0[0],P1[0],P2[0]),q(t1,P0[1],P1[1],P2[1])]];
+          proj=`<path class="jproj" d="M${Q[0][0].toFixed(1)},${Q[0][1].toFixed(1)} Q${Q[1][0].toFixed(1)},${Q[1][1].toFixed(1)} ${Q[2][0].toFixed(1)},${Q[2][1].toFixed(1)}"/>`;
+          const gx=covP*100, gy=yFor(Math.min(99.5,gx));
+          projGhost=`<span class="jghost" style="left:${gx.toFixed(1)}%;top:${(gy/44*100).toFixed(1)}%" title="Projected in 12 months at your recent investing pace"></span>`
+            +(gx<93&&gx-yx>=7?`<span class="jeta" style="left:${gx.toFixed(1)}%;top:${(gy/44*100).toFixed(1)}%">+12 mo</span>`:"");
+        }
+      }
+    }
     const sub=fs.next
-      ?`${fmt(fs.passive.total)}/mo passive · ${Math.round(fs.next.pct)}% of ${fs.next.label} · ${fmtK(fs.next.gap)}/mo to go`
+      ?`${fmt(fs.passive.total)}/mo passive · ${fs.next.label} ${Math.round(fs.next.pct)}% · ${fmtK(fs.next.gap)}/mo to go`
       :`${fmt(fs.passive.total)}/mo passive — every tier covered`;
     return `<button class="dh-road" data-go="goals" aria-label="Freedom road — open the freedom tracker">
       <div class="dh-rhead"><span class="k">Freedom road</span><span class="s">${sub}</span></div>
@@ -2826,8 +2862,10 @@ function renderDashHero(){
         <svg viewBox="0 0 100 44" preserveAspectRatio="none" aria-hidden="true">
           <path class="jbase" d="${d}"/>
           ${cov>0.004?`<path class="jfill" d="${d}" pathLength="100" style="stroke-dasharray:${(cov*100).toFixed(2)} 999"/>`:""}
+          ${proj}
         </svg>
         ${stops.map(s2=>`<span class="jstop${s2.cleared?" done":s2.nxt?" nxt":""}" style="left:${s2.x.toFixed(1)}%;top:${(s2.y/44*100).toFixed(1)}%"></span>`).join("")}
+        ${projGhost}
         <span class="jyou" style="left:${yx.toFixed(1)}%;top:${(yy/44*100).toFixed(1)}%"></span>
       </div>
       <div class="dh-rstops">
@@ -2841,6 +2879,7 @@ function renderDashHero(){
     const nwg=act.filter(g=>g.kind==="networth").sort((a,b)=>num(a.target)-num(b.target));
     return nwg.find(g=>num(g.target)>nw)||nwg[0]||act.sort((a,b)=>goalPct(b)-goalPct(a))[0]||null; })();
   const gp=heroGoal?goalPct(heroGoal):null;
+  const sts=safeToSpend();
   const personal=`<div class="dashhero${nw<0?" below":""}">
     <div class="dh-top">
       <button class="dh-tap" data-nwopen="1" aria-label="Open net worth detail">
@@ -2855,6 +2894,10 @@ function renderDashHero(){
     </div>
     <div class="dh-rule"></div>
     <div class="dh-stats">
+      <button class="dh-stat" data-stsopen="1" aria-label="Safe to spend this month — open the maths">
+        <div class="k">Safe to spend</div><div class="v">${fmt(sts.safe)}</div>
+        <div class="dh-sub">${sts.safe>=0?`≈ ${fmt(Math.max(0,sts.perDay))}/day left`:"short this month"}</div>
+      </button>
       <div class="dh-stat"><div class="k">On hand</div><div class="v">${fmt(spendableCash())}</div>${taxHeld()>0?`<div class="dh-sub">${fmt(taxHeld())} held for tax</div>`:""}</div>
       <div class="dh-stat"><div class="k">Invested</div><div class="v">${fmt(investTotal())}</div></div>
       <div class="dh-stat"><div class="k">Owed</div><div class="v">${fmt(totalDebt())}</div></div>
