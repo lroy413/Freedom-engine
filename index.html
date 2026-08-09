@@ -2827,6 +2827,9 @@ function safeToSpend(){
     return s+Math.max(0,due-paid);},0);
   const goals=(db.goals||[]).reduce((s,g)=>{
     if(g.done||!num(g.target)) return s;
+    /* a goal with a savings plan is already reserved as an envelope above —
+       counting its pace here as well would charge the same dollar twice */
+    if(goalPlanned(g)) return s;
     const need=goalPace(g).need;                            // null when no deadline is set
     return s+(need>0?need:0);},0);
   const safe=cash-bills-env-debt-goals;
@@ -3229,7 +3232,9 @@ function renderDash(){
   const billsPaid=db.recurring.filter(b=>billDueIn(b,curMonth)&&billPaid(b,curMonth));
   const billsLeft=Math.max(0,billsTot-billsPaidAmtDash);
   const dStart=db.debts.reduce((a,d)=>a+debtOrig(d),0), dNow=totalDebt(), dPaid=debtPaidLogged(), dN=debtPayCount();
-  const goalPct=num(g.target)?Math.min(100,Math.round(cash/num(g.target)*100)):null;
+  /* A dead local named goalPct used to sit here, shadowing the goalPct()
+     function for the whole of renderDash — so the Freedom card's fallback
+     branch called a number and threw. It was never read; it is gone. */
   const kpis=[
     {go:"income",label:"Income this month",val:fmt((gotIn||monthlyIncomeNet())+bizDrawMonthly()),cls:"pos",icon:"income",c:C.emerald,
      sub:(()=>{const d=bizDrawMonthly(), pc=db.paychecks.filter(p=>monthKey(p.date)===curMonth).length;
@@ -3783,10 +3788,17 @@ function merchantKey(desc){ const c=(desc||"").toLowerCase().replace(/[^a-z ]+/g
 let budgetMonth=null,editBill=null,editBudget=null,payBill=null,billTab="all",billTierFilter=null,billView="month";
 function budgetMetaOf(cat){ return (db.budgetMeta&&db.budgetMeta[cat])||{}; }
 function budgetSince(cat){ return budgetMetaOf(cat).since||budgetStartMonth(); }
+/* Not every envelope is forever. A vacation fund runs for the months you name
+   and then stops — it should not quietly keep asking for money afterwards, nor
+   vanish from the months it did cover. `until` is the last month it applies. */
+function budgetUntil(cat){ return budgetMetaOf(cat).until||""; }
+function budgetActiveIn(cat,m){ const u=budgetUntil(cat);
+  return m>=budgetSince(cat) && (!u||m<=u); }
+const budgetEnded=cat=>{const u=budgetUntil(cat); return !!u&&u<monthKey(todayISO());};
 function budgetRolls(cat){ const m=budgetMetaOf(cat); return m.roll===undefined?true:!!m.roll; }
 function budgetedFor(cat,m){
-  /* nothing was budgeted in a month before this budget existed */
-  if(m<budgetSince(cat)) return 0;
+  /* nothing was budgeted before this budget existed, or after it ended */
+  if(!budgetActiveIn(cat,m)) return 0;
   const o=db.monthBudgets&&db.monthBudgets[m];
   if(o&&o[cat]!=null) return num(o[cat]);
   return num(db.budgets[cat]);
@@ -3851,8 +3863,10 @@ const DEFAULT_BUDGET_TIER={Food:"essential",Groceries:"essential","Auto & Gas":"
   Travel:"luxury",Fitness:"luxury"};
 const budgetTier=c=>{const m=(db.budgetMeta||{})[c]||{};
   return BILL_TIERS[m.tier]?m.tier:(DEFAULT_BUDGET_TIER[c]||"flexible");};
-const budgetTierTotal=t=>Object.keys(db.budgets||{})
-  .filter(c=>budgetTier(c)===t).reduce((s,c)=>s+num(db.budgets[c]),0);
+const budgetTierTotal=t=>{const mk=monthKey(todayISO());
+  return Object.keys(db.budgets||{})
+    .filter(c=>budgetTier(c)===t&&budgetActiveIn(c,mk))
+    .reduce((s,c)=>s+num(db.budgets[c]),0);};
 const bizTotal=()=>db.recurring.filter(b=>b.biz).reduce((s,b)=>s+billMonthly(b),0);
 const monthlyFloor=()=>tierTotal("essential");
 /* bills: due dates */
@@ -4258,9 +4272,11 @@ function renderBudget(){
     const rolls=budgetRolls(c), since=budgetSince(c), editing=editBudget===c;
     const state=avail<0?"bad":pool>0&&sp/pool>0.85?"warn":"ok";
     const col=avail<0?"var(--neg)":pool>0&&sp/pool>0.85?"var(--warn)":"var(--pos)";
-    const meta=[`${fmt(sp)} of ${fmt(bud)}`,
-      rolls&&carry?`${carry>=0?"+":""}${fmt(carry)} rolled in`:null,
-      rolls?null:"no rollover"].filter(Boolean).join(" · ");
+    const ended=!budgetActiveIn(c,mk);
+    const meta=[ended?`ended ${esc(prettyMonth(budgetUntil(c)))}`:`${fmt(sp)} of ${fmt(bud)}`,
+      ended?null:(rolls&&carry?`${carry>=0?"+":""}${fmt(carry)} rolled in`:null),
+      ended?null:(rolls?null:"no rollover"),
+      (!ended&&budgetUntil(c))?`until ${esc(prettyMonth(budgetUntil(c)))}`:null].filter(Boolean).join(" · ");
     return `<div class="brow${editing?" editing":""}">
       <div class="bmain" data-budopen="${esc(c)}">
         <span class="bdot" style="background:${catColor[c]||'#94a3b8'};width:9px;height:9px"></span>
@@ -4283,10 +4299,14 @@ function renderBudget(){
           <div class="field"><label>How essential is it?</label>
             <select data-btier="${esc(c)}">${Object.entries(BILL_TIERS).map(([v,o])=>
               `<option value="${v}" ${budgetTier(c)===v?"selected":""}>${o.label} — ${o.note}</option>`).join("")}</select></div>
+          <div class="field"><label>Last month it runs <span class="muted" style="font-weight:400">blank = ongoing</span></label>
+            <input type="month" value="${esc(budgetUntil(c))}" data-buntil="${esc(c)}"></div>
         </div>
         <div class="note" style="margin-top:12px;font-size:13px">
           Essential envelopes count toward <b>Survive</b> on the freedom road — groceries and the gas
-          that gets you to a shoot belong there; eating out does not.</div>
+          that gets you to a shoot belong there; eating out does not.
+          ${budgetUntil(c)?`<br>Runs until <b>${esc(prettyMonth(budgetUntil(c)))}</b>${budgetEnded(c)?" — finished, so it no longer asks for money or counts toward your floor.":", then stops on its own."}`
+            :"<br>Give it a last month for something temporary — a trip, a course, a move — and it bows out by itself."}</div>
         <label class="flex" style="font-size:15px;margin-top:12px;gap:8px;align-items:flex-start">
           <input type="checkbox" data-broll="${esc(c)}" ${rolls?"checked":""} style="margin-top:3px">
           <span>Roll unspent into next month<br><span class="muted" style="font-size:13px">Envelope style — what you don't spend stays in it, and overspending eats into next month. Turn it off and the budget resets clean every month.</span></span></label>
@@ -4316,6 +4336,9 @@ function renderBudget(){
   bl2.querySelectorAll("[data-broll]").forEach(inp=>inp.onchange=e=>{const c=e.currentTarget.dataset.broll;
     db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]=db.budgetMeta[c]||{since:monthKey(todayISO())};
     db.budgetMeta[c].roll=e.currentTarget.checked; saveAll();});
+  bl2.querySelectorAll("[data-buntil]").forEach(inp=>inp.onchange=e=>{const c=e.currentTarget.dataset.buntil;
+    db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]=db.budgetMeta[c]||{since:monthKey(todayISO())};
+    db.budgetMeta[c].until=(e.currentTarget.value||"").trim(); saveAll();});
   bl2.querySelectorAll("[data-btier]").forEach(sel=>sel.onchange=e=>{const c=e.currentTarget.dataset.btier;
     db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]=db.budgetMeta[c]||{since:monthKey(todayISO())};
     db.budgetMeta[c].tier=e.currentTarget.value; saveAll();});
@@ -5276,7 +5299,9 @@ function freedomNeed(){
   const essBills=tierTotal("essential"), essBudget=budgetTierTotal("essential");
   const ess=essBills+essBudget;
   const bills=db.recurring.reduce((s,b)=>s+billMonthly(b),0);
-  const flex=Object.keys(db.budgets||{}).reduce((s,c)=>s+num(db.budgets[c]),0);
+  const mkNow=monthKey(todayISO());
+  const flex=Object.keys(db.budgets||{}).filter(c=>budgetActiveIn(c,mkNow))
+    .reduce((s,c)=>s+num(db.budgets[c]),0);
   const maintain=bills+flex;
   return {survive:ess,maintain,thrive:maintain*(1+thrivePct()/100),
     bills,flex,ess,essBills,essBudget,margin:maintain*(thrivePct()/100)};
@@ -5988,6 +6013,16 @@ function renderGoalsList(){
     root.querySelectorAll("[data-goalopen]").forEach(b=>b.onclick=e=>{
       if(e.target.closest("button")&&e.target.closest("button")!==b)return;
       const id=b.dataset.goalopen; openGoal=openGoal===id?null:id; logGoal=null; renderGoalsList();});
+    root.querySelectorAll("[data-gplan]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+      const g=db.goals.find(x=>x.id===e.currentTarget.dataset.gplan);
+      if(g&&attachGoalPlan(g,e.currentTarget.dataset.gplanamt)) saveAll();});
+    root.querySelectorAll("[data-gplanset]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+      const id=e.currentTarget.dataset.gplanset, g=db.goals.find(x=>x.id===id);
+      const inp=root.querySelector(`[data-gplanown="${id}"]`);
+      if(g&&inp&&attachGoalPlan(g,inp.value)) saveAll(); else if(inp) inp.focus();});
+    root.querySelectorAll("[data-gplanoff]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+      const g=db.goals.find(x=>x.id===e.currentTarget.dataset.gplanoff);
+      if(g){ detachGoalPlan(g); saveAll(); }});
     root.querySelectorAll("[data-goallog]").forEach(b=>b.onclick=e=>{e.stopPropagation();
       const id=b.dataset.goallog; logGoal=logGoal===id?null:id; openGoal=null; renderGoalsList();
       const f=document.getElementById("gcAmt"); if(f)f.focus();});
@@ -6032,6 +6067,21 @@ function goalPanel(g){
       <div class="gbarnums"><span>${fmt(goalNow(g))}${k.unit||""}</span><span class="muted">${fmt(num(g.target))}${k.unit||""}</span></div></div>
     ${ms?`<div class="gnext">Next marker <b>${ms.pct}%</b> at ${fmt(ms.at)} — ${fmt(ms.gap)} away</div>`:""}
     ${paceLine(g)}
+    ${(()=>{ /* the plan, statable after the fact as well as at creation */
+      const planned=goalPlanned(g), need=pc.need;
+      if(planned) return `<div class="note ok" style="margin-top:12px;font-size:13px">
+        Budgeting <b>${fmt(num(db.budgets[g.planCat]))}/mo</b> as <b>${esc(g.planCat)}</b>${budgetUntil(g.planCat)?` until <b>${esc(prettyMonth(budgetUntil(g.planCat)))}</b>`:""}.
+        It is an envelope like any other — spend against it on the Budget screen.
+        <div class="toolbar" style="margin-top:10px"><button class="btn sm" data-gplanoff="${g.id}">Remove the plan</button></div></div>`;
+      return `<div class="note" style="margin-top:12px;font-size:13px">
+        <b>Save for this on the Budget screen.</b> ${need>0
+          ? `Your date asks for about <b>${fmt(need)}/mo</b>.`
+          : `Set a target date and the monthly figure works itself out, or name your own.`}
+        <div class="toolbar" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+          ${need>0?`<button class="btn sm primary" data-gplan="${g.id}" data-gplanamt="${Math.round(need)}">Budget ${fmt(need)}/mo</button>`:""}
+          <input class="miniedit" data-gplanown="${g.id}" type="number" step="any" placeholder="200" style="width:92px">
+          <button class="btn sm" data-gplanset="${g.id}">Budget this instead</button>
+        </div></div>`;})()}
     <div class="formgrid" style="margin-top:12px">
       <div class="field"><label>Name</label><input data-gname="1" value="${esc(g.name||"")}"></div>
       <div class="field"><label>Kind</label><select data-gkind="1">${Object.entries(GOAL_KINDS).map(([v,o])=>`<option value="${v}" ${g.kind===v?"selected":""}>${o.label}</option>`).join("")}</select></div>
@@ -6067,6 +6117,36 @@ function logPanel(g){
        <span class="v pos">${fmt2(c.amount)} <button class="btn ghost sm" data-gcdel="${esc(c.id)}">&#10005;</button></span></div>`).join("")}</div>`:""}
   </div>`;
 }
+/* A goal with a number and a date still needs somewhere for the money to come
+   from. A savings plan turns it into a real envelope on the Budget screen, so
+   the monthly share is fought for alongside groceries rather than hoped for. */
+function goalPlanCat(g){ return (g&&g.planCat)||""; }
+function goalPlanned(g){ const c=goalPlanCat(g);
+  return !!(c&&db.budgets&&db.budgets[c]!=null); }
+/* monthly = what you said, or what the deadline demands */
+function goalPlanAmount(g,mode,typed){
+  if(mode==="amount") return Math.max(0,num(typed));
+  const need=goalPace(g).need;                 // null when there is no deadline
+  return need>0?Math.round(need):0;
+}
+function attachGoalPlan(g,amount){
+  const amt=Math.max(0,num(amount)); if(!amt) return false;
+  const cat=g.planCat||("Goal: "+(g.name||"savings"));
+  if(db.categories.indexOf(cat)<0) db.categories.push(cat);
+  db.budgets[cat]=amt;
+  db.budgetMeta=db.budgetMeta||{};
+  db.budgetMeta[cat]=Object.assign({since:monthKey(todayISO()),roll:true,tier:"flexible"},
+    db.budgetMeta[cat]||{},{tier:(db.budgetMeta[cat]||{}).tier||"flexible"});
+  /* a dated goal's envelope ends when the goal is due — a vacation fund should
+     not keep asking for money after the vacation */
+  if(g.deadline) db.budgetMeta[cat].until=monthKey(g.deadline);
+  g.planCat=cat; g.planAmt=amt;
+  return true;
+}
+function detachGoalPlan(g){ const c=goalPlanCat(g); if(!c) return;
+  delete db.budgets[c]; if(db.budgetMeta) delete db.budgetMeta[c];
+  g.planCat=""; g.planAmt=0;
+}
 function renderAddGoal(){
   const p=document.getElementById("addGoalPanel"); if(!p)return;
   p.hidden=!addGoalOpen; if(!addGoalOpen){p.innerHTML="";return;}
@@ -6084,6 +6164,14 @@ function renderAddGoal(){
            <div class="field"><label>Pay down to ($)</label><input id="ngTarget" type="number" step="any" value="0"><span class="muted" style="font-size:12px">0 clears it completely</span></div>`
         : `<div class="field"><label>Target (${GOAL_KINDS[kind].unit?"$/mo":"$"})</label><input id="ngTarget" type="number" step="any"></div>`}
       <div class="field"><label>Target date <span class="muted">(optional)</span></label><input id="ngDl" type="date"></div>
+      <div class="field"><label>Savings plan</label>
+        <select id="ngPlan">
+          <option value="">No plan — just track it</option>
+          <option value="date">Budget what the date needs</option>
+          <option value="amount">Budget a fixed amount / month</option>
+        </select></div>
+      <div class="field" id="ngPlanAmtWrap" hidden><label>Put aside each month</label>
+        <input id="ngPlanAmt" type="number" step="any" placeholder="200"></div>
       <button class="btn primary" id="ngAdd">Add goal</button>
       <button class="btn ghost" id="ngCancel">Cancel</button>
     </div>
@@ -6103,6 +6191,14 @@ function renderAddGoal(){
   /* rebuilding on kind change is what swaps the debt picker in and out */
   kindSel.onchange=()=>{const keep=nameEl.value; renderAddGoal();
     const n2=document.getElementById("ngName"); if(n2&&keep){n2.value=keep;n2.dataset.touched="1";}};
+  const planSel=document.getElementById("ngPlan"), planWrap=document.getElementById("ngPlanAmtWrap");
+  if(planSel) planSel.onchange=()=>{ planWrap.hidden=planSel.value!=="amount";
+    /* "what the date needs" is meaningless without a date — say so rather than
+       silently attaching nothing */
+    const dl=document.getElementById("ngDl");
+    if(planSel.value==="date"&&dl&&!dl.value){ dl.focus();
+      document.getElementById("ngBlurb").textContent="Pick a target date and the monthly figure works itself out."; }
+    else document.getElementById("ngBlurb").textContent=GOAL_KINDS[kindSel.value].blurb; };
   document.getElementById("ngCancel").onclick=()=>{addGoalOpen=false;renderAddGoal();};
   document.getElementById("ngAdd").onclick=()=>{
     const k=kindSel.value, tEl=document.getElementById("ngTarget"), t=num(tEl.value);
@@ -6117,7 +6213,15 @@ function renderAddGoal(){
     /* an income goal exists to track money that shows up on its own — that's the
        whole point of the freedom tracker, so start it there and let him widen it */
     if(k==="income") g.passiveOnly=true;
-    db.goals.push(g); addGoalOpen=false; openGoal=g.id; saveAll();};
+    db.goals.push(g);
+    /* the plan is attached after the goal exists, because working out what the
+       deadline demands needs the goal's own target and starting point */
+    const mode=(document.getElementById("ngPlan")||{}).value||"";
+    if(mode){
+      const amt=goalPlanAmount(g,mode,(document.getElementById("ngPlanAmt")||{}).value);
+      if(amt) attachGoalPlan(g,amt);
+    }
+    addGoalOpen=false; openGoal=g.id; saveAll();};
 }
 function renderGoals(){
   renderFreedom(); renderAddGoal(); renderGoalsList();
@@ -7117,7 +7221,8 @@ function forecastTo(toISO){
   /* charge each bill only in the months it's actually due */
   const billsIn=m=>db.recurring.reduce((s,b)=>s+billAmountIn(b,m),0);
   const bills=db.recurring.reduce((s,b)=>s+billMonthly(b),0);   // headline "per month" figure
-  const flex=Object.keys(db.budgets).reduce((s,c)=>s+num(db.budgets[c]),0);
+  const flex=Object.keys(db.budgets).filter(c=>budgetActiveIn(c,monthKey(todayISO())))
+    .reduce((s,c)=>s+num(db.budgets[c]),0);
   const dailyFlex=flex/30.44;
   const pay={};
   db.income.forEach(s=>{ const ds=payDates(s,start,toISO); if(ds)ds.forEach(d=>{pay[d]=(pay[d]||0)+netOf(s,perPaycheck(s));});

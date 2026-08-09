@@ -108,6 +108,51 @@ chk('backup leaks no credentials',bk.leaksToken,false);
 chk('credentials live in their own key',
   await p.evaluate(()=>Object.keys(localStorage).includes('fe_sync_v1')||!localStorage.getItem('moneymachine_v1').includes('github_pat')),true);
 
+console.log('\n— temporary envelopes and goal savings plans —');
+const tb=await p.evaluate(()=>{
+  const relM=n=>{const d=dayOf(todayISO());d.setDate(1);d.setMonth(d.getMonth()+n);return monthOf(d);};
+  const rel=n=>{const d=dayOf(todayISO());d.setDate(d.getDate()+n);return isoOf(d);};
+  const now=monthKey(todayISO());
+  db.accounts=[{id:"tb",name:"Chk",kind:"checking",value:5000,parentId:null}];
+  db.recurring=[]; db.debts=[]; db.goals=[]; db.transactions=[];
+  db.budgets={Groceries:400,Vacation:600};
+  db.budgetMeta={Groceries:{since:relM(-3),roll:true,tier:"essential"},
+    Vacation:{since:relM(-1),until:relM(1),roll:true,tier:"luxury"}};
+  saveAll();
+  const during=Math.round(freedomNeed().maintain);
+  const heldInItsMonth=budgetedFor("Vacation",relM(0));
+  db.budgetMeta.Vacation.until=relM(-1); saveAll();      // now finished
+  return {during, after:Math.round(freedomNeed().maintain), heldInItsMonth,
+    pastMonthKept:budgetedFor("Vacation",relM(-1)),
+    askedForNow:budgetedFor("Vacation",now)};});
+chk('a temporary envelope counts while it runs',tb.during,1000);
+chk('and stops counting once it has ended',tb.after,400);
+chk('the months it covered keep their figure',tb.pastMonthKept,600);
+chk('it asks for nothing after its last month',tb.askedForNow,0);
+
+const gp=await p.evaluate(()=>{
+  const rel=n=>{const d=dayOf(todayISO());d.setDate(d.getDate()+n);return isoOf(d);};
+  db.budgets={}; db.budgetMeta={};
+  db.goals=[{id:"gp1",kind:"custom",name:"Japan trip",target:3600,link:[],contribs:[],deadline:rel(365)}];
+  saveAll();
+  const g=db.goals[0];
+  const reservedUnplanned=Math.round(safeToSpend().goals);
+  attachGoalPlan(g,goalPlanAmount(g,"date")); saveAll();
+  const out={monthly:db.budgets[g.planCat], endsWithGoal:budgetUntil(g.planCat)===monthKey(g.deadline),
+    reservedUnplanned, reservedOncePlanned:Math.round(safeToSpend().goals),
+    envelope:Math.round(safeToSpend().env)};
+  detachGoalPlan(g); saveAll();
+  out.reservedAgainAfterRemoving=Math.round(safeToSpend().goals);
+  out.budgetRemoved=db.budgets[g.planCat]===undefined;
+  return out;});
+chk('a deadline sets the monthly figure',gp.monthly,300);
+chk("the envelope ends when the goal is due",gp.endsWithGoal,true);
+chk('an unplanned goal is reserved by its pace',gp.reservedUnplanned,300);
+chk('a planned goal is not reserved twice',gp.reservedOncePlanned,0);
+chk('  because the envelope holds it instead',gp.envelope,300);
+chk('removing the plan removes the envelope',gp.budgetRemoved,true);
+chk('and the pace reserve comes back',gp.reservedAgainAfterRemoving,300);
+
 console.log('\n— the category list grows without disturbing what is already tagged —');
 const cats=await p.evaluate(()=>{
   db.categories=["Income","Food","Misc","Uncategorized"];      // an older, shorter list
