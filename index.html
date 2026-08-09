@@ -465,10 +465,11 @@
   .hrow.open{background:var(--raise)}
   .htick{font-size:16px;font-weight:680;letter-spacing:-.01em}
   .hsub{font-size:13px;color:var(--muted);margin-top:2px}
-  /* the position's weight, sitting in the gap the row already had */
-  .hweight{flex:none;font-size:13px;font-weight:640;color:var(--ink2);font-variant-numeric:tabular-nums;
-    background:var(--raise);border:1px solid var(--line);border-radius:999px;padding:2px 8px}
-  @media(max-width:820px){ .hweight{font-size:12px;padding:1px 7px} }
+  /* the price and the position's weight share one right-hand column, so the
+     weight takes no width from the row and the sparkline keeps its space */
+  .hright{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:3px}
+  .hweight{font-size:11px;font-weight:600;color:var(--muted);text-align:center;
+    font-variant-numeric:tabular-nums;letter-spacing:.01em}
   .qstale{color:var(--warn-ink);font-weight:600;font-size:12px;margin-top:2px}
   .hmain{flex:1;min-width:0}
   .hspark{width:120px;height:38px;flex:none}
@@ -481,10 +482,7 @@
   .hstat .k{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:640}
   .hstat .v{font-size:17px;font-weight:670;margin-top:3px;font-variant-numeric:tabular-nums}
   @media(max-width:820px){ .hspark{width:78px;height:34px} .hbadge{min-width:84px;font-size:15px;padding:8px 10px} .hrow{padding:12px 12px;gap:10px} }
-  /* On a phone the row runs out of width once the weight joins it, and the
-     share count is the thing that wraps. The sparkline is decoration and the
-     weight is data, so the sparkline yields first. */
-  @media(max-width:460px){ .hspark{display:none} .hsub{white-space:nowrap} }
+  @media(max-width:460px){ .hsub{white-space:nowrap} }
 
   /* ---------- tables on small screens ----------
      A five-column table cannot fit 390px. The two transaction lists restack into
@@ -4789,13 +4787,16 @@ function renderInvest(){
     const shares=num(h.shares), sh=shares?(shares%1?String(parseFloat(shares.toFixed(6))):shares)+" share"+(shares===1?"":"s"):"no shares";
     return `<div class="hrow${open?" open":""}" data-hexp="${h.id}">
         <div class="hmain"><div class="htick">${esc(h.ticker||h.name||"—")}</div><div class="hsub">${esc(sh)}</div>${quoteAgeNote(h)}</div>
-        ${(()=>{ /* what share of the portfolio this one position is */
-          const tot=investTotal();
-          if(!(tot>0)||!(val>0)) return "";
-          const w=val/tot*100;
-          return `<div class="hweight" title="${w.toFixed(1)}% of your holdings">${w<0.5?"<1":Math.round(w)}%</div>`;})()}
         ${sparkFor(h,dir)}
-        <div class="hbadge ${dir}">${num(h.price)?fmt2(num(h.price)):"—"}</div>
+        <div class="hright">
+          <div class="hbadge ${dir}">${num(h.price)?fmt2(num(h.price)):"—"}</div>
+          ${(()=>{ /* the position's share of the portfolio, stacked under the
+              price so it costs the row no width and the sparkline can stay */
+            const tot=investTotal();
+            if(!(tot>0)||!(val>0)) return "";
+            const w=val/tot*100;
+            return `<div class="hweight" title="${w.toFixed(1)}% of your holdings">${w<0.5?"<1":Math.round(w)}% of holdings</div>`;})()}
+        </div>
       </div>
       ${open?`<div class="hdetail">
         <div class="hstats">
