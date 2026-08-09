@@ -36,14 +36,16 @@ console.log('note:', await p.evaluate(()=>{divOpen=true;expDiv="h1";renderInvest
   const n=document.querySelector('#divProjected .bpanel .note');
   expDiv=null;renderInvest();
   return n?n.textContent.trim().replace(/\s+/g,' '):'(none)';}));
-// change frequency -> annual figure must move, per-payment must stay
-await p.selectOption('[data-hfreq="h1"]','quarterly'); await p.waitForTimeout(600);
+// change frequency -> annual figure must move, per-payment must stay.
+// Driven through the dividend card, which owns dividend editing now.
+await p.evaluate(()=>{divOpen=true;expDiv="h1";editDiv="h1";renderInvest();}); await p.waitForTimeout(400);
+await p.selectOption('[data-xfreq="h1"]','quarterly'); await p.waitForTimeout(600);
 console.log('\nswitched O to quarterly:', await p.evaluate(()=>({perShare:db.holdings[0].divPerShare,
   annual:fmt2(divAnnualFor(db.holdings[0])), perPayment:fmt2(divPerPayment(db.holdings[0]))})));
 console.log('  (per-share payment unchanged, annual drops from $126.72 to $42.24 — 4 payments not 12)');
-await p.selectOption('[data-hfreq="h1"]','monthly'); await p.waitForTimeout(500);
+await p.selectOption('[data-xfreq="h1"]','monthly'); await p.waitForTimeout(500);
 // typed value
-await p.fill('[data-hdiv="h1"]','0.27'); await p.evaluate(()=>document.querySelector('[data-hdiv="h1"]').dispatchEvent(new Event('change',{bubbles:true})));
+await p.fill('[data-xdiv="h1"]','0.27'); await p.evaluate(()=>document.querySelector('[data-xdiv="h1"]').dispatchEvent(new Event('change',{bubbles:true})));
 await p.waitForTimeout(600);
 console.log('\ntyping 0.27 per payment on a monthly payer:', await p.evaluate(()=>({stored:db.holdings[0].divPerShare,annual:fmt2(divAnnualFor(db.holdings[0]))})));
 await p.evaluate(()=>{expHolding=null;renderInvest();}); await p.waitForTimeout(500);

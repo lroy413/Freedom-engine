@@ -43,10 +43,11 @@ await table('AFTER refresh (detected):');
 console.log('\nupcoming 4 months:');
 console.log(await p.$$eval('#divUpcoming .upitem',e=>e.map(x=>'  '+x.querySelector('.upname').textContent.padEnd(24)+x.querySelector('.upwhen').textContent.padEnd(24)+x.querySelector('.upamt').textContent).join('\n')));
 // manual override
-/* the editable fields live behind the Edit button now — a holding opens
-   read-only, so the form has to be asked for before it can be driven */
-await p.evaluate(()=>{expHolding="h2";editHolding="h2";renderInvest();}); await p.waitForTimeout(400);
-await p.selectOption('[data-hfreq="h2"]','semiannual'); await p.waitForTimeout(500);
+/* Dividend editing belongs to the Projected dividends card now — the holding
+   editor owns the position (shares, cost, price) and nothing else. Fields sit
+   behind Edit in both places. */
+await p.evaluate(()=>{divOpen=true;expDiv="h2";editDiv="h2";renderInvest();}); await p.waitForTimeout(400);
+await p.selectOption('[data-xfreq="h2"]','semiannual'); await p.waitForTimeout(500);
 console.log('\nafter manual override to semiannual:', await p.evaluate(()=>({freq:db.holdings[1].divFreq,auto:db.holdings[1].divFreqAuto})));
 /* the breakdown lives only in the Projected dividends card now */
 await p.evaluate(()=>{divOpen=true;expDiv="h2";renderInvest();}); await p.waitForTimeout(400);

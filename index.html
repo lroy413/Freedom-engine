@@ -15,7 +15,7 @@
   html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
   :root{
-    --bg:#f6f7f9; --card:#ffffff; --ink:#16181f; --ink2:#565a66; --muted:#6b7080;
+    --bg:#f2f5f4; --card:#ffffff; --ink:#16181f; --ink2:#565a66; --muted:#6b7080;
     --line:#edeef2; --line2:#e3e5ea; --line2h:#cfd3db; --raise:#fafbfc; --raise2:#f5f6f8;
     --track:#eef0f4; --grid:#edeef2;
     --accent:#059669; --accent-soft:#e6f6ee; --accent-ink:#047857;
@@ -28,14 +28,24 @@
        what's planned, what's owed, what's invested. */
     --c-emerald:#059669; --c-teal:#0d9488; --c-sky:#0284c7;
     --c-violet:#7c5cf0; --c-amber:#d97706; --c-rose:#e11d48;
+    /* the same family carried out to twelve, for places that need to tell many
+       things apart (category slices, business cards) rather than mean one
+       thing. Even chroma and lightness across the set is what stops a chart
+       looking like a bag of highlighters. */
+    --c-cyan:#0891b2; --c-blue:#2563eb; --c-fuchsia:#c026d3;
+    --c-orange:#ea580c; --c-lime:#4d7c0f; --c-slate:#64748b;
     --s1:#059669; --s2:#0284c7; --s3:#e11d48; --s4:#d97706; --s5:#7c5cf0;
     --barbg:rgba(255,255,255,.85); --barbg2:rgba(255,255,255,.97); --glass:rgba(255,255,255,.62);
     /* Depth is three layers doing different jobs: a crisp contact line, a close
        ambient, and a wide soft diffuse. One flat shadow reads as a border. */
     --shadow:0 1px 2px rgba(16,18,27,.05),0 6px 16px -6px rgba(16,18,27,.08),0 20px 44px -18px rgba(16,18,27,.16);
     --shadow-sm:0 1px 1px rgba(16,18,27,.03),0 3px 8px -3px rgba(16,18,27,.05),0 12px 28px -16px rgba(16,18,27,.11);
-    --card-hi:inset 0 0 0 0 transparent;      /* top highlight — a no-op on white */
-    --card-grad:none;
+    /* Light was flat: a no-op highlight and no gradient meant every card was
+       one solid white rectangle, and depth came from shadow alone. A whisper
+       of vertical gradient plus a real top highlight gives the surface a
+       direction for light to come from — the same trick dark already used. */
+    --card-hi:inset 0 1px 0 rgba(255,255,255,.9);
+    --card-grad:linear-gradient(180deg,#ffffff 0%,#fcfdfd 100%);
     --inset:inset 0 1px 2px rgba(16,18,27,.05);
     --radius:16px;
     --chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -50,6 +60,8 @@
     --pos:#3ecf8e; --neg:#f4736a; --debt:#f0ad3e; --warn:#f0ad3e; --warn-ink:#f0ad3e; --goal:#2dd4bf; --invest:#a78bfa;
     --c-emerald:#34d399; --c-teal:#2dd4bf; --c-sky:#38bdf8;
     --c-violet:#a78bfa; --c-amber:#fbbf24; --c-rose:#fb7185;
+    --c-cyan:#22d3ee; --c-blue:#60a5fa; --c-fuchsia:#e879f9;
+    --c-orange:#fb923c; --c-lime:#a3e635; --c-slate:#94a3b8;
     --s1:#34d399; --s2:#38bdf8; --s3:#fb7185; --s4:#fbbf24; --s5:#a78bfa;
     --barbg:rgba(24,26,32,.85); --barbg2:rgba(24,26,32,.97); --glass:rgba(24,26,32,.6);
     --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px -8px rgba(0,0,0,.5),0 24px 60px -20px rgba(0,0,0,.6);
@@ -1042,6 +1054,8 @@
     --pos:#5fae76; --neg:#d1495b; --debt:#c9a227; --warn:#c9a227; --goal:#c9a227; --invest:#9b7fd4;
     --c-emerald:#5fae76; --c-teal:#5aa9a3; --c-sky:#6f97c4;
     --c-violet:#a98cc4; --c-amber:#c9a227; --c-rose:#d1495b;
+    --c-cyan:#5f9fa8; --c-blue:#6f8fc4; --c-fuchsia:#b07ba6;
+    --c-orange:#e0873c; --c-lime:#8a9a52; --c-slate:#8a90a0;
     --s1:#ec6a63; --s2:#c9a227; --s3:#d1495b; --s4:#5fae76; --s5:#e0873c;
     --barbg:rgba(22,19,26,.85); --barbg2:rgba(22,19,26,.97); --glass:rgba(22,19,26,.6);
     --shadow:0 1px 2px rgba(0,0,0,.55),0 10px 28px -8px rgba(0,0,0,.65),0 26px 64px -20px rgba(0,0,0,.7);
@@ -2672,7 +2686,27 @@ function divTrailing12(){ const cut=dayOf(todayISO()); cut.setFullYear(cut.getFu
 const divTotal=()=>db.dividends.reduce((s,d)=>s+num(d.amount),0);
 
 /* ---------- render pieces ---------- */
-const catColor={Income:"#0ca35a","Rent/Mortgage":"#7c3aed",Electric:"#d19b00","Gas (Utility)":"#f97316",Water:"#1d7a94",Trash:"#78716c",Internet:"#2563eb",Phone:"#db2777","Car Payment":"#d97706","Auto & Gas":"#ea580c",Insurance:"#0891b2",Subscriptions:"#0369a1",Food:"#15a34a",Household:"#8b5cf6",Shopping:"#0d9488",Health:"#e11d48",Entertainment:"#a855f7","Debt Payment":"#dc2626",Savings:"#059669",Transfer:"#6b7280",Fees:"#64748b",Misc:"#64748b",Uncategorized:"#94a3b8",Rent:"#7c3aed","Transport/Gas":"#ea580c"};
+/* Category colours come off the ramp rather than being picked one at a time:
+   the donut still needs every slice distinguishable, but they should look like
+   one designed set. Assigned by meaning where meaning exists — money in is
+   emerald, debt is rose, savings is teal — and spread across the ramp
+   otherwise so the biggest spenders never land on neighbouring hues. */
+const RAMP={emerald:"--c-emerald",teal:"--c-teal",cyan:"--c-cyan",sky:"--c-sky",
+  blue:"--c-blue",violet:"--c-violet",fuchsia:"--c-fuchsia",rose:"--c-rose",
+  orange:"--c-orange",amber:"--c-amber",lime:"--c-lime",slate:"--c-slate"};
+const CAT_HUE={Income:"emerald",Savings:"teal","Rent/Mortgage":"violet",
+  Electric:"amber","Gas (Utility)":"orange",Water:"cyan",Trash:"slate",
+  Internet:"sky",Phone:"fuchsia","Car Payment":"blue","Auto & Gas":"orange",
+  Insurance:"cyan",Subscriptions:"sky",Food:"lime",Household:"violet",
+  Shopping:"teal",Health:"rose",Entertainment:"fuchsia","Debt Payment":"rose",
+  Transfer:"slate",Fees:"slate",Misc:"slate",Uncategorized:"slate",
+  Rent:"violet","Transport/Gas":"orange"};
+const catHueVar=c=>RAMP[CAT_HUE[c]||"slate"]||"--c-slate";
+/* resolved live so a theme switch repaints every slice */
+const catColorOf=c=>cssVar(catHueVar(c),"#64748b");
+const catColor=new Proxy({},{get:(_,c)=>typeof c==="string"?catColorOf(c):undefined,
+  has:()=>true});
+
 /* runway on money that is actually yours — the tax reserve is already spent */
 function runwayMonths(){ const b=effectiveBurn(); return b>0?spendableCash()/b:0; }
 function runwayText(){ const m=runwayMonths(); if(!isFinite(m)||m<=0)return "0 mo"; return m>=1?m.toFixed(1).replace(".0","")+" mo":(m*30).toFixed(0)+" days"; }
@@ -4504,10 +4538,8 @@ function renderInvest(){
           <div class="field"><label>Shares</label><input type="number" step="any" value="${shares}" data-hsh="${h.id}"></div>
           <div class="field"><label>Avg cost / share</label><input type="number" step="any" value="${num(h.avgCost)}" data-hac="${h.id}"></div>
           <div class="field"><label>Current price</label><input type="number" step="any" value="${num(h.price)}" data-hpr="${h.id}"></div>
-          <div class="field"><label>Dividend / share <span class="muted" style="font-weight:400">each payment</span></label><input type="number" step="any" value="${num(h.divPerShare)||""}" placeholder="0.264" data-hdiv="${h.id}"></div>
-          <div class="field"><label>Pays${h.divFreqAuto?` <span class="muted" style="font-weight:400">· detected</span>`:""}</label>
-            <select data-hfreq="${h.id}">${Object.entries(DIV_FREQ).map(([v,o2])=>`<option value="${v}" ${(h.divFreq||"quarterly")===v?"selected":""}>${o2.label}</option>`).join("")}</select></div>
-          <div class="field"><label>Last payment${h.divFreqAuto?" (from data)":""}</label><input type="date" value="${esc(h.lastDiv||"")}" data-hlastdiv="${h.id}"></div>
+          <!-- dividends are the Projected dividends card's to edit; this editor
+               owns the position (shares, cost, price) and nothing else -->
         </div>`:""}
         <!-- the dividend breakdown lived here too; it is the Projected dividends
              card's job, which says the same thing with yield-on-cost besides -->
@@ -4528,11 +4560,6 @@ function renderInvest(){
   box.querySelectorAll("[data-htk]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.htk);if(h){h.ticker=e.currentTarget.value.trim().toUpperCase();saveAll();}});
   box.querySelectorAll("[data-hsh]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hsh);if(h){h.shares=num(e.currentTarget.value);saveAll();}});
   box.querySelectorAll("[data-hpr]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hpr);if(h){h.price=num(e.currentTarget.value);recordPrice(h);saveAll();}});
-  box.querySelectorAll("[data-hdiv]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hdiv);if(h){h.divPerShare=num(e.currentTarget.value);saveAll();}});
-  box.querySelectorAll("[data-hfreq]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hfreq);
-    if(h){h.divFreq=e.currentTarget.value; h.divFreqAuto=false; saveAll();}});
-  box.querySelectorAll("[data-hlastdiv]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hlastdiv);
-    if(h){h.lastDiv=e.currentTarget.value; saveAll();}});
   box.querySelectorAll("[data-hac]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.hac);if(h){h.avgCost=num(e.currentTarget.value);saveAll();}});
   box.querySelectorAll("[data-href]").forEach(b=>b.onclick=async e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.href);
     if(h&&await refreshHolding(h,document.getElementById("quoteStatus"))){recordPrice(h);saveAll();}});
@@ -4904,7 +4931,7 @@ const BIZ_KINDS={sole:{label:"Sole proprietor / 1099",note:"Schedule C on your p
   scorp:{label:"S corporation",note:"Files its own return and pays you a salary — the estimate here won't fit. Talk to a CPA."},
   partnership:{label:"Partnership / multi-member LLC",note:"Files its own return. This tool tracks the books, not the filing."},
   other:{label:"Other",note:""}};
-const BIZ_COLORS=["#0369a1","#7c3aed","#0891b2","#ea580c","#15a34a","#db2777"];
+const BIZ_COLORS=["#0284c7","#7c5cf0","#0891b2","#ea580c","#059669","#c026d3"];
 
 const bizList=()=>db.businesses||[];
 const bizOf=id=>bizList().find(b=>b.id===id)||null;
