@@ -23,7 +23,8 @@ await cards('COLLAPSED:');
 await p.click('.dcard:nth-child(3) .dtop'); await p.waitForTimeout(350);
 console.log('\nexpanded 3rd:', await p.evaluate(()=>({editing:document.querySelectorAll('.dcard.editing').length,
   fields:[...document.querySelectorAll('.dcard.editing .field label')].map(l=>l.textContent)})));
-// edit original
+// edit original — the debt fields live behind the Edit button now
+await p.evaluate(()=>{editDebtFields="d3";renderCredit();}); await p.waitForTimeout(300);
 await p.fill('[data-dstart="d3"]','30000'); await p.evaluate(()=>document.querySelector('[data-dstart="d3"]').dispatchEvent(new Event('change',{bubbles:true})));
 await p.waitForTimeout(400);
 console.log('after orig=30000:', await p.$eval('.dcard:nth-child(3) .dmeta',e=>e.textContent), '|', await p.$eval('.dcard:nth-child(3) .dof',e=>e.textContent));

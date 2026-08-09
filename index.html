@@ -4161,7 +4161,7 @@ function sparkline(points,w,h){
     <text x="${w-6}" y="${h-3}" font-size="10" fill="#68707d" text-anchor="end">${last.date.slice(2)}</text>
   </svg>`;
 }
-let payOpen=null,editDebt=null,histOpen=null;
+let payOpen=null,editDebt=null,histOpen=null,editDebtFields=null;
 function renderCredit(){
   const total=totalDebt(),start=db.debts.reduce((s,d)=>s+debtOrig(d),0);
   const paid=debtPaidLogged(),payN=debtPayCount(),lifetime=Math.max(0,start-total);
@@ -4223,7 +4223,7 @@ function renderCredit(){
       </div>`:""}
       ${editing?`
       <div class="dpanel">
-        <div class="formgrid">
+        ${editDebtFields===d.id?`<div class="formgrid">
           <div class="field"><label>Name</label><input value="${esc(d.name)}" data-dname="${d.id}"></div>
           <div class="field"><label>Type</label><select data-dkind="${d.id}">${kindOpts(d.kind)}</select></div>
           <div class="field"><label>Balance owed</label><input type="number" value="${bal}" data-dbal="${d.id}" ${acct?'title="This mirrors the linked account"':""}></div>
@@ -4231,7 +4231,7 @@ function renderCredit(){
           ${isCard?`<div class="field"><label>Credit limit</label><input type="number" value="${num(d.limit)||""}" data-dlim="${d.id}"></div>`:""}
           <div class="field"><label>APR %</label><input type="number" step="any" value="${num(d.apr)||""}" placeholder="7.9" data-dapr="${d.id}"></div>
           <div class="field"><label>Payment / mo</label><input type="number" value="${num(d.payment)||""}" placeholder="173" data-dpayamt="${d.id}"></div>
-        </div>
+        </div>`:""}
         ${(()=>{ const mo=payoffMonths(bal,d.apr,d.payment), po=payoffDateISO(bal,d.apr,d.payment);
           if(po)return `<div class="note" style="margin-top:12px;font-size:13px">Paying ${fmt(num(d.payment))}/mo${num(d.apr)?` at ${num(d.apr)}% APR`:""} clears this in about <b>${mo} month${mo===1?"":"s"}</b> — around <b>${esc(monthYear(po))}</b>.</div>`;
           if(mo===Infinity)return `<div class="note" style="margin-top:12px;font-size:13px;border-left-color:var(--warn)">At ${fmt(num(d.payment))}/mo the interest outruns the payment — this never clears. It needs more than ${fmt(bal*num(d.apr)/100/12)}/mo just to hold steady.</div>`;
@@ -4243,6 +4243,7 @@ function renderCredit(){
         <div class="toolbar" style="margin:12px 0 0">
           ${dbill?`<button class="btn sm ghost" data-dbillrm="${d.id}">Remove from budget</button>`
             :`<button class="btn sm" data-dbilladd="${d.id}">+ Add to budget</button>`}
+          <button class="btn sm${editDebtFields===d.id?" primary":""}" data-dfields="${d.id}">${editDebtFields===d.id?"Done":"Edit"}</button>
           ${pays.length?`<button class="btn sm" data-dhist="${d.id}">${histOpen===d.id?"Hide payments":`${pays.length} payment${pays.length===1?"":"s"}`}</button>`:""}
           <div class="spacer"></div>
           <button class="btn sm danger" data-ddel="${d.id}">Delete debt</button>
@@ -4260,10 +4261,12 @@ function renderCredit(){
   const dl=document.getElementById("debtList");
   dl.querySelectorAll("[data-dopen]").forEach(el=>el.onclick=e=>{
     if(e.target.closest("[data-dedit]"))return;
-    const id=el.dataset.dopen; editDebt=editDebt===id?null:id; payOpen=null; renderCredit();});
+    const id=el.dataset.dopen; editDebt=editDebt===id?null:id; payOpen=null; editDebtFields=null; renderCredit();});
+  dl.querySelectorAll("[data-dfields]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+    const id=e.currentTarget.dataset.dfields; editDebtFields=editDebtFields===id?null:id; renderCredit();});
   dl.querySelectorAll("[data-dedit]").forEach(b=>b.onclick=e=>{e.stopPropagation();
-    const id=b.dataset.dedit; editDebt=editDebt===id?null:id; payOpen=null; renderCredit();});
-  dl.querySelectorAll("[data-ddone]").forEach(b=>b.onclick=()=>{editDebt=null;histOpen=null;renderCredit();});
+    const id=b.dataset.dedit; editDebt=editDebt===id?null:id; payOpen=null; editDebtFields=null; renderCredit();});
+  dl.querySelectorAll("[data-ddone]").forEach(b=>b.onclick=()=>{editDebt=null;histOpen=null;editDebtFields=null;renderCredit();});
   dl.querySelectorAll("[data-dbal]").forEach(i=>i.onchange=e=>{const d=findDebt(e.currentTarget.dataset.dbal);if(d){d.balance=num(e.currentTarget.value);if(!num(d.start)||num(d.start)<d.balance)d.start=d.balance;mirror(d);saveAll();}});
   dl.querySelectorAll("[data-dstart]").forEach(i=>i.onchange=e=>{const d=findDebt(e.currentTarget.dataset.dstart);if(d){d.start=num(e.currentTarget.value);saveAll();}});
   dl.querySelectorAll("[data-dlim]").forEach(i=>i.onchange=e=>{const d=findDebt(e.currentTarget.dataset.dlim);if(d){d.limit=num(e.currentTarget.value);
@@ -4350,7 +4353,11 @@ function logDebtPayment(d,amt,date,alsoTx){
 }
 
 /* INVESTMENTS */
-let expHolding=null,expDiv=null,divOpen=false,editHolding=null;
+/* Rows open read-only and put their form behind an Edit button, so reading a
+   position is not the same act as changing it. Only panels with something to
+   READ carry the gate — a pure form (a budget envelope, an account) would
+   gain a tap and show a blank step. */
+let expHolding=null,expDiv=null,divOpen=false,editHolding=null,editDiv=null;
 /* A stale price looks exactly like a fresh one, which is how "why aren't my
    tickers updating?" becomes a mystery instead of a glance. Only speaks up
    when there is something to say. */
@@ -4411,13 +4418,8 @@ function renderInvest(){
             <select data-hfreq="${h.id}">${Object.entries(DIV_FREQ).map(([v,o2])=>`<option value="${v}" ${(h.divFreq||"quarterly")===v?"selected":""}>${o2.label}</option>`).join("")}</select></div>
           <div class="field"><label>Last payment${h.divFreqAuto?" (from data)":""}</label><input type="date" value="${esc(h.lastDiv||"")}" data-hlastdiv="${h.id}"></div>
         </div>`:""}
-        ${(()=>{ if(!num(h.divPerShare))return "";
-          const f=divFreqOf(h), yr=divAnnualFor(h), per=divPerPayment(h), nx=nextDivDate(h);
-          return `<div class="note" style="margin-top:12px">
-            ${f.n?`<b>${fmtPS(h.divPerShare)}</b> per share every ${f.every} × <b>${f.n}</b> a year = <b>${fmtPS(divAnnualPerShare(h))}</b> per share annually`
-                 :`<b>${fmtPS(h.divPerShare)}</b> per share a year (paid irregularly)`}${num(h.divYield)?` · ${(num(h.divYield)*100).toFixed(2)}% yield`:""}.
-            <br>On ${shares} share${shares===1?"":"s"}: ${f.n?`<b>${fmt2(per)}</b> per payment, `:""}<b>${fmt2(yr)}</b>/yr, averaging <b>${fmt2(yr/12)}</b>/mo.
-            ${f.n?(nx?`<br>Next payment expected around <b>${esc(shortDate(nx))}</b>.`:`<br><span class="muted">Set a <b>last payment</b> date and the schedule fills in below.</span>`):""}</div>`;})()}
+        <!-- the dividend breakdown lived here too; it is the Projected dividends
+             card's job, which says the same thing with yield-on-cost besides -->
         <div class="toolbar" style="margin:14px 0 0">
           <button class="btn sm${editHolding===h.id?" primary":""}" data-hedit="${h.id}">${editHolding===h.id?"Done":"Edit"}</button>
           <button class="btn sm" data-href="${h.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>Refresh price</button>
@@ -4479,13 +4481,13 @@ function renderInvest(){
                 <div class="hstat"><div class="k">Each payment</div><div class="v">${f.n?fmt2(each):"—"}</div></div>
                 <div class="hstat"><div class="k">Monthly average</div><div class="v">${fmt2(annual/12)}</div></div>
               </div>
-              <div class="formgrid">
+              ${editDiv===h.id?`<div class="formgrid">
                 <div class="field"><label>Dividend / share <span class="muted" style="font-weight:400">each payment</span></label>
                   <input type="number" step="any" value="${num(h.divPerShare)||""}" placeholder="0.264" data-xdiv="${h.id}"></div>
                 <div class="field"><label>Pays${h.divFreqAuto?` <span class="muted" style="font-weight:400">· detected</span>`:""}</label>
                   <select data-xfreq="${h.id}">${Object.entries(DIV_FREQ).map(([v,o2])=>`<option value="${v}" ${(h.divFreq||"quarterly")===v?"selected":""}>${o2.label}</option>`).join("")}</select></div>
                 <div class="field"><label>Last payment</label><input type="date" value="${esc(h.lastDiv||"")}" data-xlast="${h.id}"></div>
-              </div>
+              </div>`:""}
               <div class="note" style="margin-top:12px;font-size:13px">
                 ${f.n?`<b>${fmtPS(h.divPerShare)}</b> per share every ${f.every} × <b>${f.n}</b> a year = <b>${fmtPS(aps)}</b> per share annually.`
                      :`<b>${fmtPS(h.divPerShare)}</b> per share a year, paid irregularly.`}
@@ -4493,6 +4495,7 @@ function renderInvest(){
                 ${f.n?(nx?` Next expected around <b>${esc(shortDate(nx))}</b>.`:` <span class="muted">Add a last payment date to project the schedule.</span>`):""}
               </div>
               <div class="toolbar" style="margin:12px 0 0">
+                <button class="btn sm${editDiv===h.id?" primary":""}" data-xedit="${h.id}">${editDiv===h.id?"Done":"Edit"}</button>
                 <button class="btn sm" data-xref="${h.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>Refresh from ${esc(h.ticker||"ticker")}</button>
                 <div class="spacer"></div>
                 <button class="btn sm primary" data-xdone="1">Done</button>
@@ -4509,10 +4512,12 @@ function renderInvest(){
     if(dt)dt.onclick=()=>{divOpen=!divOpen;setPref("divOpen",divOpen);renderInvest();};
     projEl.querySelectorAll("[data-divopen]").forEach(el=>el.onclick=e=>{
       if(e.target.closest("[data-divedit]"))return;
-      const id=el.dataset.divopen; expDiv=expDiv===id?null:id; renderInvest();});
+      const id=el.dataset.divopen; expDiv=expDiv===id?null:id; editDiv=null; renderInvest();});
+    projEl.querySelectorAll("[data-xedit]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+      const id=e.currentTarget.dataset.xedit; editDiv=editDiv===id?null:id; renderInvest();});
     projEl.querySelectorAll("[data-divedit]").forEach(b=>b.onclick=e=>{e.stopPropagation();
-      const id=b.dataset.divedit; expDiv=expDiv===id?null:id; renderInvest();});
-    projEl.querySelectorAll("[data-xdone]").forEach(b=>b.onclick=()=>{expDiv=null;renderInvest();});
+      const id=b.dataset.divedit; expDiv=expDiv===id?null:id; editDiv=null; renderInvest();});
+    projEl.querySelectorAll("[data-xdone]").forEach(b=>b.onclick=()=>{expDiv=null;editDiv=null;renderInvest();});
     projEl.querySelectorAll("[data-xdiv]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.xdiv);
       if(h){h.divPerShare=num(e.currentTarget.value);h.divBasis="payment";saveAll();}});
     projEl.querySelectorAll("[data-xfreq]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.xfreq);

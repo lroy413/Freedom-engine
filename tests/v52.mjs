@@ -48,7 +48,9 @@ console.log(await p.$$eval('#divUpcoming .upitem',e=>e.map(x=>'  '+x.querySelect
 await p.evaluate(()=>{expHolding="h2";editHolding="h2";renderInvest();}); await p.waitForTimeout(400);
 await p.selectOption('[data-hfreq="h2"]','semiannual'); await p.waitForTimeout(500);
 console.log('\nafter manual override to semiannual:', await p.evaluate(()=>({freq:db.holdings[1].divFreq,auto:db.holdings[1].divFreqAuto})));
-console.log('note:', await p.$eval('.hdetail .note',e=>e.textContent.trim().replace(/\s+/g,' ')));
+/* the breakdown lives only in the Projected dividends card now */
+await p.evaluate(()=>{divOpen=true;expDiv="h2";renderInvest();}); await p.waitForTimeout(400);
+console.log('note:', await p.$eval('#divProjected .bpanel .note',e=>e.textContent.trim().replace(/\s+/g,' ')));
 await p.evaluate(()=>{expHolding=null;renderInvest();}); await p.waitForTimeout(400);
 await p.screenshot({path:'/home/claude/divfreq.png',fullPage:true});
 console.log('\nERRORS:',errs.length?errs:'none');

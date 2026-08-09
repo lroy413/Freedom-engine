@@ -31,7 +31,11 @@ console.log('\nafter a second load (no double conversion):', await p.evaluate(()
 /* editHolding too: a holding opens read-only and the fields sit behind Edit */
 await p.evaluate(()=>{setView('invest');expHolding="h1";editHolding="h1";renderInvest();}); await p.waitForTimeout(600);
 console.log('\nfield label:', await p.$$eval('.hdetail .field label',e=>e.map(l=>l.textContent.trim())));
-console.log('note:', await p.$eval('.hdetail .note',e=>e.textContent.trim().replace(/\s+/g,' ')));
+/* the breakdown lives only in the Projected dividends card now */
+console.log('note:', await p.evaluate(()=>{divOpen=true;expDiv="h1";renderInvest();
+  const n=document.querySelector('#divProjected .bpanel .note');
+  expDiv=null;renderInvest();
+  return n?n.textContent.trim().replace(/\s+/g,' '):'(none)';}));
 // change frequency -> annual figure must move, per-payment must stay
 await p.selectOption('[data-hfreq="h1"]','quarterly'); await p.waitForTimeout(600);
 console.log('\nswitched O to quarterly:', await p.evaluate(()=>({perShare:db.holdings[0].divPerShare,

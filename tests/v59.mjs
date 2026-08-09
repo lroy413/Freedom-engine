@@ -35,7 +35,8 @@ console.log('  stats:', await p.$$eval('#divProjected .bpanel .hstat',e=>e.map(x
 console.log('  fields:', await p.$$eval('#divProjected .bpanel .field label',e=>e.map(l=>l.textContent.trim().replace(/\s+/g,' '))));
 console.log('  note:', await p.$eval('#divProjected .bpanel .note',e=>e.textContent.trim().replace(/\s+/g,' ')));
 console.log('  (yield now = 0.264×12 ÷ 58 = 5.46% · on cost ÷52 = 6.09%)');
-// edit through the dividend-only card
+// edit through the dividend-only card — fields sit behind Edit now
+await p.evaluate(()=>{editDiv="h1";renderInvest();}); await p.waitForTimeout(300);
 await p.fill('[data-xdiv="h1"]','0.27'); await p.evaluate(()=>document.querySelector('[data-xdiv="h1"]').dispatchEvent(new Event('change',{bubbles:true})));
 await p.waitForTimeout(600);
 console.log('\nafter typing 0.27:', await p.evaluate(()=>({stored:db.holdings[0].divPerShare,
