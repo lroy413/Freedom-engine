@@ -108,6 +108,31 @@ chk('backup leaks no credentials',bk.leaksToken,false);
 chk('credentials live in their own key',
   await p.evaluate(()=>Object.keys(localStorage).includes('fe_sync_v1')||!localStorage.getItem('moneymachine_v1').includes('github_pat')),true);
 
+console.log('\n— income typed in Spending is actual income too —');
+const ai=await p.evaluate(()=>{
+  const rel=n=>{const d=dayOf(todayISO());d.setDate(d.getDate()+n);return isoOf(d);};
+  const mk=monthKey(todayISO());
+  db.paychecks=[{id:"ap",date:rel(-4),source:"Ozark Law",gross:2100,net:1720}];
+  db.transactions=[
+    {id:"ai1",date:rel(-2),desc:"Cash gig",amount:800,category:"Income"},
+    {id:"ai2",date:rel(-1),desc:"Kroger",amount:-60,category:"Groceries"},
+    {id:"ai3",date:rel(-3),desc:"Moved money",amount:500,category:"Transfer"},
+    {id:"ai4",date:rel(-5),desc:"Rent refund",amount:75,category:"Rent/Mortgage",billRef:"b1|"+mk}];
+  saveAll();
+  const es=actualIncomeEntries();
+  return {kinds:es.map(e=>e.kind).join(","),
+    names:es.map(e=>e.source),
+    received:Math.round(actualIncomeIn(mk)),
+    excludesTransfer:!es.some(e=>e.source==="Moved money"),
+    excludesSpend:!es.some(e=>e.source==="Kroger"),
+    excludesBillRefund:!es.some(e=>e.source==="Rent refund")};});
+chk('a cash gig typed in Spending shows as income',ai.names.includes("Cash gig"),true);
+chk('  beside the logged paycheck',ai.names.includes("Ozark Law"),true);
+chk('received counts both',ai.received,2520);
+chk('a transfer is not income',ai.excludesTransfer,true);
+chk('nor is a purchase',ai.excludesSpend,true);
+chk('nor is money coming back off a bill',ai.excludesBillRefund,true);
+
 console.log('\n— rollover is a share, not a switch —');
 const rl=await p.evaluate(()=>{
   const relM=n=>{const d=dayOf(todayISO());d.setDate(1);d.setMonth(d.getMonth()+n);return monthOf(d);};

@@ -471,6 +471,9 @@
   .hweight{font-size:11px;font-weight:600;color:var(--muted);text-align:center;
     font-variant-numeric:tabular-nums;letter-spacing:.01em}
   .qstale{color:var(--warn-ink);font-weight:600;font-size:12px;margin-top:2px}
+  /* marks an entry that lives as a transaction, so it is clear why this one
+     opens Spending rather than an editor here */
+  .tagline{color:var(--accent-ink);font-weight:620}
   .hmain{flex:1;min-width:0}
   .hspark{width:120px;height:38px;flex:none}
   .hbadge{flex:none;min-width:96px;text-align:center;padding:8px 12px;border-radius:8px;font-size:15px;font-weight:670;font-variant-numeric:tabular-nums}
@@ -1399,9 +1402,9 @@
     <div class="sectiontitle"><h2>Your streams</h2><span class="spacer"></span><button class="btn sm primary" id="addIncomeBtn">+ Stream</button></div>
     <div class="stack rowcard" id="incomeList"></div>
 
-    <div class="sectiontitle"><h2>Actual paychecks</h2><span class="hint">what really landed</span><span class="spacer"></span>
+    <div class="sectiontitle"><h2>Actual income</h2><span class="hint">what really landed, from a stub or typed in Spending</span><span class="spacer"></span>
       <span class="flex" style="gap:8px"><button class="btn sm ghost" id="scanStubBtn"><span class="lgonly">Scan / paste a stub</span><span class="smonly">Scan stub</span></button>
-      <button class="btn sm primary" id="showAddPaycheck">+ Paycheck</button></span></div>
+      <button class="btn sm primary" id="showAddPaycheck">+ Income</button></span></div>
     <div class="card pad" id="stubPanel" style="display:none;margin-bottom:14px"></div>
     <div class="card pad" id="paycheckBox"></div>
   </section>
@@ -3586,14 +3589,45 @@ function renderIncomeEditor(id){
 }
 
 /* ACTUAL PAYCHECKS */
+/* Not all income is a paycheck. A gig paid in cash, a royalty, a reimbursement
+   typed straight into Spending is money that actually landed, and it belongs
+   beside the stubs rather than in a different screen. Paychecks stay editable
+   here; a transaction is edited where it lives, so its row links to Spending. */
+function actualIncomeEntries(){
+  const fromPay=(db.paychecks||[]).map(p=>({kind:"pay",id:p.id,date:p.date,
+    source:p.source||"Paycheck",gross:num(p.gross),net:num(p.net)||num(p.gross),ref:p}));
+  /* a bill refund is money coming back, not income — billRef marks those */
+  const fromTx=(db.transactions||[]).filter(t=>num(t.amount)>0&&!isNeutral(t)&&!t.billRef)
+    .map(t=>({kind:"tx",id:t.id,date:t.date,source:t.desc||t.category||"Income",
+      gross:0,net:personalAmt(t),ref:t}));
+  return fromPay.concat(fromTx).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+}
+const actualIncomeIn=mk=>actualIncomeEntries().filter(e=>monthKey(e.date)===mk)
+  .reduce((s,e)=>s+num(e.net),0);
 function renderPaychecks(){
   const box=document.getElementById("paycheckBox"); if(!box)return;
   const mk=monthKey(todayISO());
-  const tm=db.paychecks.filter(p=>monthKey(p.date)===mk);
-  const gross=tm.reduce((s,p)=>s+num(p.gross),0), net=tm.reduce((s,p)=>s+num(p.net),0), est=monthlyIncomeEstimate();
-  const list=[...db.paychecks].sort((a,b)=>b.date.localeCompare(a.date));
+  const all=actualIncomeEntries();
+  const tm=all.filter(e=>monthKey(e.date)===mk);
+  const gross=tm.reduce((s,e)=>s+num(e.gross),0), net=tm.reduce((s,e)=>s+num(e.net),0);
+  const est=monthlyIncomeEstimate();
+  const fromSpending=tm.filter(e=>e.kind==="tx").length;
+  const list=all;
   const thisYear=todayISO().slice(0,4);
-  const row=p=>{ const editing=editPay===p.id, g=num(p.gross), n=num(p.net);
+  const row=e0=>{
+    if(e0.kind==="tx"){
+      const t=e0.ref;
+      return `<div class="brow">
+        <div class="bmain" data-txjump="${esc(t.id)}">
+          <div class="binfo">
+            <div class="bname">${esc(e0.source)}</div>
+            <div class="bmeta">${esc(shortDate(e0.date))} · <span class="tagline">from Spending</span>${t.category?" · "+esc(t.category):""}</div>
+          </div>
+          <div class="bamt roll pos">${fmt(num(e0.net))}<em>logged</em></div>
+        </div>
+      </div>`;
+    }
+    const p=e0.ref; const editing=editPay===p.id, g=num(p.gross), n=num(p.net);
     const withheld=g>0&&n>0?g-n:0;
     return `<div class="brow${editing?" editing":""}">
       <div class="bmain" data-payopen="${p.id}">
@@ -3622,12 +3656,12 @@ function renderPaychecks(){
     </div>`; };
   box.innerHTML=`
    <div class="grid kpis" style="margin-bottom:14px">
-     <div class="card kpi"><div class="label">Received this month</div><div class="val pos">${fmt(net)}</div><div class="sub">${tm.length} paycheck${tm.length===1?"":"s"} · net</div></div>
-     <div class="card kpi"><div class="label">Gross this month</div><div class="val">${fmt(gross)}</div><div class="sub">before taxes</div></div>
+     <div class="card kpi"><div class="label">Received this month</div><div class="val pos">${fmt(net)}</div><div class="sub">${tm.length} entr${tm.length===1?"y":"ies"}${fromSpending?` · ${fromSpending} from Spending`:""}</div></div>
+     <div class="card kpi"><div class="label">Gross this month</div><div class="val">${fmt(gross)}</div><div class="sub">${gross>0?"before taxes · from stubs":"no stubs logged"}</div></div>
      <div class="card kpi"><div class="label">Estimated (gross)</div><div class="val">${fmt(est)}</div><div class="sub">from your streams</div></div>
    </div>
    ${list.length?`<div class="paylist ${list.length>5?"scrollrows bills":""}">${list.map(row).join("")}</div>`
-     :`<div class="empty" style="padding:20px">No paychecks logged yet — hit <b>+ Paycheck</b>, or scan a stub.</div>`}
+     :`<div class="empty" style="padding:20px">Nothing logged yet — hit <b>+ Income</b>, scan a stub, or add income on the Spending screen and it lands here too.</div>`}
    <div id="addPayPanel" style="display:${addPayOpen?"block":"none"};border-top:1px solid var(--line);margin-top:14px;padding-top:14px">
      <div class="formgrid">
        <div class="field"><label>Date</label><input id="pc-date" type="date" value="${todayISO()}"></div>
@@ -3643,6 +3677,15 @@ function renderPaychecks(){
     pl.querySelectorAll("[data-payopen]").forEach(el=>el.onclick=e=>{
       if(e.target.closest("[data-payedit]"))return;
       const id=el.dataset.payopen; editPay=editPay===id?null:id; renderPaychecks();});
+    /* a transaction is edited where it lives — send them there with it found */
+    pl.querySelectorAll("[data-txjump]").forEach(el=>el.onclick=e=>{
+      const t=db.transactions.find(x=>x.id===el.dataset.txjump); if(!t)return;
+      const q=document.getElementById("txSearch"); if(q)q.value=t.desc||"";
+      txFilter.dir="in";
+      /* the filter chrome is driven by its own controls, so move it too or the
+         list would filter to money-in while the picker still says "all" */
+      const d=document.getElementById("f-dir"); if(d)d.value="in";
+      setView("expenses"); renderTx();});
     pl.querySelectorAll("[data-payedit]").forEach(b=>b.onclick=e=>{e.stopPropagation();
       const id=b.dataset.payedit; editPay=editPay===id?null:id; renderPaychecks();});
     pl.querySelectorAll("[data-paydone]").forEach(b=>b.onclick=()=>{editPay=null;renderPaychecks();});
@@ -6113,7 +6156,7 @@ function renderTax(){
           <div class="bmeta">${esc(shortDate(r.date))}${r.auto?" · automatic":""}${r.note&&r.source?" · "+esc(r.note):""}</div></div>
         <div class="bamt">${fmt(r.amount)}</div>
         <button class="btn ghost sm" data-trdel="${r.id}" style="flex:none">&#10005;</button></div></div>`).join("")}
-    </div>`:`<div class="empty" style="padding:22px 16px">Nothing set aside yet. Log a 1099 paycheck and the reserve fills itself.</div>`}`;
+    </div>`:`<div class="empty" style="padding:22px 16px">Nothing set aside yet. Log 1099 income and the reserve fills itself.</div>`}`;
   document.querySelectorAll("[data-trdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{
     db.tax.reserve=db.tax.reserve.filter(r=>r.id!==b.dataset.trdel); saveAll();}));
   document.querySelectorAll("[data-txpdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{
