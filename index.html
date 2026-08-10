@@ -1034,6 +1034,38 @@
     box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 16px 38px -20px rgba(5,150,105,.75)}
   .dashhero::after{content:"";position:absolute;right:-80px;top:-120px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.09)}
   .dashhero::before{content:"";position:absolute;right:120px;bottom:-150px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.06)}
+  /* ---------- the treeline (see TREELINE) ----------
+     Sits behind everything: the hero's own content is all z-index:1. Faint
+     enough to read as texture in the gradient rather than as an illustration
+     competing with a net-worth figure. */
+  /* Height is held near the viewBox's own proportions on purpose. "slice" fits
+     by covering, so a short wide drawing in a tall box gets magnified and
+     cropped to a fraction of its width — which is how a wood becomes six large
+     trees. At this height the scale is about 1:1 and the whole wood shows. */
+  .treeline{position:absolute;left:0;right:0;bottom:0;width:100%;height:clamp(96px,26%,150px);
+    z-index:0;pointer-events:none;color:#fff;
+    /* fades out upward, so there is no hard canopy edge halfway up the card —
+       this is the difference between texture and a picture of some trees */
+    -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 62%);
+    mask-image:linear-gradient(180deg,transparent 0%,#000 62%)}
+  .treeline g{fill:currentColor}
+  .tl-far{opacity:.065}
+  .tl-mid{opacity:.085}
+  .tl-near{opacity:.11}
+  /* rotate each trunk about its own base — fill-box means no origin maths, and
+     a transform is composited, so the wind costs no repaints */
+  .tsway{transform-box:fill-box;transform-origin:50% 100%;
+    animation:tsway var(--d,14s) ease-in-out var(--del,0s) infinite alternate}
+  @keyframes tsway{
+    from{transform:rotate(calc(var(--a,.7deg) * -1))}
+    to{transform:rotate(var(--a,.7deg))}
+  }
+  /* the light hero is a saturated emerald and the trees can afford to be
+     darker there than white; on the dark themes white is what reads */
+  html[data-theme="light"] .treeline{color:#022c22}
+  html[data-theme="light"] .tl-far{opacity:.06}
+  html[data-theme="light"] .tl-mid{opacity:.08}
+  html[data-theme="light"] .tl-near{opacity:.11}
   .dh-top{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
   .dh-greet{font-size:13px;font-weight:600;opacity:.82}
   .dh-col{min-width:0;display:flex;flex-direction:column;align-items:flex-start}
@@ -1304,6 +1336,8 @@
     .bmeta{white-space:normal;overflow:visible;text-overflow:clip;flex-wrap:wrap;row-gap:1px}
   }
   @media(prefers-reduced-motion:reduce){
+    /* the wood stays, the wind stops */
+    .tsway{animation:none}
     .bar span,.gbar>span,.bprog span,.dh-rtrack .jfill{animation:none}
     .jyou::after{animation:none;opacity:0}
     /* the nav keeps its glass but stops moving — a bar that resizes under a
@@ -1792,6 +1826,11 @@
       <div class="card pad between" style="flex-wrap:wrap;gap:12px">
         <div><div style="font-size:15px;font-weight:620">Theme</div><div class="muted" style="font-size:13px">Auto follows your phone or computer's setting.</div></div>
         <div class="themeseg"><button data-theme-btn="light">Light</button><button data-theme-btn="auto">Auto</button><button data-theme-btn="dark">Dark</button><button data-theme-btn="bushido">Bushido</button></div>
+      </div>
+      <div class="card pad" style="margin-top:12px">
+        <label class="flex" style="gap:10px;font-size:15px;align-items:flex-start">
+          <input type="checkbox" id="setTrees" style="margin-top:3px">
+          <span>Trees on the home card <span class="muted" style="font-size:13px">a faint treeline along the road, moving the way a still afternoon moves one. It already holds still if your device asks for reduced motion.</span></span></label>
       </div>
     </div>
 
@@ -3200,6 +3239,57 @@ function wireHero(n){
         if(nx!==heroIdx){ heroIdx=nx; tr.scrollTo({left:nx*tr.clientWidth,behavior:"smooth"}); } }});
   }
 }
+/* A treeline along the bottom of the hero, moving the way a still afternoon
+   moves one. The app's whole shape is a road going somewhere, so what lines it
+   is the one decoration that means something rather than filling space.
+
+   Built once at boot from a fixed seed, not Math.random, so the same forest is
+   drawn on every render and every reload — a wood that reshuffles itself when
+   you save a transaction would be worse than no wood at all.
+
+   The sway is a rotation about each trunk's base, so cost is a composited
+   transform and nothing repaints. Amplitude is under a degree: on a 40px tree
+   the crown travels about half a pixel, which is why the hero re-rendering (and
+   restarting the animation) is not something you can see. */
+const TREELINE=(()=>{
+  let s=20260810;                                   // fixed seed: same wood, always
+  const rnd=()=>{s=(s*1103515245+12345)&0x7fffffff; return s/0x7fffffff;};
+  const rr=(a,b)=>a+rnd()*(b-a);
+  const W=400,H=150,GROUND=132;
+  /* a canopy is overlapping blobs rather than one shape — the ragged edge is
+     what reads as foliage at this size */
+  const tree=(x,scale,tone)=>{
+    const h=rr(26,40)*scale, tw=Math.max(1.1,1.9*scale);
+    const cy=GROUND-h, cr=rr(11,15)*scale;
+    let blobs="";
+    const n=Math.round(rr(4,6));
+    for(let i=0;i<n;i++){
+      const a=(i/n)*Math.PI*2+rnd()*0.7;
+      const d=cr*rr(.28,.62);
+      blobs+=`<ellipse cx="${(x+Math.cos(a)*d).toFixed(1)}" cy="${(cy+Math.sin(a)*d*.72).toFixed(1)}" rx="${(cr*rr(.52,.8)).toFixed(1)}" ry="${(cr*rr(.46,.72)).toFixed(1)}"/>`;
+    }
+    blobs+=`<ellipse cx="${x.toFixed(1)}" cy="${cy.toFixed(1)}" rx="${(cr*.86).toFixed(1)}" ry="${(cr*.78).toFixed(1)}"/>`;
+    const dur=rr(9,17).toFixed(1), del=(-rnd()*17).toFixed(1), amp=(rr(.45,.95)*tone).toFixed(2);
+    return `<g class="tsway" style="--d:${dur}s;--del:${del}s;--a:${amp}deg">
+      <path d="M${(x-tw).toFixed(1)},${GROUND} L${(x-tw*.42).toFixed(1)},${cy.toFixed(1)} L${(x+tw*.42).toFixed(1)},${cy.toFixed(1)} L${(x+tw).toFixed(1)},${GROUND} Z"/>
+      ${blobs}</g>`;
+  };
+  const band=(cls,count,scale,tone)=>{
+    let out="";
+    for(let i=0;i<count;i++) out+=tree(rr(-10,W+10),scale*rr(.82,1.18),tone);
+    return `<g class="${cls}">${out}</g>`;
+  };
+  /* three depths: the far band is small and barely there, the near one frames
+     the edges. Parallax without a scroll listener. */
+  /* Dense and small: a few big trees read as an illustration of trees, a lot of
+     small ones read as a wood, and a wood is what stays out of the way of a
+     net-worth figure. */
+  return `<svg class="treeline" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+    ${band("tl-far",26,.42,.7)}
+    ${band("tl-mid",16,.60,1)}
+    ${band("tl-near",8,.86,1.25)}
+  </svg>`;
+})();
 function renderDashHero(){
   const el=document.getElementById("dashHero"); if(!el)return;
   const snaps=(db.snapshots||[]).slice().sort((a,b)=>a.m.localeCompare(b.m));
@@ -3307,6 +3397,7 @@ function renderDashHero(){
   const gp=heroGoal?goalPct(heroGoal):null;
   const sts=safeToSpend();
   const personal=`<div class="dashhero${nw<0?" below":""}">
+    ${db.settings.trees===false?"":TREELINE}
     <div class="dh-top">
       <div class="dh-col">
         <div class="dh-greet">${esc(when)}</div>
@@ -7394,6 +7485,8 @@ document.getElementById("addCatBtn").addEventListener("click",()=>{const i=docum
   db.categories.splice(Math.max(0,db.categories.length-1),0,v); i.value=""; saveAll();});
 document.querySelectorAll("[data-theme-btn]").forEach(b=>b.addEventListener("click",e=>{
   db.settings.theme=e.currentTarget.dataset.themeBtn; syncTheme(); saveAll(); }));
+{const t=document.getElementById("setTrees");
+ if(t)t.addEventListener("change",e=>{db.settings.trees=e.target.checked;saveAll();});}
 document.getElementById("syncPush").addEventListener("click",doPush);
 document.getElementById("syncPull").addEventListener("click",()=>doPull(false));
 document.getElementById("syncToggle").addEventListener("click",e=>{const s=document.getElementById("syncSetup");
@@ -7950,6 +8043,7 @@ function syncTheme(){
   CH.surface=cssVar("--card","#fff"); CH.grid=cssVar("--grid","#edeef2");
   CH.axis=cssVar("--muted","#9195a1"); CH.ink=cssVar("--ink","#16181f");
   document.querySelectorAll("[data-theme-btn]").forEach(b=>b.classList.toggle("on",b.dataset.themeBtn===mode));
+  const tb=document.getElementById("setTrees"); if(tb)tb.checked=db.settings.trees!==false;
 }
 function niceStep(raw){ if(!(raw>0))return 1;
   const mag=Math.pow(10,Math.floor(Math.log10(raw))), n=raw/mag;
