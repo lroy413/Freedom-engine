@@ -43,9 +43,14 @@ console.log('control font sizes on touch:', await p.evaluate(()=>{
 await p.evaluate(()=>setView('expenses')); await p.waitForTimeout(600);
 await p.evaluate(()=>{db.transactions=[{id:"t1",date:monthOf(todayISO())+"-05",desc:"Kroger",category:"Food",amount:-30}];saveAll();});
 await p.waitForTimeout(500);
-console.log('tx table inputs:', await p.evaluate(()=>{
+/* the transaction editors moved into the sheet the row opens — check the sizes
+   where they actually live now */
+await p.click('[data-txopen="t1"]'); await p.waitForTimeout(400);
+console.log('tx editor inputs:', await p.evaluate(()=>{
   const pick=s=>{const el=document.querySelector(s); return el?getComputedStyle(el).fontSize:null;};
-  return {catsel:pick('.catsel'),txdesc:pick('.txdesc'),txamt:pick('.txamt')};}));
+  return {date:pick('#tx-date'),desc:pick('#tx-desc'),amt:pick('#tx-amt'),cat:pick('#tx-cat')};}));
+await p.evaluate(()=>closeEditor()); await p.waitForTimeout(300);
+console.log('search box:', await p.evaluate(()=>getComputedStyle(document.getElementById('txSearch')).fontSize));
 // overflow with 16px controls
 for(const v of ['dash','budget','expenses','tax','income']){
   await p.evaluate(x=>setView(x),v); await p.waitForTimeout(450);

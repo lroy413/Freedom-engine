@@ -553,6 +553,55 @@ chk('an envelope bar carries its own category colour',catbar.matchesDot,true);
 chk('  so two envelopes no longer look identical',catbar.distinct,catbar.n);
 await p.evaluate(()=>{db.settings.theme="light";syncTheme();});
 
+console.log('\n— a transaction is a line you read, not five controls —');
+chk('a bank name is cut to who, what and the last four',
+  await p.evaluate(()=>shortAcctName("Navy Federal Credit Union EveryDay Checking - 9292 (9292)")),
+  "Navy Federal Checking ···9292");
+chk('  the type comes along so two accounts stay apart',
+  await p.evaluate(()=>shortAcctName("Navy Federal Credit Union Used Vehicle Loan - 5344 (5344)")),
+  "Navy Federal Loan ···5344");
+chk('  a name already short is left alone',await p.evaluate(()=>shortAcctName("Cash")),"Cash");
+chk('  and one worth keeping whole is kept whole',
+  await p.evaluate(()=>shortAcctName("Bank of America Advantage Checking 1234567")),
+  "Bank of America Checking ···4567");
+chk('this year drops the year',await p.evaluate(()=>txDate(todayISO().slice(0,4)+"-07-27")),'Jul 27');
+chk('  another year keeps it',await p.evaluate(()=>txDate("2025-12-30")),"Dec 30 '25");
+await p.evaluate(()=>{
+  db.accounts=[{id:"xa",name:"Navy Federal Credit Union EveryDay Checking - 9292 (9292)",kind:"checking",value:100}];
+  db.transactions=[{id:"z1",date:todayISO(),desc:"Kroger",category:"Groceries",amount:-120,acctId:"xa"},
+    {id:"z2",date:todayISO(),desc:"A very long merchant description that runs on",category:"Shopping",amount:-40,acctId:"xa"},
+    {id:"z3",date:todayISO(),desc:"Paycheck",category:"Income",amount:2400,acctId:"xa"}];
+  Object.assign(txFilter,{acct:"all",cat:"all",when:"all",dir:"all",min:"",max:"",sort:"new"});
+  const q=document.getElementById('txSearch'); if(q)q.value="";
+  saveAll(); setView('expenses');});
+await p.waitForTimeout(500);
+const tx=await p.evaluate(()=>{
+  const rows=[...document.querySelectorAll('#txTable .trow')];
+  return {n:rows.length,
+    inputs:document.querySelectorAll('#txTable input,#txTable select').length,
+    /* the last row drops its divider by design, so allow that 1px */
+    heights:(hs=>Math.max.apply(null,hs)-Math.min.apply(null,hs))(rows.map(r=>Math.round(r.getBoundingClientRect().height))),
+    firstMeta:rows[0].querySelector('.tmeta').textContent,
+    dotted:rows.every(r=>!!r.querySelector('.tdot')),
+    /* a row that overflows its card is the thing that made this list look messy */
+    overflow:rows.some(r=>r.scrollWidth>r.clientWidth+1)};});
+chk('rows carry no inline controls at all',tx.inputs,0);
+chk('  so every row is the same height',tx.heights<=1,true);
+chk('  none of them overflowing',tx.overflow,false);
+chk('the meta reads category, then where it came from',tx.firstMeta,'Groceries · Navy Federal Checking ···9292');
+chk('  each with the category colour beside it',tx.dotted,true);
+await p.click('[data-txopen="z2"]'); await p.waitForTimeout(350);
+chk('tapping a row opens its editor',await p.$eval('#editTitle',e=>e.textContent),
+  'A very long merchant description that runs on');
+chk('  showing the full account name the list had to cut',
+  await p.evaluate(()=>/Navy Federal Credit Union EveryDay Checking/.test(document.getElementById('editSheetBody').textContent)),true);
+await p.selectOption('#tx-cat','Groceries'); await p.waitForTimeout(350);
+chk('  and correcting the category still teaches a rule',
+  await p.evaluate(()=>db.rules.some(r=>r.c==='Groceries'&&/merchant|very|long/.test(r.m))),true);
+await p.evaluate(()=>closeEditor()); await p.waitForTimeout(300);
+chk('delete-everything is off the main row',
+  await p.evaluate(()=>!!document.querySelector('#txMoreMenu #clearTxBtn')&&document.getElementById('txMoreMenu').hidden),true);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
 await b.close();

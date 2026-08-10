@@ -41,17 +41,22 @@ await p.evaluate(()=>{db.transactions.find(t=>t.id==="t5").category="Transfer";s
 
 // ---- editable date ----
 await p.evaluate(()=>setView('expenses')); await p.waitForTimeout(600);
-console.log('\ninline editors present:', await p.evaluate(()=>({
-  dates:document.querySelectorAll('[data-txdate]').length,
-  descs:document.querySelectorAll('[data-txdesc]').length,
-  amts:document.querySelectorAll('[data-txamt]').length})));
-await p.fill('[data-txdate="t1"]','2026-06-03'); await p.evaluate(()=>document.querySelector('[data-txdate="t1"]').dispatchEvent(new Event('change',{bubbles:true})));
+/* the row is a line you read now — the editors live in the sheet it opens */
+console.log('\nrows are read-only lines:', await p.evaluate(()=>({
+  rows:document.querySelectorAll('#txTable .trow').length,
+  inlineInputs:document.querySelectorAll('#txTable input,#txTable select').length})));
+await p.click('[data-txopen="t1"]'); await p.waitForTimeout(400);
+await p.fill('#tx-date','2026-06-03'); await p.evaluate(()=>document.querySelector('#tx-date').dispatchEvent(new Event('change',{bubbles:true})));
 await p.waitForTimeout(500);
 console.log('date edit:', await p.evaluate(()=>db.transactions.find(t=>t.id==="t1").date));
-await p.fill('[data-txamt="t2"]','-125.50'); await p.evaluate(()=>document.querySelector('[data-txamt="t2"]').dispatchEvent(new Event('change',{bubbles:true})));
+await p.evaluate(()=>closeEditor()); await p.waitForTimeout(300);
+await p.click('[data-txopen="t2"]'); await p.waitForTimeout(400);
+await p.fill('#tx-amt','-125.50'); await p.evaluate(()=>document.querySelector('#tx-amt').dispatchEvent(new Event('change',{bubbles:true})));
 await p.waitForTimeout(500);
 console.log('amount edit:', await p.evaluate(()=>db.transactions.find(t=>t.id==="t2").amount));
+await p.evaluate(()=>closeEditor()); await p.waitForTimeout(300);
 console.log('summary:', await p.$$eval('#txSummary .sumitem',e=>e.map(x=>x.querySelector('.k').textContent+'='+x.querySelector('.v').textContent)));
+console.log('  footnote:', await p.$eval('#txSummary .sumfoot',e=>e.textContent.trim()));
 
 // ---- bill paid uses the due date, and moving the tx moves the tick ----
 await p.evaluate(()=>{db.recurring=[{id:"r1",name:"Rent",category:"Rent/Mortgage",amount:1450,dueDay:1}];
@@ -64,9 +69,11 @@ console.log('  transaction dated:', await p.evaluate(()=>{const t=db.transaction
 // move it to last month and confirm the tick follows
 await p.evaluate(()=>setView('expenses')); await p.waitForTimeout(500);
 const bid=await p.evaluate(()=>db.transactions.find(t=>t.billRef).id);
-await p.fill(`[data-txdate="${bid}"]`,'2026-06-01');
-await p.evaluate(i=>document.querySelector(`[data-txdate="${i}"]`).dispatchEvent(new Event('change',{bubbles:true})),bid);
+await p.click(`[data-txopen="${bid}"]`); await p.waitForTimeout(400);
+await p.fill('#tx-date','2026-06-01');
+await p.evaluate(()=>document.querySelector('#tx-date').dispatchEvent(new Event('change',{bubbles:true})));
 await p.waitForTimeout(600);
+await p.evaluate(()=>closeEditor()); await p.waitForTimeout(300);
 console.log('  after moving it to 2026-06-01:', await p.evaluate(()=>{const t=db.transactions.find(x=>x.billRef);return t.date+' ref='+t.billRef;}));
 console.log('  July shows paid?', await p.evaluate(()=>billPaid(db.recurring[0],"2026-07")), '| June shows paid?', await p.evaluate(()=>billPaid(db.recurring[0],"2026-06")));
 await p.evaluate(()=>setView('expenses')); await p.waitForTimeout(500);
