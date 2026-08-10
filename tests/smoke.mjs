@@ -399,6 +399,42 @@ const db3=await p.evaluate(()=>({
 chk('spending on the card fills the bar',db3.w,'70%');
 chk('  and turns it red',db3.col,'neg');
 
+console.log('\n— adding a debt is a sheet, not a form parked under the list —');
+await p.evaluate(()=>{db.debts=[];saveAll();setView('credit');});
+await p.waitForTimeout(400);
+chk('nothing owed says so',await p.$eval('#debtList',e=>/Nothing owed here yet/.test(e.textContent)),true);
+chk('  and the form is not sitting open',await p.evaluate(()=>!document.querySelector('#view-credit #nd-name')),true);
+await p.click('#addDebtBtn'); await p.waitForTimeout(400);
+chk('+ Add debt pulls the sheet out',await p.evaluate(()=>!document.getElementById('editSheet').hidden),true);
+chk('  titled for what it does',await p.$eval('#editTitle',e=>e.textContent),'Add a debt');
+chk('  and leaving it says Cancel, not Done',await p.$eval('#editSheet .sheetx span',e=>e.textContent),'Cancel');
+chk('  offering every debt kind, not four',await p.$$eval('#nd-kind option',e=>e.length),11);
+chk('a card is asked for its limit',await p.$$eval('#editSheetBody .field label',
+  e=>e.map(l=>l.textContent.trim().replace(/\s+/g,' ')).pop()),'Credit limit optional');
+await p.fill('#nd-name','Navy Federal'); await p.fill('#nd-bal','3478');
+await p.selectOption('#nd-kind','auto'); await p.waitForTimeout(350);
+chk('switching the type asks for the original instead',await p.$$eval('#editSheetBody .field label',
+  e=>e.map(l=>l.textContent.trim().replace(/\s+/g,' ')).pop()),'Original amount optional');
+chk('  without losing what was typed above it',
+  await p.evaluate(()=>document.getElementById('nd-name').value+'|'+document.getElementById('nd-bal').value),'Navy Federal|3478');
+await p.fill('#nd-orig','10500'); await p.click('#nd-add'); await p.waitForTimeout(500);
+chk('saving closes the sheet',await p.evaluate(()=>document.getElementById('editSheet').hidden),true);
+chk('  with the debt on the list',await p.evaluate(()=>db.debts.map(d=>[d.name,d.kind,d.balance,d.start,d.limit])),
+  [['Navy Federal','auto',3478,10500,0]]);
+chk('  drawn as what is left',await p.$eval('#debtList .bar>span',e=>e.style.width),'33%');
+await p.click('#addDebtBtn'); await p.waitForTimeout(350);
+await p.fill('#nd-name','Milestone'); await p.fill('#nd-bal','10'); await p.fill('#nd-limit','700');
+await p.click('#nd-add'); await p.waitForTimeout(500);
+chk('a card keeps its limit',await p.evaluate(()=>{const d=db.debts[1];return [d.kind,d.limit];}),['card',700]);
+chk('  which switches utilization on',await p.evaluate(()=>+utilization().pct.toFixed(1)),1.4);
+await p.click('#addDebtBtn'); await p.waitForTimeout(350);
+await p.fill('#nd-name','Scratch'); await p.keyboard.press('Escape'); await p.waitForTimeout(400);
+chk('backing out keeps nothing',await p.evaluate(()=>db.debts.length),2);
+await p.click('#addDebtBtn'); await p.waitForTimeout(350);
+await p.fill('#nd-bal','99'); await p.click('#nd-add'); await p.waitForTimeout(400);
+chk('a debt with no name is refused',await p.evaluate(()=>({n:db.debts.length,open:!document.getElementById('editSheet').hidden})),{n:2,open:true});
+await p.evaluate(()=>closeEditor()); await p.waitForTimeout(300);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
 await b.close();

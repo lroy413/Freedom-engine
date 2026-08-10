@@ -778,7 +778,9 @@
     .sheetgrab i{display:block;width:38px;height:4px;border-radius:999px;background:var(--line2h);margin:0 auto}
     .sheetbody{transition:transform .26s cubic-bezier(.32,.72,0,1)}
     .sheetbody.dragging{transition:none}
-    .sheetx{width:auto;padding:0 12px;gap:6px;font-size:13px;font-weight:640}
+    /* the label and the ✕ sit side by side — a plain centred grid stacked them
+       into two rows, which is what the gap was written for */
+    .sheetx{width:auto;height:32px;padding:0 12px;gap:6px;font-size:13px;font-weight:640;grid-auto-flow:column}
     .sheetx span{display:inline}
   }
   .nwsec{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--muted);
@@ -1658,18 +1660,8 @@
     </div>
 
     <div class="sectiontitle"><h2>Debt payoff</h2><span class="hint">smallest first = quick wins</span><span class="spacer"></span><button class="btn sm" id="addDebtBtn">+ Add debt</button></div>
+    <!-- the add form lives in the editor sheet — + Add debt pulls it out -->
     <div class="stack rowcard" id="debtList"></div>
-    <div class="card pad" style="margin-top:12px">
-      <b style="font-size:13px">Add a debt</b>
-      <div class="formgrid" style="margin-top:10px">
-        <div class="field"><label>Name</label><input id="nd-name" placeholder="Medical bill"></div>
-        <div class="field"><label>Current balance</label><input id="nd-bal" type="number" placeholder="500"></div>
-        <div class="field"><label>Type</label><select id="nd-kind"><option value="card">Credit card</option><option value="collection">Collection</option><option value="auto">Auto loan</option><option value="loan" selected>Loan</option></select></div>
-        <div class="field"><label id="nd-origlab">Original amount <span class="muted" style="font-weight:400">optional</span></label><input id="nd-orig" type="number" placeholder="leave blank if same"></div>
-        <div class="field" id="nd-limitwrap" style="display:none"><label>Credit limit</label><input id="nd-limit" type="number" placeholder="1000"></div>
-        <button class="btn primary" id="nd-add">Add debt</button>
-      </div>
-    </div>
   </section>
 
   <!-- INVESTMENTS -->
@@ -4609,6 +4601,52 @@ function sparkline(points,w,h){
   </svg>`;
 }
 let payOpen=null,editDebt=null,histOpen=null,editDebtFields=null;
+/* The add form used to sit open under the list, holding a screenful whether or
+   not you were adding anything. It lives in the editor sheet now — the button
+   pulls it out — so the list gets the space back and the form gets room to
+   ask the right second question for the kind of debt you picked. */
+let _newDebt=null;
+function openAddDebt(){
+  _newDebt={name:"",balance:"",kind:"card",limit:"",orig:""};
+  openEditor({kicker:"New debt",title:"Add a debt",closeLabel:"Cancel",
+    html:addDebtHTML, wire:wireAddDebt, onClose:()=>{_newDebt=null;}});
+}
+function addDebtHTML(){
+  const d=_newDebt||{}, card=!!(DEBT_KINDS[d.kind]||{}).revolving;
+  return `<div class="formgrid">
+      <div class="field"><label>Name</label><input id="nd-name" value="${esc(d.name||"")}" placeholder="Milestone Card"></div>
+      <div class="field"><label>Current balance</label><input id="nd-bal" type="number" value="${esc(d.balance||"")}" placeholder="500"></div>
+      <div class="field"><label>Type</label><select id="nd-kind">${Object.entries(DEBT_KINDS)
+        .map(([v,o])=>`<option value="${v}" ${d.kind===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
+      ${card?`<div class="field"><label>Credit limit <span class="muted" style="font-weight:400">optional</span></label>
+        <input id="nd-limit" type="number" value="${esc(d.limit||"")}" placeholder="1000"></div>`
+      :`<div class="field"><label>Original amount <span class="muted" style="font-weight:400">optional</span></label>
+        <input id="nd-orig" type="number" value="${esc(d.orig||"")}" placeholder="leave blank if same"></div>`}
+    </div>
+    <div class="note" style="margin-top:14px;font-size:13px">${card
+      ?`The limit is what the bar measures against, so it rises when you use the card and falls as you pay it down. It also switches on the utilization figure at the top of this screen.`
+      :`The original is what the bar measures against, and it empties as you pay down. Leave it blank to start from where the balance is now.`}</div>
+    <!-- one action in the body; the header, the grab handle, back and Escape
+         all already back out of the sheet -->
+    <button class="btn primary" id="nd-add" style="width:100%;margin-top:16px">Add debt</button>`;
+}
+function wireAddDebt(body){
+  const g=id=>body.querySelector("#"+id);
+  /* the sheet redraws when the type changes, so what has been typed has to be
+     carried out of the old markup first or it goes with it */
+  const keep=()=>{ const d=_newDebt; if(!d)return;
+    ["name","bal","limit","orig"].forEach(k=>{ const el=g("nd-"+k); if(el)
+      d[{name:"name",bal:"balance",limit:"limit",orig:"orig"}[k]]=el.value; }); };
+  ["nd-name","nd-bal","nd-limit","nd-orig"].forEach(id=>{const el=g(id); if(el)el.oninput=keep;});
+  const k=g("nd-kind"); if(k)k.onchange=()=>{keep();_newDebt.kind=k.value;renderEditor();};
+  const a=g("nd-add"); if(a)a.onclick=()=>{ keep(); const d=_newDebt; if(!d)return;
+    const name=String(d.name||"").trim();
+    if(!name){ const n=g("nd-name"); if(n)n.focus(); return; }
+    const card=!!(DEBT_KINDS[d.kind]||{}).revolving, bal=num(d.balance), orig=num(d.orig);
+    db.debts.push({id:uid(),name,balance:bal,start:orig>0?orig:bal,kind:d.kind,
+      limit:card?num(d.limit):0,payments:[]});
+    closeEditor(); saveAll(); };
+}
 function renderCredit(){
   const total=totalDebt(),start=db.debts.reduce((s,d)=>s+debtOrig(d),0);
   const paid=debtPaidLogged(),payN=debtPayCount(),lifetime=Math.max(0,start-total);
@@ -4708,7 +4746,7 @@ function renderCredit(){
           <div class="muted" style="font-size:13px;margin:8px 0 2px">${fmt(pays.reduce((s,p)=>s+num(p.amount),0))} logged. Removing one puts it back on the balance.</div>
         </div>`:""}
       </div>`:""}
-    </div>`; }).join("");
+    </div>`; }).join("")||`<div class="empty">Nothing owed here yet — hit <b>+ Add debt</b> above. Cards and loans that come in from a bank sync land here on their own.</div>`;
   const findDebt=id=>id?db.debts.find(x=>x.id===id):null;
   const mirror=d=>{ const a=db.accounts.find(x=>x.debtId===d.id); if(a)a.value=num(d.balance); };
   const dl=document.getElementById("debtList");
@@ -5652,6 +5690,11 @@ function renderEditor(){
   const body=document.getElementById("editSheetBody"); if(!body)return;
   document.getElementById("editKicker").textContent=_editor.kicker||"Edit";
   document.getElementById("editTitle").textContent=_editor.title||"";
+  /* "Done" is right for editing something that already exists and saves as you
+     type. On a form that has not created anything yet it reads as "save", so
+     the sheet lets its caller say what leaving actually does. */
+  const cl=document.querySelector("#editSheet .sheetx span");
+  if(cl)cl.textContent=_editor.closeLabel||"Done";
   body.innerHTML=_editor.html();
   if(_editor.wire)_editor.wire(body);
   try{collapseHelp(body);}catch(e){}
@@ -7041,15 +7084,7 @@ document.getElementById("burnInputG").addEventListener("change",e=>{db.settings.
 document.getElementById("addInstBtn").addEventListener("click",()=>{addMode=addMode==="inst"?null:"inst";renderAddPanel();const f=document.getElementById("ni-name");if(f)f.focus();});
 document.getElementById("addAcctBtn").addEventListener("click",()=>{addMode=addMode==="acct"?null:"acct";renderAddPanel();const f=document.getElementById("na-name");if(f)f.focus();});
 document.getElementById("scanStubBtn").addEventListener("click",toggleStubPanel);
-document.getElementById("addDebtBtn").addEventListener("click",()=>{const el=document.getElementById("nd-name");el.scrollIntoView({behavior:"smooth",block:"center"});el.focus();});
-document.getElementById("nd-kind").addEventListener("change",e=>{document.getElementById("nd-limitwrap").style.display=e.target.value==="card"?"":"none";
-  document.getElementById("nd-origlab").innerHTML=(e.target.value==="card"?"Balance when you started tracking":"Original loan amount")+' <span class="muted" style="font-weight:400">optional</span>';});
-document.getElementById("nd-add").addEventListener("click",()=>{const name=document.getElementById("nd-name").value.trim();const bal=num(document.getElementById("nd-bal").value);const kind=document.getElementById("nd-kind").value;const limit=kind==="card"?num(document.getElementById("nd-limit").value):0;
-  if(!name){document.getElementById("nd-name").focus();return;}
-  const orig=num(document.getElementById("nd-orig").value);
-  db.debts.push({id:uid(),name,balance:bal,start:orig>0?orig:bal,kind,limit,payments:[]});
-  ["nd-name","nd-bal","nd-orig","nd-limit"].forEach(id=>{const el=document.getElementById(id); if(el)el.value="";});
-  saveAll();});
+document.getElementById("addDebtBtn").addEventListener("click",openAddDebt);
 document.getElementById("addScoreBtn").addEventListener("click",()=>{const date=document.getElementById("scoreDate").value||todayISO();const score=parseInt(document.getElementById("scoreVal").value);if(isNaN(score))return;
   db.creditLog=db.creditLog.filter(x=>x.date!==date);db.creditLog.push({date,score});document.getElementById("scoreVal").value="";saveAll();});
 document.getElementById("addHoldingBtn").addEventListener("click",()=>{db.holdings.push({id:uid(),name:"New holding",ticker:"",shares:0,price:0,avgCost:0,divPerShare:0,divFreq:"quarterly",divBasis:"payment"});saveAll();});
