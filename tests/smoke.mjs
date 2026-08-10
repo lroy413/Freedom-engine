@@ -308,6 +308,48 @@ chk('re-tiering an envelope moves the floor',
     db.budgetMeta.Entertainment={since:monthKey(todayISO()),roll:true,tier:"essential"};saveAll();
     return Math.round(freedomNeed().survive);}),1500);
 
+console.log('\n— a reinvested dividend compounds but does not arrive —');
+const dr=await p.evaluate(()=>{
+  const t=todayISO();
+  db.holdings=[
+    {id:"d1",name:"Realty Income",ticker:"O",shares:100,price:60,avgCost:55,divPerShare:0.25,divFreq:"monthly",lastDiv:t},
+    {id:"d2",name:"Schwab Div",ticker:"SCHD",shares:100,price:28,avgCost:26,divPerShare:0.25,divFreq:"quarterly",lastDiv:t,drip:true}];
+  db.income=[{id:"dp",name:"Rent from roommate",model:"monthly",amount:100,payFreq:"monthly",passive:true,notax:true}];
+  db.goals=[{id:"dg",name:"Passive covers rent",kind:"income",target:2000,passiveOnly:true,link:[]}];
+  saveAll();
+  const m=passiveMonthly();
+  return {all:estAnnualDiv(),cash:estAnnualDivCash(),drip:estAnnualDivDrip(),
+    fromDiv:+m.fromDiv.toFixed(2),fromDrip:+m.fromDrip.toFixed(2),total:+m.total.toFixed(2),
+    goal:+goalNow(db.goals[0]).toFixed(2),
+    up:upcomingDividends(120).filter(x=>x.name==="SCHD").every(x=>x.drip===true),
+    sharesYr:+dripSharesPerYear(db.holdings[1]).toFixed(4)};});
+chk('the portfolio total still counts every payer',dr.all,400);
+chk('  but the cash half is only what pays out',dr.cash,300);
+chk('  and the rest is reported as reinvested',dr.drip,100);
+chk('passive income counts the cash dividends',dr.fromDiv,25);
+chk('  and leaves the reinvested ones out of the total',dr.total,125);
+chk('  while still reporting them separately',dr.fromDrip,8.33);
+chk('a passive-income goal measures money that arrives',dr.goal,125);
+chk('the schedule marks a reinvested payment',dr.up,true);
+chk('a year of reinvestment is priced in shares',dr.sharesYr,3.5714);
+/* the point of the flag: logging a payment has to move the share count, or the
+   position drifts away from the brokerage one dividend at a time */
+const dl=await p.evaluate(()=>{
+  const set=(id,v)=>{const el=document.getElementById(id);el.value=v;};
+  setView('invest');
+  set('divName','SCHD'); set('divAmt','28'); document.getElementById('addDivBtn').click();
+  const after={shares:db.holdings[1].shares,avgCost:+db.holdings[1].avgCost.toFixed(4),
+    note:!document.getElementById('divLogNote').hidden};
+  set('divName','O'); set('divAmt','25'); document.getElementById('addDivBtn').click();
+  return {...after,plainShares:db.holdings[0].shares,
+    plainNote:!document.getElementById('divLogNote').hidden,logged:db.dividends.length};});
+chk('logging $28 on a $28 reinvesting holding buys a share',dl.shares,101);
+chk('  and the money paid joins the cost basis',dl.avgCost,26.0198);
+chk('  and it says so',dl.note,true);
+chk('a holding that pays out in cash keeps its share count',dl.plainShares,100);
+chk('  with nothing to explain',dl.plainNote,false);
+chk('both payments are still logged as dividends',dl.logged,2);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
 await b.close();

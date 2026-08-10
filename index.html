@@ -474,6 +474,9 @@
   /* marks an entry that lives as a transaction, so it is clear why this one
      opens Spending rather than an editor here */
   .tagline{color:var(--accent-ink);font-weight:620}
+  /* a payment that buys shares rather than landing — carried on the invest ramp
+     so it reads as growth at a glance, never as cash */
+  .dripline{color:var(--invest);font-weight:620}
   .hmain{flex:1;min-width:0}
   .hspark{width:120px;height:38px;flex:none}
   .hbadge{flex:none;min-width:96px;text-align:center;padding:8px 12px;border-radius:8px;font-size:15px;font-weight:670;font-variant-numeric:tabular-nums}
@@ -1696,6 +1699,7 @@
         <div class="field"><label>Amount</label><input id="divAmt" type="number" placeholder="12.40"></div>
         <button class="btn" id="addDivBtn">Log dividend</button>
       </div>
+      <div id="divLogNote" class="note" style="margin-top:12px;font-size:13px" hidden></div>
     </div>
   </section>
 
@@ -2591,6 +2595,16 @@ const divFreqN=h=>divFreqOf(h).n;
 const divAnnualPerShare=h=>{ const n=divFreqN(h); return n?num(h.divPerShare)*n:num(h.divPerShare); };
 const divAnnualFor=h=>num(h.shares)*divAnnualPerShare(h);
 const estAnnualDiv=()=>db.holdings.reduce((s,h)=>s+divAnnualFor(h),0);
+/* A dividend set to reinvest never reaches a bank account — it buys more of the
+   same holding. It is still return, and it still compounds, but it is not money
+   you can spend this month, so anything asking "what arrives without me working"
+   counts only the cash half. */
+const dripOn=h=>!!(h&&h.drip);
+const estAnnualDivCash=()=>db.holdings.reduce((s,h)=>s+(dripOn(h)?0:divAnnualFor(h)),0);
+const estAnnualDivDrip=()=>db.holdings.reduce((s,h)=>s+(dripOn(h)?divAnnualFor(h):0),0);
+/* What a year of reinvestment buys at today's price — arithmetic on the numbers
+   you already typed, not a projection of what the price will do. */
+const dripSharesPerYear=h=>{ const px=num(h.price); return px>0?divAnnualFor(h)/px:0; };
 /* How often a holding actually pays. A REIT on a monthly schedule and a fund on a
    quarterly one throw off the same annual figure in very different lumps, which is
    what matters when you're planning around a payday. */
@@ -2616,7 +2630,7 @@ function upcomingDividends(days){
     const f=divFreqOf(h).n; if(!f)return;
     let d=nextDivDate(h); if(!d)return;
     const step=Math.round(12/f); let guard=0;
-    while(d<=toISO&&guard++<24){ out.push({date:d,name:h.ticker||h.name||"—",amount:divPerPayment(h)});
+    while(d<=toISO&&guard++<24){ out.push({date:d,name:h.ticker||h.name||"—",amount:divPerPayment(h),drip:dripOn(h)});
       const nd=new Date(d+"T12:00:00"); nd.setMonth(nd.getMonth()+step); d=isoOf(nd); } });
   return out.sort((a,b)=>a.date.localeCompare(b.date));
 }
@@ -4821,7 +4835,13 @@ function renderInvest(){
   document.getElementById("investKpis").innerHTML=`
     <div class="card kpi"><div class="label">Portfolio value</div><div class="val invest" style="color:var(--invest)">${fmt(val)}</div><div class="sub">${db.holdings.length} holdings</div></div>
     <div class="card kpi"><div class="label">Total gain / loss</div><div class="val ${gain>=0?'pos':'neg'}">${gain>=0?'+':''}${fmt(gain)}</div><div class="sub">${cost?((gain/cost)*100).toFixed(1)+"% vs cost":"add cost basis"}</div></div>
-    <div class="card kpi"><div class="label">Est. annual dividends</div><div class="val pos">${fmt(estAnnualDiv())}</div><div class="sub">${estAnnualDiv()>0?(val?((estAnnualDiv()/val)*100).toFixed(2)+"% forward yield":""):"add tickers to estimate"}</div></div>`;
+    <div class="card kpi"><div class="label">Est. annual dividends</div><div class="val pos">${fmt(estAnnualDiv())}</div><div class="sub">${(()=>{
+      if(!(estAnnualDiv()>0)) return "add tickers to estimate";
+      const yld=val?((estAnnualDiv()/val)*100).toFixed(2)+"% forward yield":"";
+      const dr=estAnnualDivDrip();
+      /* the split matters more than the yield once any of it is reinvesting —
+         one of these numbers can pay rent and the other cannot */
+      return dr>0?`${fmt(estAnnualDivCash())} cash · ${fmt(dr)} reinvested`:yld;})()}</div></div>`;
   const box=document.getElementById("holdingTable");
   box.innerHTML=db.holdings.length?db.holdings.map(h=>{
     const val=num(h.shares)*num(h.price), cost=holdingCost(h), gain=val-cost;
@@ -4846,7 +4866,7 @@ function renderInvest(){
           <div class="hstat"><div class="k">Market value</div><div class="v">${fmt2(val)}</div></div>
           <div class="hstat"><div class="k">Total cost</div><div class="v">${fmt2(cost)}</div></div>
           <div class="hstat"><div class="k">Gain / loss</div><div class="v ${gain>=0?'pos':'neg'}">${gain>=0?"+":""}${fmt2(gain)}${cost>0?` <span class="muted" style="font-size:13px">(${((gain/cost)*100).toFixed(1)}%)</span>`:""}</div></div>
-          <div class="hstat"><div class="k">Est. dividends /yr</div><div class="v">${fmt2(divAnnualFor(h))}</div></div>
+          <div class="hstat"><div class="k">${dripOn(h)?"Reinvested /yr":"Est. dividends /yr"}</div><div class="v"${dripOn(h)?` style="color:var(--invest)"`:""}>${fmt2(divAnnualFor(h))}</div></div>
         </div>
         ${editHolding===h.id?`<div class="formgrid">
           <div class="field"><label>Name</label><input value="${esc(h.name||"")}" data-hname="${h.id}"></div>
@@ -4892,7 +4912,7 @@ function renderInvest(){
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.2v9.6M14.4 9.6a2.4 2.4 0 00-2.4-1.4c-1.4 0-2.4.8-2.4 1.9s1 1.7 2.4 1.9 2.4.8 2.4 1.9-1 1.9-2.4 1.9a2.4 2.4 0 01-2.4-1.4"/></svg>
         <span>${fmt2(yr)}<span class="muted" style="font-weight:500">/yr</span></span>
         <span class="spacer"></span>
-        <span class="muted" style="font-size:13px;font-weight:500">${payers.length?`${payers.length} holding${payers.length===1?"":"s"} paying · ${fmt2(yr/12)}/mo`:"nothing paying yet"}</span>
+        <span class="muted" style="font-size:13px;font-weight:500">${payers.length?`${payers.length} holding${payers.length===1?"":"s"} paying · ${estAnnualDivDrip()>0?`${fmt2(estAnnualDivCash()/12)}/mo in cash`:`${fmt2(yr/12)}/mo`}`:"nothing paying yet"}</span>
         <svg class="filtchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </button>
       <div class="filtbody" id="divBody" ${divOpen?"":"hidden"} style="padding:0">
@@ -4904,8 +4924,8 @@ function renderInvest(){
           return `<div class="brow${open?" editing":""}">
             <div class="bmain" data-divopen="${h.id}">
               <div class="binfo"><div class="bname">${esc(h.ticker||h.name||"—")}${yNow!=null?` <span class="muted" style="font-size:13px;font-weight:500">${yNow.toFixed(2)}%</span>`:""}</div>
-                <div class="bmeta">${esc(f.label)}${f.n?` · ${fmt2(each)} each`:""}${h.divFreqAuto?" · detected":""}${nx?` · next ${esc(shortDate(nx))}`:""}</div></div>
-              <div class="damt"><div class="dbal pos">${fmt2(annual)}</div><div class="dof">per year</div></div>
+                <div class="bmeta">${esc(f.label)}${f.n?` · ${fmt2(each)} each`:""}${h.divFreqAuto?" · detected":""}${nx?` · next ${esc(shortDate(nx))}`:""}${dripOn(h)?` · <span class="dripline">reinvested</span>`:""}</div></div>
+              <div class="damt"><div class="dbal${dripOn(h)?"":" pos"}"${dripOn(h)?` style="color:var(--invest)"`:""}>${fmt2(annual)}</div><div class="dof">${dripOn(h)?"back in":"per year"}</div></div>
               <button class="aedit${open?" on":""}" data-divedit="${h.id}" aria-label="Edit dividend for ${esc(h.ticker||h.name||"holding")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
             </div>
             ${open?`<div class="bpanel">
@@ -4921,23 +4941,31 @@ function renderInvest(){
                 <div class="field"><label>Pays${h.divFreqAuto?` <span class="muted" style="font-weight:400">· detected</span>`:""}</label>
                   <select data-xfreq="${h.id}">${Object.entries(DIV_FREQ).map(([v,o2])=>`<option value="${v}" ${(h.divFreq||"quarterly")===v?"selected":""}>${o2.label}</option>`).join("")}</select></div>
                 <div class="field"><label>Last payment</label><input type="date" value="${esc(h.lastDiv||"")}" data-xlast="${h.id}"></div>
+                <label class="flex" style="grid-column:1/-1;gap:8px;font-size:15px;align-items:flex-start">
+                  <input type="checkbox" data-xdrip="${h.id}" ${dripOn(h)?"checked":""} style="margin-top:3px">
+                  <span>Automatically reinvested <span class="muted" style="font-size:13px">buys more ${esc(h.ticker||h.name||"shares")} instead of paying out — kept out of passive income, since it can't pay a bill</span></span></label>
               </div>`:""}
               <div class="note" style="margin-top:12px;font-size:13px">
                 ${f.n?`<b>${fmtPS(h.divPerShare)}</b> per share every ${f.every} × <b>${f.n}</b> a year = <b>${fmtPS(aps)}</b> per share annually.`
                      :`<b>${fmtPS(h.divPerShare)}</b> per share a year, paid irregularly.`}
                 <br>On ${sh} share${sh===1?"":"s"}: ${f.n?`<b>${fmt2(each)}</b> per payment, `:""}<b>${fmt2(annual)}</b>/yr.
                 ${f.n?(nx?` Next expected around <b>${esc(shortDate(nx))}</b>.`:` <span class="muted">Add a last payment date to project the schedule.</span>`):""}
+                ${dripOn(h)?`<br><span style="color:var(--invest)">Reinvested${(()=>{const sy=dripSharesPerYear(h);
+                  return sy>0?`, buying about <b>${parseFloat(sy.toFixed(4))}</b> more share${sy===1?"":"s"} a year at ${fmt2(num(h.price))} — roughly <b>${fmt2(sy*divAnnualPerShare(h))}</b>/yr of dividends on top of these.`
+                             :` — add a price to see what a year of it buys.`;})()}</span>`:""}
               </div>
               <div class="toolbar" style="margin:12px 0 0">
                 <button class="btn sm${editDiv===h.id?" primary":""}" data-xedit="${h.id}">${editDiv===h.id?"Done":"Edit"}</button>
                 <button class="btn sm" data-xref="${h.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>Refresh from ${esc(h.ticker||"ticker")}</button>
                 <div class="spacer"></div>
-                <button class="btn sm primary" data-xdone="1">Done</button>
+                <!-- "Done" already belongs to the edit toggle; this one collapses
+                     the row, and two identical primary buttons read as a bug -->
+                <button class="btn sm${editDiv===h.id?"":" primary"}" data-xdone="1">Close</button>
               </div>
             </div>`:""}
           </div>`;}).join("")+
           `<div class="brow sum"><div class="bmain">
-            <div class="binfo"><div class="bname">Total</div><div class="bmeta">${fmt2(yr/12)} a month on average</div></div>
+            <div class="binfo"><div class="bname">Total</div><div class="bmeta">${fmt2(yr/12)} a month on average${estAnnualDivDrip()>0?` · ${fmt2(estAnnualDivCash()/12)} of it in cash`:""}</div></div>
             <div class="damt"><div class="dbal pos">${fmt2(yr)}</div><div class="dof">per year</div></div>
             <span style="width:32px;flex:none"></span></div></div>`
         :`<div class="empty" style="padding:24px">Add a ticker to a holding and hit Refresh — if it pays a dividend, the amount and how often it pays fill in on their own. You can also set both yourself.</div>`}
@@ -4958,6 +4986,8 @@ function renderInvest(){
       if(h){h.divFreq=e.currentTarget.value;h.divFreqAuto=false;saveAll();}});
     projEl.querySelectorAll("[data-xlast]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.xlast);
       if(h){h.lastDiv=e.currentTarget.value;saveAll();}});
+    projEl.querySelectorAll("[data-xdrip]").forEach(i=>i.onchange=e=>{const h=db.holdings.find(x=>x.id===e.currentTarget.dataset.xdrip);
+      if(h){h.drip=e.currentTarget.checked;saveAll();}});
     projEl.querySelectorAll("[data-xref]").forEach(b=>b.onclick=async e=>{
       const btn=e.currentTarget, h=db.holdings.find(x=>x.id===btn.dataset.xref); if(!h)return;
       btn.disabled=true;
@@ -4966,13 +4996,22 @@ function renderInvest(){
   }
   const upEl=document.getElementById("divUpcoming");
   if(upEl){ const up=upcomingDividends(120);
-    upEl.innerHTML=up.length?`<div class="${up.length>5?"scrollrows":""}">${up.map(x=>`<div class="upitem">
-        <span class="updot" style="background:${cssVar("--pos","#0ca35a")}1f;color:${cssVar("--pos","#0ca35a")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
-        <div class="upmain"><div class="upname">${esc(x.name)}</div><div class="upwhen">${esc(shortDate(x.date))} · in ${Math.max(0,Math.ceil(daysBetween(todayISO(),x.date)))} days</div></div>
-        <div class="upamt pos">+${fmt2(x.amount)}</div></div>`).join("")}</div>
+    /* a reinvested payment is still a payment, so it stays on the schedule — but
+       it is drawn as growth, not as cash landing, and the footer counts the two
+       separately so the arriving figure means what it says */
+    const upCash=up.filter(x=>!x.drip).reduce((s,x)=>s+x.amount,0);
+    const upDrip=up.filter(x=>x.drip).reduce((s,x)=>s+x.amount,0);
+    upEl.innerHTML=up.length?`<div class="${up.length>5?"scrollrows":""}">${up.map(x=>{
+        const c=x.drip?cssVar("--invest","#6366f1"):cssVar("--pos","#0ca35a");
+        return `<div class="upitem">
+        <span class="updot" style="background:${c}1f;color:${c}">${x.drip
+          ?`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5A8 8 0 006.3 6.3L4 8.5"/><path d="M4 4.5v4h4"/><path d="M4 12.5a8 8 0 0013.7 5.2L20 15.5"/><path d="M20 19.5v-4h-4"/></svg>`
+          :`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`}</span>
+        <div class="upmain"><div class="upname">${esc(x.name)}</div><div class="upwhen">${esc(shortDate(x.date))} · in ${Math.max(0,Math.ceil(daysBetween(todayISO(),x.date)))} days${x.drip?" · reinvested":""}</div></div>
+        <div class="upamt${x.drip?"":" pos"}"${x.drip?` style="color:var(--invest)"`:""}>${x.drip?"":"+"}${fmt2(x.amount)}</div></div>`;}).join("")}</div>
       <div class="upitem" style="background:var(--raise);border-bottom:0"><span class="updot" style="background:transparent"></span>
-        <div class="upmain"><div class="upname">Expected over 4 months</div><div class="upwhen">${up.length} payment${up.length===1?"":"s"}</div></div>
-        <div class="upamt pos">+${fmt2(up.reduce((s,x)=>s+x.amount,0))}</div></div>`
+        <div class="upmain"><div class="upname">${upDrip>0?"Arriving over 4 months":"Expected over 4 months"}</div><div class="upwhen">${up.length} payment${up.length===1?"":"s"}${upDrip>0?` · ${fmt2(upDrip)} reinvested`:""}</div></div>
+        <div class="upamt pos">+${fmt2(upCash)}</div></div>`
       :`<div class="empty" style="padding:22px">Set how often each holding pays and when it last paid — the schedule shows up here.</div>`; }
   document.getElementById("divKpis").innerHTML=`
     <div class="card kpi"><div class="label">Received (12 mo)</div><div class="val pos">${fmt(divTrailing12())}</div><div class="sub">trailing 12 months</div></div>
@@ -5429,7 +5468,8 @@ function goalNow(g){
     case"networth": return netWorth();
     case"debt":{ const d=db.debts.find(x=>x.id===g.link[0]); return d?num(d.balance):0; }
     case"income":{ const ss=g.passiveOnly?db.income.filter(x=>x.passive):db.income;
-      return ss.reduce((s,x)=>s+streamMonthly(x),0)+(g.passiveOnly?estAnnualDiv()/12:0); }
+      /* reinvested dividends are not income arriving — see passiveMonthly() */
+      return ss.reduce((s,x)=>s+streamMonthly(x),0)+(g.passiveOnly?estAnnualDivCash()/12:0); }
     default: return contribTotal(g);
   }
 }
@@ -5536,13 +5576,17 @@ function freedomNeed(){
     bills,flex,ess,essBills,essBudget,margin:maintain*(thrivePct()/100)};
 }
 /* Passive means it arrives without you on set: dividends, and any stream you've
-   ticked as passive (rent from a roommate, royalties, a licensing cheque). */
+   ticked as passive (rent from a roommate, royalties, a licensing cheque).
+   Dividends set to reinvest are deliberately left out of the total — they buy
+   shares instead of landing in an account, so counting them would say rent is
+   covered by money that never shows up. They are reported separately because
+   they are still working for you, just not this month. */
 function passiveMonthly(){
   const streams=db.income.filter(s=>s.passive&&s.active!==false);
   const fromStreams=streams.reduce((s,x)=>s+streamMonthly(x),0);
-  const fromDiv=estAnnualDiv()/12;
+  const fromDiv=estAnnualDivCash()/12, fromDrip=estAnnualDivDrip()/12;
   return {streams:streams.map(s=>({name:s.name,amt:streamMonthly(s)})),
-    fromStreams,fromDiv,total:fromStreams+fromDiv};
+    fromStreams,fromDiv,fromDrip,total:fromStreams+fromDiv};
 }
 const assumedYield=()=>{const y=num(db.settings.passiveYield); return y>0?y:4;};
 /* Capital that would throw off a given monthly amount at the assumed yield.
@@ -6247,9 +6291,10 @@ function renderFreedom(){
       </div>`}
       <div class="frwhere">
         <div class="frwherehead">Where your passive income comes from</div>
-        ${p.fromDiv>0?`<div class="defrow"><span class="k">Dividends</span><span class="v pos">${fmt2(p.fromDiv)}/mo</span></div>`:""}
+        ${p.fromDiv>0?`<div class="defrow"><span class="k">Dividends paid in cash</span><span class="v pos">${fmt2(p.fromDiv)}/mo</span></div>`:""}
         ${p.streams.map(s=>`<div class="defrow"><span class="k">${esc(s.name)}</span><span class="v pos">${fmt2(s.amt)}/mo</span></div>`).join("")}
-        ${(!p.fromDiv&&!p.streams.length)?`<div class="empty" style="padding:10px 0 2px">Nothing yet. Mark an income stream <b>passive</b> on the Income screen, or add dividend-paying holdings.</div>`:""}
+        ${(!p.fromDiv&&!p.streams.length&&!p.fromDrip)?`<div class="empty" style="padding:10px 0 2px">Nothing yet. Mark an income stream <b>passive</b> on the Income screen, or add dividend-paying holdings.</div>`:""}
+        ${p.fromDrip>0?`<div class="defrow" style="opacity:.72"><span class="k">Reinvested, not counted <span class="muted" style="font-weight:500">buys shares instead</span></span><span class="v" style="color:var(--invest)">${fmt2(p.fromDrip)}/mo</span></div>`:""}
       </div>
     </div>`:"";
   el.innerHTML=`<div class="freedom">${head}<div class="frtiers">${bars}</div>${detail}</div>`;
@@ -7345,8 +7390,29 @@ function renderMarketSettings(){
   const k=document.getElementById("avKey"); if(k&&!k.value&&db.settings.mdKey)k.value=db.settings.mdKey;
   const px=document.getElementById("mdProxy"); if(px)px.checked=!!db.settings.mdProxy;
 }
+/* Logging a payment on a holding you've marked as reinvesting has to move the
+   share count, or the position quietly stops matching the brokerage. The shares
+   are bought at the price on file and the money paid for them joins the cost
+   basis, which is what actually happened. Said out loud under the form rather
+   than done silently — and the toast still offers Undo if the price was stale. */
+function dripHoldingFor(name){
+  const k=String(name||"").trim().toLowerCase(); if(!k)return null;
+  return db.holdings.find(h=>dripOn(h)&&(String(h.ticker||"").toLowerCase()===k||String(h.name||"").toLowerCase()===k))||null;
+}
 document.getElementById("addDivBtn").addEventListener("click",()=>{const date=document.getElementById("divDate").value||todayISO();const name=document.getElementById("divName").value.trim();const amt=num(document.getElementById("divAmt").value);if(!name||!amt)return;
-  db.dividends.push({id:uid(),date,name,amount:amt});document.getElementById("divName").value="";document.getElementById("divAmt").value="";saveAll();});
+  db.dividends.push({id:uid(),date,name,amount:amt});
+  const note=document.getElementById("divLogNote");
+  const h=dripHoldingFor(name), px=h?num(h.price):0;
+  if(h&&px>0&&amt>0){
+    const add=amt/px, was=num(h.shares), nowSh=was+add;
+    h.avgCost=nowSh>0?(was*num(h.avgCost)+amt)/nowSh:num(h.avgCost);
+    h.shares=nowSh;
+    if(note){ note.hidden=false;
+      note.innerHTML=`Reinvested into <b>${esc(h.ticker||h.name)}</b> — <b>+${parseFloat(add.toFixed(4))}</b> share${add===1?"":"s"} at ${fmt2(px)}, now ${parseFloat(nowSh.toFixed(4))}. Undo in the toast if the price was out of date.`; }
+  } else if(h&&note){ note.hidden=false;
+    note.innerHTML=`<b>${esc(h.ticker||h.name)}</b> is set to reinvest, but it has no price on file — add one and the shares will follow next time.`;
+  } else if(note) note.hidden=true;
+  document.getElementById("divName").value="";document.getElementById("divAmt").value="";saveAll();});
 document.getElementById("addRecBtn").addEventListener("click",()=>{const name=document.getElementById("recName").value.trim();const category=document.getElementById("recCat").value;const amount=num(document.getElementById("recAmt").value);if(!name||!amount)return;
   const b={id:uid(),name,category,amount,dueDay:Math.min(28,Math.max(1,num(document.getElementById("recDay").value)||1))};
   b.freq=(document.getElementById("recFreq")||{}).value||"monthly";
