@@ -733,6 +733,51 @@ chk('leaves and the gust share one weather cycle',phase.same,true);
 await p.evaluate(()=>{db.businesses=[];db.transactions=[];saveAll();});
 await p.waitForTimeout(300);
 
+console.log('\n— the bottom bar carries two sets and swipes between them —');
+/* the bar is the phone's navigation — at this suite's desktop width it is
+   display:none and every rect reads zero */
+await p.setViewportSize({width:414,height:900});
+await p.evaluate(()=>{db.settings.navSlots=undefined;db.settings.navSlots2=undefined;
+  navPage=0;saveAll();setView('dash');});
+await p.waitForTimeout(400);
+const onBar=()=>p.evaluate(()=>[...document.querySelectorAll('.bbside')].map(s=>{
+  const sr=s.getBoundingClientRect();
+  return [...s.querySelectorAll('.bb')].filter(x=>{const r=x.getBoundingClientRect();
+    return r.left>=sr.left-2&&r.right<=sr.right+2;}).map(x=>x.textContent.trim());}).flat());
+const homeAt=()=>p.evaluate(()=>Math.round(document.querySelector('.bbcenter').getBoundingClientRect().left));
+const n1=await onBar(), home1=await homeAt();
+chk('the first set is what it always was',n1,['Accounts','Spending','Budget','Invest']);
+await p.evaluate(()=>{const s=document.querySelector('.bbside');s.scrollLeft=s.clientWidth;});
+await p.waitForTimeout(300);
+chk('swiping across reaches the rest',await onBar(),['Income','Debt','Goals','Business']);
+chk('  Home does not travel with them',await homeAt(),home1);
+chk('  both sides move as one set',await p.evaluate(()=>{const a=[...document.querySelectorAll('.bbside')];
+  return Math.abs(a[0].scrollLeft-a[1].scrollLeft)<2;}),true);
+chk('  and the indicator follows',await p.evaluate(()=>
+  [...document.querySelectorAll('.bbdots i')].map(d=>d.classList.contains('on')?1:0)),[0,1]);
+chk('a shortcut on the second set navigates',await p.evaluate(async()=>{
+  [...document.querySelectorAll('.bb')].find(x=>/Goals/.test(x.textContent)).click();
+  await new Promise(r=>setTimeout(r,250)); return currentView;}),'goals');
+chk('  and the bar stays on that set',await onBar(),['Income','Debt','Goals','Business']);
+/* arriving from the menu should bring the shortcut for where you are into view */
+await p.evaluate(()=>setView('budget')); await p.waitForTimeout(500);
+chk('going to a first-set view brings it back',await onBar(),['Accounts','Spending','Budget','Invest']);
+await p.evaluate(()=>setView('business')); await p.waitForTimeout(500);
+chk('  and a second-set view swings across',await onBar(),['Income','Debt','Goals','Business']);
+chk('the set you left it on is remembered',await p.evaluate(()=>pref('navPage',0)),1);
+/* every shortcut on both sets has to be a real view, or a tap goes nowhere */
+chk('both sets hold real views',await p.evaluate(()=>{
+  const ids=navPageSlots(0).concat(navPageSlots(1));
+  return ids.every(id=>VIEWS.some(v=>v.id===id))&&!ids.includes('dash');}),true);
+chk('both sets are configurable',await p.evaluate(async()=>{
+  setView('data'); setPane&&0; db.settings.navSlots2=["tax","goals","credit","business"]; saveAll();
+  await new Promise(r=>setTimeout(r,250));
+  navPage=1; renderNav();
+  return [...document.querySelectorAll('.bbside .bbpage')][1].textContent.includes('Tax');}),true);
+await p.evaluate(()=>{db.settings.navSlots2=undefined;navPage=0;saveAll();setView('dash');});
+await p.setViewportSize({width:1440,height:1200});
+await p.waitForTimeout(300);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
 await b.close();

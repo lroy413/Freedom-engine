@@ -464,6 +464,25 @@
   @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
     .bottombar{background:var(--barbg2)}
   }
+  /* One scroller either side of Home, each carrying both pages. Equal width, so
+     keeping their scrollLeft in step moves all four shortcuts as one set while
+     Home stays where your thumb expects it. */
+  .bbside{flex:1;min-width:0;display:flex;overflow-x:auto;overscroll-behavior-x:contain;
+    scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .bbside::-webkit-scrollbar{display:none}
+  .bbpage{flex:0 0 100%;display:flex;align-items:flex-end;justify-content:space-around;
+    scroll-snap-align:start;scroll-snap-stop:always}
+  /* the 7px below the Home button is the only spare room in the bar, and it is
+     exactly enough to say which page you are on */
+  .bbdots{position:absolute;left:50%;transform:translateX(-50%);bottom:3px;
+    display:flex;gap:4px;pointer-events:none}
+  .bbdots i{display:block;width:5px;height:3px;border-radius:2px;
+    background:color-mix(in srgb,var(--muted) 55%,transparent);
+    transition:width .2s ease,background .2s ease}
+  .bbdots i.on{width:10px;background:var(--accent)}
+  .slotpage+.slotpage{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+  .slothead{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;
+    color:var(--muted);margin-bottom:10px}
   .bb{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;border:0;background:transparent;color:var(--ink2);
     font-size:10px;font-weight:600;padding:8px 2px;border-radius:12px}
   .bb svg{width:23px;height:23px}
@@ -1874,7 +1893,7 @@
 
     <div class="setpane" id="sp-shortcuts" hidden>
       <div class="card pad">
-        <p class="muted" style="font-size:15px;margin-top:0">Home sits in the middle of the phone's bottom bar and can't be moved. Pick what goes on either side of it — everything else stays in the menu.</p>
+        <p class="muted" style="font-size:15px;margin-top:0">Home sits in the middle of the phone's bottom bar and can't be moved — it is the one thing that should always be under the same thumb. Everything else rides on two sets you swipe between, sideways across the bar.</p>
         <div class="formgrid" id="slotPick"></div>
       </div>
     </div>
@@ -7218,33 +7237,87 @@ const VIEWS=[
 const viewLabel=id=>{const v=VIEWS.find(x=>x.id===id);return v?v.label:id;};
 const icon=id=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[id]||""}</svg>`;
 let currentView="dash";
-function navSlots(){
-  const d=(db.settings&&db.settings.navSlots)||["accounts","expenses","budget","invest"];
-  const out=d.slice(0,4); while(out.length<4)out.push("accounts"); return out;
+/* Four shortcuts was never enough for eleven screens, and the rest lived behind
+   the menu. The bar carries two pages now and swipes between them — the Home
+   button does not travel, because it is the one thing that must always be in
+   the same place under your thumb. */
+const NAV_DEFAULTS=[["accounts","expenses","budget","invest"],
+                    ["income","credit","goals","business"]];
+function navPageSlots(pg){
+  const key=pg?"navSlots2":"navSlots";
+  const d=(db.settings&&db.settings[key])||NAV_DEFAULTS[pg?1:0];
+  const out=d.slice(0,4); while(out.length<4)out.push(NAV_DEFAULTS[pg?1:0][out.length]);
+  return out;
 }
+const navSlots=()=>navPageSlots(0);
+/* which page a view sits on, so arriving from the menu shows the bar that has it */
+function navPageOf(id){
+  if(navPageSlots(1).includes(id)) return 1;
+  return 0;
+}
+let navPage=0;   // restored from prefs at boot, see the boot block
 function setView(id){
   if(!VIEWS.some(v=>v.id===id))id="dash";
   currentView=id;
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+id));
   const t=document.getElementById("viewTitle"); if(t)t.textContent=viewLabel(id);
   if(_dirty[id]) renderView(id);
-  renderNav(); closeDrawer(); window.scrollTo(0,0);
+  renderNav(); navShowPageFor(id); closeDrawer(); window.scrollTo(0,0);
   syncHeader();
 }
 function renderNav(){
   const sb=document.getElementById("sbnav");
   if(sb) sb.innerHTML=VIEWS.map(v=>`<button class="sblink${v.id===currentView?" active":""}" data-go="${v.id}">${icon(v.id)}<span>${esc(v.label)}</span></button>`).join("");
   const bb=document.getElementById("bottombar");
-  if(bb){ const sl=navSlots();
-    bb.innerHTML=
-      `<button class="bb${sl[0]===currentView?" active":""}" data-go="${sl[0]}">${icon(sl[0])}<span>${esc(viewLabel(sl[0]))}</span></button>`+
-      `<button class="bb${sl[1]===currentView?" active":""}" data-go="${sl[1]}">${icon(sl[1])}<span>${esc(viewLabel(sl[1]))}</span></button>`+
+  if(bb){
+    const btn=id=>`<button class="bb${id===currentView?" active":""}" data-go="${id}">${icon(id)}<span>${esc(viewLabel(id))}</span></button>`;
+    /* Two scrollers, one either side of Home, each holding both pages. They are
+       equal width, so keeping their scrollLeft in step keeps the four shortcuts
+       moving as one set while the Home button stays put between them. */
+    const side=half=>`<div class="bbside">`+
+      [0,1].map(pg=>{const sl=navPageSlots(pg);
+        return `<div class="bbpage">${btn(sl[half?2:0])}${btn(sl[half?3:1])}</div>`;}).join("")+
+      `</div>`;
+    bb.innerHTML=side(0)+
       `<button class="bbcenter${currentView==="dash"?" active":""}" data-go="dash" aria-label="Home">${icon("dash")}</button>`+
-      `<button class="bb${sl[2]===currentView?" active":""}" data-go="${sl[2]}">${icon(sl[2])}<span>${esc(viewLabel(sl[2]))}</span></button>`+
-      `<button class="bb${sl[3]===currentView?" active":""}" data-go="${sl[3]}">${icon(sl[3])}<span>${esc(viewLabel(sl[3]))}</span></button>`;
+      side(1)+
+      `<div class="bbdots" aria-hidden="true"><i class="${navPage?"":"on"}"></i><i class="${navPage?"on":""}"></i></div>`;
+    wireNavPager(bb);
   }
   const f=document.getElementById("sbfoot");
   if(f) f.innerHTML=`${fmt(spendableCash())} on hand · ${fmt(totalDebt())} owed`;
+}
+/* renderNav rebuilds the bar on every view change, which resets both scrollers,
+   so the page has to be re-applied after each build rather than left to the DOM
+   to remember. */
+function wireNavPager(bb){
+  const sides=[...bb.querySelectorAll(".bbside")]; if(sides.length!==2)return;
+  const apply=()=>sides.forEach(s=>{s.scrollLeft=navPage*s.clientWidth;});
+  apply(); requestAnimationFrame(apply);           // widths settle a frame late
+  let syncing=false, t=null;
+  sides.forEach((s,i)=>{
+    s.addEventListener("scroll",()=>{
+      if(syncing)return;
+      syncing=true; const other=sides[1-i];
+      if(Math.abs(other.scrollLeft-s.scrollLeft)>.5) other.scrollLeft=s.scrollLeft;
+      syncing=false;
+      /* settle after the snap rather than on every frame of it */
+      clearTimeout(t); t=setTimeout(()=>{
+        const w=s.clientWidth||1, pg=s.scrollLeft>w/2?1:0;
+        if(pg!==navPage){ navPage=pg; setPref("navPage",pg);
+          bb.querySelectorAll(".bbdots i").forEach((d,k)=>d.classList.toggle("on",k===pg)); }
+      },90);
+    },{passive:true});
+  });
+}
+/* arriving from the menu should bring its shortcut into view */
+function navShowPageFor(id){
+  const pg=navPageOf(id);
+  if(pg===navPage)return;
+  navPage=pg; setPref("navPage",pg);
+  const bb=document.getElementById("bottombar"); if(!bb)return;
+  bb.querySelectorAll(".bbside").forEach(s=>s.scrollTo({left:pg*s.clientWidth,behavior:"smooth"}));
+  bb.querySelectorAll(".bbdots i").forEach((d,k)=>d.classList.toggle("on",k===pg));
 }
 /* The header carries the wordmark while the page's own big title is visible, and
    swaps to the view name once that title scrolls away — so it always says
@@ -7467,6 +7540,8 @@ let _dirty={};
 function renderView(id){ const fn=VIEW_RENDERERS[id]; if(fn){ fn(); delete _dirty[id]; } }
 function renderAll(){
   const _sc=captureScrolls(); captureSnapshot();
+  /* the page you left the bar on, restored before the first paint of it */
+  navPage=pref("navPage",0)?1:0;
   renderNav(); renderSlotPicker(); syncTheme();
   Object.keys(VIEW_RENDERERS).forEach(v=>_dirty[v]=true);
   /* the collapsed bar's view title is written by setView, which boot never
@@ -7943,12 +8018,17 @@ document.getElementById("setBack").addEventListener("click",closeSetting);
 
 function renderSlotPicker(){
   const el=document.getElementById("slotPick"); if(!el)return;
-  const sl=navSlots(), pos=["Far left","Left of Home","Right of Home","Far right"];
+  const pos=["Far left","Left of Home","Right of Home","Far right"];
   const opts=cur=>VIEWS.filter(v=>v.id!=="dash").map(v=>`<option value="${v.id}" ${v.id===cur?"selected":""}>${esc(v.label)}</option>`).join("");
-  el.innerHTML=sl.map((id,i)=>`<div class="field"><label>${pos[i]}</label><select data-slot="${i}">${opts(id)}</select></div>`).join("");
+  el.innerHTML=[0,1].map(pg=>
+    `<div class="slotpage"><div class="slothead">${pg?"Swipe across for":"First set"}</div>
+      <div class="formgrid">${navPageSlots(pg).map((id,i)=>
+        `<div class="field"><label>${pos[i]}</label><select data-slot="${i}" data-slotpg="${pg}">${opts(id)}</select></div>`).join("")}</div>
+    </div>`).join("");
   el.querySelectorAll("[data-slot]").forEach(sel=>sel.onchange=e=>{
-    const i=+e.currentTarget.dataset.slot, cur=navSlots().slice();
-    cur[i]=e.currentTarget.value; db.settings.navSlots=cur; saveAll(); });
+    const i=+e.currentTarget.dataset.slot, pg=+e.currentTarget.dataset.slotpg;
+    const cur=navPageSlots(pg).slice(); cur[i]=e.currentTarget.value;
+    db.settings[pg?"navSlots2":"navSlots"]=cur; saveAll(); });
 }
 function renderMarketSettings(){
   const sel=document.getElementById("mdProvider"); if(!sel)return;
