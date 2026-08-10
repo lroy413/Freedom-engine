@@ -602,6 +602,51 @@ await p.evaluate(()=>closeEditor()); await p.waitForTimeout(300);
 chk('delete-everything is off the main row',
   await p.evaluate(()=>!!document.querySelector('#txMoreMenu #clearTxBtn')&&document.getElementById('txMoreMenu').hidden),true);
 
+console.log('\n— a paycheck is money in the ledger too, and counted once —');
+const pm=await p.evaluate(()=>{
+  const rel=n=>{const d=dayOf(todayISO());d.setDate(d.getDate()+n);return isoOf(d);};
+  db.paychecks=[{id:"p1",date:rel(-3),source:"Ozark Law",gross:2100,net:1720},
+    {id:"p2",date:rel(-9),source:"Set Gig",gross:900,net:900}];
+  db.transactions=[
+    {id:"x1",date:rel(-8),desc:"SET GIG DIRECT DEP",category:"Income",amount:900},
+    {id:"x2",date:rel(-1),desc:"Kroger",category:"Groceries",amount:-120},
+    {id:"x3",date:rel(-2),desc:"Cash gig",category:"Income",amount:400}];
+  Object.assign(txFilter,{acct:"all",cat:"all",when:"all",dir:"all",min:"",max:"",sort:"new"});
+  const q=document.getElementById('txSearch'); if(q)q.value="";
+  saveAll(); setView('expenses');
+  const mk=monthKey(todayISO());
+  return {matched:payMatches().byPay, ledgerAdds:paycheckRows().map(r=>[r.desc,r.amount]),
+    spendInc:Math.round(monthTotals(mk).inc), incomeScreen:Math.round(actualIncomeIn(mk)),
+    onIncome:actualIncomeEntries().map(e=>e.kind+":"+e.source).sort()};});
+chk('a stub with no matching deposit joins the ledger',pm.ledgerAdds,[["Ozark Law",1720]]);
+chk('  one the bank already reported does not',pm.matched,{p2:"x1"});
+chk('Spending and the income screen agree on the month',[pm.spendInc,pm.incomeScreen],[3020,3020]);
+chk('  1720 stub + 900 deposit + 400 cash gig, each once',pm.spendInc,3020);
+chk('the income screen drops the deposit, keeping the richer stub',pm.onIncome,
+  ["pay:Ozark Law","pay:Set Gig","tx:Cash gig"]);
+await p.waitForTimeout(400);
+const pv=await p.evaluate(()=>{
+  const rows=[...document.querySelectorAll('#txTable .trow')];
+  return {names:rows.map(r=>r.querySelector('.bname').textContent),
+    tagged:rows.filter(r=>/paycheck/.test(r.querySelector('.tmeta').textContent)).length,
+    /* a stub has no transaction to edit, so its row goes to where it lives */
+    stubOpensTx:!!document.querySelector('[data-txopen^="pay:"]'),
+    stubJumps:!!document.querySelector('[data-payjump="p1"]'),
+    showing:document.getElementById('filtShowing').textContent};});
+chk('the stub shows up in the list',pv.names.includes("Ozark Law"),true);
+chk('  marked as a paycheck',pv.tagged,1);
+chk('  and never offered as a transaction to edit',pv.stubOpensTx,false);
+chk('  it jumps to where paychecks are edited instead',pv.stubJumps,true);
+chk('the count includes it rather than reading "4 of 3"',pv.showing,'4 transactions');
+await p.click('[data-payjump="p1"]'); await p.waitForTimeout(400);
+chk('tapping it lands on Income with that stub open',
+  await p.evaluate(()=>currentView+"/"+editPay),'income/p1');
+await p.evaluate(()=>{editPay=null;setView('expenses');}); await p.waitForTimeout(400);
+await p.click('[data-txopen="x1"]'); await p.waitForTimeout(400);
+chk('the matched deposit explains why it is not doubled',
+  await p.evaluate(()=>/Same money as the/.test(document.getElementById('editSheetBody').textContent)),true);
+await p.evaluate(()=>closeEditor()); await p.waitForTimeout(300);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
 await b.close();

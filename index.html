@@ -2722,8 +2722,40 @@ const isNeutral=t=>NEUTRAL_CATS.includes(t&&t.category);
    isn't personal spending, and the revenue isn't personal income. What the
    business hands you shows up separately as a draw. personalAmt() splits a
    mixed-use purchase so only your share lands here. */
+/* A logged stub and the deposit the bank reports are the same money arriving
+   once. Counting both would inflate every income figure in the app, so a
+   paycheck and a positive transaction a few days apart for the same amount are
+   treated as one event: the ledger keeps the bank's row, the income screen
+   keeps the stub — it is the one that knows gross and what was withheld — and
+   each screen counts it exactly once. */
+const PAY_MATCH_DAYS=4;
+let _pmCache=null,_pmKey="";
+function payMatches(){
+  const key=(db.updatedAt||"")+"|"+(db.paychecks||[]).length+"|"+(db.transactions||[]).length;
+  if(_pmCache&&_pmKey===key) return _pmCache;
+  const byPay={},byTx={};
+  const cands=(db.transactions||[]).filter(t=>num(t.amount)>0&&!isNeutral(t)&&!t.billRef);
+  (db.paychecks||[]).forEach(p=>{
+    const net=num(p.net)||num(p.gross); if(!(net>0)||!p.date)return;
+    const hit=cands.find(t=>!byTx[t.id]&&Math.abs(num(t.amount)-net)<0.02&&
+      Math.abs(daysBetween(p.date,t.date))<=PAY_MATCH_DAYS);
+    if(hit){ byPay[p.id]=hit.id; byTx[hit.id]=p.id; }});
+  _pmKey=key; _pmCache={byPay,byTx};
+  return _pmCache;
+}
+/* Money that landed but was only ever logged as a paycheck belongs in the
+   ledger too, or Spending's totals disagree with the income screen about the
+   same month. Read-only there — a stub is edited where it lives. */
+function paycheckRows(){
+  const m=payMatches().byPay;
+  return (db.paychecks||[]).filter(p=>p.date&&!m[p.id]&&(num(p.net)||num(p.gross))>0)
+    .map(p=>({id:"pay:"+p.id,payId:p.id,date:p.date,desc:p.source||"Paycheck",
+      category:"Income",amount:num(p.net)||num(p.gross),_pay:true}));
+}
+/* every dollar that moved, however it was recorded */
+const moneyRows=()=>db.transactions.concat(paycheckRows());
 function monthTotals(mk){ let inc=0,exp=0,biz=0;
-  for(const t of db.transactions){ if(monthKey(t.date)!==mk||isNeutral(t))continue;
+  for(const t of moneyRows()){ if(monthKey(t.date)!==mk||isNeutral(t))continue;
     const a=personalAmt(t); if(isBizTx(t)) biz+=Math.abs(bizAmt(t));
     if(a>0)inc+=a; else exp+=-a; }
   return {inc,exp,biz,surplus:inc-exp}; }
@@ -2994,10 +3026,10 @@ function monthRecap(mk){
   const tx=db.transactions.filter(t=>monthKey(t.date)===mk&&!isNeutral(t));
   const spendTx=tx.filter(t=>t.amount<0);
   const tot=monthTotals(mk);
-  /* paychecks live in their own list, not as transactions — the dashboard
-     counts both and so must this, or a month of real work reads as $0 in */
-  const pcNet=db.paychecks.filter(x=>monthKey(x.date)===mk).reduce((a,x)=>a+num(x.net),0);
-  const income=tot.inc+pcNet;
+  /* monthTotals carries paychecks itself now (see moneyRows), and it also knows
+     which stubs the bank already reported — adding them again here would count
+     a matched deposit twice */
+  const income=tot.inc;
   const spend=spendTx.reduce((a,t)=>a+Math.abs(personalAmt(t)),0);
   /* by category */
   const byCat={}; spendTx.forEach(t=>{byCat[t.category]=(byCat[t.category]||0)+Math.abs(personalAmt(t));});
@@ -3035,7 +3067,7 @@ function monthRecap(mk){
   /* how this month compares with the one before */
   const pm=(()=>{const d=new Date(yy,mm-1,1);d.setMonth(d.getMonth()-1);return monthOf(d);})();
   const prevSpend=monthTotals(pm).exp;
-  return {mk,tx:tx.length,spendCount:spendTx.length,income,pcNet,spend,
+  return {mk,tx:tx.length,spendCount:spendTx.length,income,spend,
     cats,merch,biggest,noSpend,elapsed,bestStreak:best,
     billsDue:due.length,billsPaid:paid.length,
     nwMove,prevSpend,held:held.length,budgets:budCats.length,
@@ -3446,8 +3478,9 @@ function renderDash(){
     violet:cssVar("--c-violet","#7c5cf0"),amber:cssVar("--c-amber","#d97706"),rose:cssVar("--c-rose","#e11d48")};
   // The hero already carries net worth / on hand / owed / runway, so these cards
   // cover this month's activity and the things you can act on instead of repeating it.
-  const pcNet=db.paychecks.filter(p=>monthKey(p.date)===curMonth).reduce((a,p)=>a+num(p.net),0);
-  const gotIn=pcNet+db.transactions.filter(t=>monthKey(t.date)===curMonth&&t.amount>0&&!t.billRef&&!isNeutral(t)).reduce((a,t)=>a+personalAmt(t),0);
+  /* one definition of what actually came in — stubs plus anything typed or
+     synced that a stub does not already account for */
+  const gotIn=actualIncomeIn(curMonth);
   const prev=(()=>{const [y,m]=curMonth.split("-").map(Number);const d=new Date(y,m-1,1);d.setMonth(d.getMonth()-1);return monthOf(d);})();
   const prevSpend=monthTotals(prev).exp;
   const dayOfMonth=curMonth===monthKey(todayISO())?new Date().getDate():31;
@@ -3697,8 +3730,11 @@ function renderIncomeEditor(id){
 function actualIncomeEntries(){
   const fromPay=(db.paychecks||[]).map(p=>({kind:"pay",id:p.id,date:p.date,
     source:p.source||"Paycheck",gross:num(p.gross),net:num(p.net)||num(p.gross),ref:p}));
-  /* a bill refund is money coming back, not income — billRef marks those */
-  const fromTx=(db.transactions||[]).filter(t=>num(t.amount)>0&&!isNeutral(t)&&!t.billRef)
+  /* a bill refund is money coming back, not income — billRef marks those.
+     A deposit already accounted for by a stub is dropped here rather than
+     listed twice; the stub is the richer record (see payMatches). */
+  const mt=payMatches().byTx;
+  const fromTx=(db.transactions||[]).filter(t=>num(t.amount)>0&&!isNeutral(t)&&!t.billRef&&!mt[t.id])
     .map(t=>({kind:"tx",id:t.id,date:t.date,source:t.desc||t.category||"Income",
       gross:0,net:personalAmt(t),ref:t}));
   return fromPay.concat(fromTx).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
@@ -3734,7 +3770,7 @@ function renderPaychecks(){
       <div class="bmain" data-payopen="${p.id}">
         <div class="binfo">
           <div class="bname">${esc(p.source||"Paycheck")}</div>
-          <div class="bmeta">${esc(shortDate(p.date))}${String(p.date).slice(0,4)!==thisYear?" "+String(p.date).slice(0,4):""}${g>0?` · ${fmt(g)} gross`:""}${withheld>0?` · ${fmt(withheld)} withheld`:""}</div>
+          <div class="bmeta">${esc(shortDate(p.date))}${String(p.date).slice(0,4)!==thisYear?" "+String(p.date).slice(0,4):""}${g>0?` · ${fmt(g)} gross`:""}${withheld>0?` · ${fmt(withheld)} withheld`:""}${payMatches().byPay[p.id]?` · <span class="tagline">matched to a deposit</span>`:""}</div>
         </div>
         <div class="bamt roll pos">${fmt(n||g)}<em>${n?"net":"gross"}</em></div>
         <button class="aedit${editing?" on":""}" data-payedit="${p.id}" aria-label="Edit this paycheck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
@@ -3951,7 +3987,7 @@ function filteredTx(){
   const q=((document.getElementById("txSearch")||{}).value||"").toLowerCase();
   const f=txFilter, win=txWindow(f.when);
   const mn=f.min===""?null:Math.abs(num(f.min)), mx=f.max===""?null:Math.abs(num(f.max));
-  let list=db.transactions.filter(t=>{
+  let list=moneyRows().filter(t=>{
     if(q&&!(String(t.desc).toLowerCase().includes(q)||String(t.category).toLowerCase().includes(q)))return false;
     if(f.acct==="none"){ if(t.acctId)return false; } else if(f.acct!=="all"&&t.acctId!==f.acct)return false;
     if(f.cat==="uncat"){ if(t.category!=="Uncategorized")return false; } else if(f.cat!=="all"&&t.category!==f.cat)return false;
@@ -4018,16 +4054,19 @@ function renderTx(){
   const inc=list.filter(t=>t.amount>0&&!isNeutral(t)).reduce((s,t)=>s+t.amount,0);
   const xfers=list.filter(isNeutral);
   const xferAmt=xfers.reduce((s,t)=>s+Math.abs(num(t.amount)),0);
-  const anyFilter=list.length!==db.transactions.length;
+  /* the ledger is transactions plus any paycheck no deposit accounts for, so
+     "of N" has to count the same set the list is drawn from */
+  const total=moneyRows().length;
+  const anyFilter=list.length!==total;
   const showing=document.getElementById("filtShowing");
-  if(showing)showing.textContent=db.transactions.length?
-    (anyFilter?`${list.length} of ${db.transactions.length}`:`${db.transactions.length} transactions`):"";
+  if(showing)showing.textContent=total?
+    (anyFilter?`${list.length} of ${total}`:`${total} transaction${total===1?"":"s"}`):"";
   const sum=document.getElementById("txSummary");
   /* Six equal figures wrapping across two ragged rows read as a pile rather than
      a summary. Three answer the question — out, in, and the difference — and the
      rest is one quiet line underneath. */
   const nSpend=list.length-xfers.length;
-  const foot=[`${list.length}${anyFilter?` of ${db.transactions.length}`:""} transaction${list.length===1?"":"s"}`,
+  const foot=[`${list.length}${anyFilter?` of ${total}`:""} transaction${list.length===1?"":"s"}`,
     xfers.length?`${fmt2(xferAmt)} moved between your own accounts`:null,
     nSpend>0?`${fmt2((out+inc)/nSpend)} average`:null].filter(Boolean).join(" · ");
   if(sum) sum.innerHTML=db.transactions.length?`<div class="sumtrio">
@@ -4049,10 +4088,13 @@ function renderTx(){
     const a=num(t.amount), neutral=isNeutral(t);
     /* the category rides in the meta line with its own colour rather than as a
        pill that needs a row to itself — two lines a transaction, even heights */
-    const meta=[esc(t.category||"Uncategorized"),an?esc(an):null,
+    const meta=[esc(t.category||"Uncategorized"),
+      /* "from Income" next to the Income category stuttered; what it is, is a
+         paycheck, and tapping it goes to where paychecks are edited */
+      t._pay?`<span class="tagline">paycheck</span>`:(an?esc(an):null),
       bz?`${esc(bz.name)}${share<100?` ${share}%`:""}`:null].filter(Boolean).join(" · ");
     return `<div class="brow trow${bz?" bizrow":""}"${bz?` style="--bizc:${bz.color}"`:""}>
-      <div class="bmain" data-txopen="${esc(t.id)}">
+      <div class="bmain" ${t._pay?`data-payjump="${esc(t.payId)}"`:`data-txopen="${esc(t.id)}"`}>
         <span class="tdate">${esc(txDate(t.date))}</span>
         <div class="binfo">
           <div class="bname">${esc(t.desc||"—")}</div>
@@ -4061,9 +4103,14 @@ function renderTx(){
         <div class="damt"><div class="dbal ${neutral?"muted":a<0?"neg":"pos"}">${a>0&&!neutral?"+":""}${fmt2(a)}</div></div>
       </div>
     </div>`;}).join("")+(list.length>shownTx.length?`<button class="btn ghost" id="txMoreBtn" style="width:100%;border-radius:0 0 var(--radius) var(--radius)">Show all ${list.length} (${list.length-shownTx.length} more)</button>`:"")
-    :`<div class="empty">${db.transactions.length?"Nothing matches those filters — clear one above.":"No transactions yet."}</div>`;
+    :`<div class="empty">${total?"Nothing matches those filters — clear one above.":"No transactions yet."}</div>`;
   {const mb=document.getElementById("txMoreBtn"); if(mb)mb.onclick=()=>{txShowAll=true;renderTx();};}
   document.querySelectorAll("[data-txopen]").forEach(el=>el.onclick=()=>openTxEditor(el.dataset.txopen));
+  /* a stub is edited where it lives — send them there with it open */
+  document.querySelectorAll("[data-payjump]").forEach(el=>el.onclick=()=>{
+    editPay=el.dataset.payjump; setView("income"); renderPaychecks();
+    const row=document.querySelector(`[data-payopen="${el.dataset.payjump}"]`);
+    if(row)row.scrollIntoView({block:"center"});});
 }
 /* Correcting a category here teaches a rule, exactly as it did when the dropdown
    sat on the row — that is how imports get smarter, and it should not be lost to
@@ -4100,6 +4147,11 @@ function txEditorHTML(){
     ${full?`<div class="note" style="margin-top:14px;font-size:13px">From <b>${esc(full)}</b>${
       full!==shortAcctName(full)?` — shown as <b>${esc(shortAcctName(full))}</b> in the list.`:"."}</div>`:""}
     ${t.billRef?`<div class="note" style="margin-top:12px;font-size:13px">This is a bill payment. Changing the date moves which month it counts for.</div>`:""}
+    ${(()=>{ const pid=payMatches().byTx[t.id]; if(!pid)return "";
+      const p=(db.paychecks||[]).find(x=>x.id===pid); if(!p)return "";
+      /* the pairing is quiet until you go looking for it, and this is where a
+         person would look when a figure seems to be missing an entry */
+      return `<div class="note" style="margin-top:12px;font-size:13px">Same money as the <b>${esc(p.source||"paycheck")}</b> stub logged ${esc(shortDate(p.date))}, so it is counted once. The stub keeps the gross and what was withheld.</div>`;})()}
     <div class="toolbar" style="margin:16px 0 0">
       <button class="btn sm danger" id="tx-del">Delete</button>
       <div class="spacer"></div>
@@ -4492,9 +4544,7 @@ function renderBudget(){
   const flexSpent=budCats.reduce((s,c)=>s+(spent[c]||0),0);
   const flexAvail=budCats.reduce((s,c)=>s+availableFor(c,mk),0);
   // income (actual received if any, else estimated)
-  const pcNet=db.paychecks.filter(p=>monthKey(p.date)===mk).reduce((s,p)=>s+num(p.net),0);
-  const txInc=db.transactions.filter(t=>monthKey(t.date)===mk&&t.amount>0&&!isNeutral(t)).reduce((s,t)=>s+t.amount,0);
-  const actualIncome=pcNet+txInc, estIncome=monthlyIncomeNet();
+  const actualIncome=actualIncomeIn(mk), estIncome=monthlyIncomeNet();
   const income=actualIncome>0?actualIncome:estIncome;
   const free=income-billsTotal-flexLimit;
   document.getElementById("budgetKpis").innerHTML=`
@@ -7856,10 +7906,12 @@ function monthsRange(n){
   return out;
 }
 function monthIO(m){
-  let inc=0,sp=0;
-  for(const t of db.transactions){ if(monthKey(t.date)!==m||isNeutral(t))continue; if(t.amount>0)inc+=t.amount; else sp+=-t.amount; }
-  const pc=db.paychecks.filter(p=>monthKey(p.date)===m).reduce((s,p)=>s+num(p.net),0);
-  return {income:Math.max(inc,pc),spend:sp};
+  let sp=0;
+  for(const t of db.transactions){ if(monthKey(t.date)!==m||isNeutral(t))continue; if(t.amount<0)sp+=-t.amount; }
+  /* this used to take the larger of the two sources to avoid double counting a
+     stub and its deposit, which quietly lost the smaller one whenever both were
+     real. The merge knows which pairs are the same money, so it can add. */
+  return {income:actualIncomeIn(m),spend:sp};
 }
 const shortMonth=m=>{const[y,mm]=m.split("-");return new Date(+y,+mm-1,1).toLocaleDateString(undefined,{month:"short"});};
 
