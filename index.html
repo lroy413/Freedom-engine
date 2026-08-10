@@ -1040,6 +1040,18 @@
      taller than the 44px track — the top of a full-grown one crosses the road
      line, which is what a treeline behind a road does. */
   .dh-wood{position:absolute;inset:0;pointer-events:none;color:#fff}
+  /* --dim carries how far back a tree stands and is spent on the leaves alone,
+     so the coins keep a level of their own — a couple of percent of gold is
+     what makes them read as money rather than as one more pale blob. */
+  .jtree .foliage{opacity:var(--dim,.12)}
+  .jtree .coin{fill:#ffd479}
+  .jtree .coin .rim{fill:#8a5f1c;opacity:.5}
+  .jtree .coin.fell{opacity:.22}
+  /* each on its own offset, so the crop glints rather than pulsing in unison */
+  .jtree .coin{animation:coinglint var(--cd,4s) ease-in-out var(--cdel,0s) infinite alternate}
+  @keyframes coinglint{from{opacity:.24}to{opacity:.5}}
+  html[data-theme="bushido"] .jtree .coin{fill:#e8c56a}
+  html[data-theme="light"] .jtree .coin{fill:#f2c14e}
   /* no will-change: 32 permanently promoted layers is a lot to ask of a phone
      for a decoration, and an animating transform gets promoted anyway */
   .jtree{position:absolute;display:block;transform:translateX(-50%);
@@ -1325,8 +1337,9 @@
     .bmeta{white-space:normal;overflow:visible;text-overflow:clip;flex-wrap:wrap;row-gap:1px}
   }
   @media(prefers-reduced-motion:reduce){
-    /* the wood stays, the wind stops */
+    /* the wood stays, the wind and the glinting stop */
     .jtree{animation:none;transform:translateX(-50%)}
+    .jtree .coin{animation:none;opacity:.85}
     .bar span,.gbar>span,.bprog span,.dh-rtrack .jfill{animation:none}
     .jyou::after{animation:none;opacity:0}
     /* the nav keeps its glass but stops moving — a bar that resizes under a
@@ -1819,7 +1832,7 @@
       <div class="card pad" style="margin-top:12px">
         <label class="flex" style="gap:10px;font-size:15px;align-items:flex-start">
           <input type="checkbox" id="setTrees" style="margin-top:3px">
-          <span>Trees along the freedom road <span class="muted" style="font-size:13px">saplings at the trailhead growing to full trees at the far end, moving the way a still afternoon moves them. They already hold still if your device asks for reduced motion.</span></span></label>
+          <span>Money grows on trees <span class="muted" style="font-size:13px">a wood along the freedom road — saplings at the trailhead, laden trees at the far end, and a few coins on the ground under the oldest ones. It all holds still if your device asks for reduced motion.</span></span></label>
       </div>
     </div>
 
@@ -3238,6 +3251,10 @@ const TREE_SHAPES=(()=>{
   let s=20260810;
   const rnd=()=>{s=(s*1103515245+12345)&0x7fffffff; return s/0x7fffffff;};
   const rr=(a,b)=>a+rnd()*(b-a);
+  /* The canopy centre and radius come back with the drawing, because the coins
+     that hang in it are decided per tree — how much money is on a tree depends
+     on how far along the road it stands, so it cannot be baked into a shape
+     that seven trees share. */
   return Array.from({length:7},()=>{
     const W=24,H=40,cx=12;
     const cy=H-rr(.34,.48)*H, cr=rr(7.4,10.4), tw=rr(1.0,1.7);
@@ -3248,10 +3265,35 @@ const TREE_SHAPES=(()=>{
       blobs+=`<ellipse cx="${(cx+Math.cos(a)*d).toFixed(1)}" cy="${(cy+Math.sin(a)*d*.7).toFixed(1)}" rx="${(cr*rr(.5,.8)).toFixed(1)}" ry="${(cr*rr(.45,.72)).toFixed(1)}"/>`;
     }
     blobs+=`<ellipse cx="${cx}" cy="${cy.toFixed(1)}" rx="${(cr*.85).toFixed(1)}" ry="${(cr*.78).toFixed(1)}"/>`;
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true" focusable="false">`+
-      `<path d="M${(cx-tw).toFixed(1)},${H} L${(cx-tw*.4).toFixed(1)},${cy.toFixed(1)} L${(cx+tw*.4).toFixed(1)},${cy.toFixed(1)} L${(cx+tw).toFixed(1)},${H} Z"/>${blobs}</svg>`;
+    const trunk=`<path d="M${(cx-tw).toFixed(1)},${H} L${(cx-tw*.4).toFixed(1)},${cy.toFixed(1)} L${(cx+tw*.4).toFixed(1)},${cy.toFixed(1)} L${(cx+tw).toFixed(1)},${H} Z"/>`;
+    return {W,H,cx,cy,cr,body:`<g class="foliage">${trunk}${blobs}</g>`};
   });
 })();
+/* Money does grow on these — that is the whole point of the road. Coins hang in
+   the canopy, and how many depends on how far along the tree stands: nothing on
+   a sapling at the trailhead, a full crop at the far end. A couple have dropped
+   at the foot of the oldest ones, because a tree that laden sheds some.
+
+   Drawn as a disc with a ring inside it: at this size that is all it takes to
+   read as a coin instead of fruit. They twinkle on their own offsets, which is
+   the playful part and costs one opacity animation each. */
+function treeSVG(shape,coins,rnd){
+  const {W,H,cx,cy,cr,body}=shape;
+  let out="";
+  for(let i=0;i<coins;i++){
+    const a=(i/Math.max(1,coins))*Math.PI*2+rnd()*1.2, d=cr*(.34+rnd()*.5);
+    const x=cx+Math.cos(a)*d, y=cy+Math.sin(a)*d*.78, r=1.5+rnd()*.55;
+    out+=`<g class="coin" style="--cd:${(2.6+rnd()*3.4).toFixed(1)}s;--cdel:${(-rnd()*6).toFixed(1)}s">`+
+      `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}"/>`+
+      `<circle class="rim" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(r*.5).toFixed(2)}"/></g>`;
+  }
+  /* fallen ones sit on the ground line, so they never move with the sway */
+  let fell="";
+  if(coins>=3){ const k=1+Math.round(rnd());
+    for(let i=0;i<k;i++){ const fx=cx+(rnd()*2-1)*cr*.9;
+      fell+=`<circle class="coin fell" cx="${fx.toFixed(1)}" cy="${(H-.9).toFixed(1)}" r="1.3" style="--cd:${(3+rnd()*3).toFixed(1)}s;--cdel:${(-rnd()*6).toFixed(1)}s"/>`; } }
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true" focusable="false">${body}${fell}${out}</svg>`;
+}
 /* The wood lines the freedom road, in the road's own coordinates: x is the same
    0-100 the stops use, so a tree at 60% stands where 60% of the way stands.
    It starts as saplings at the trailhead and grows to full trees at the far
@@ -3284,10 +3326,16 @@ function roadWood(yFor){
     /* a sapling whips where a grown tree barely leans — more angle on the
        small ones, which is both truer and where the movement is wanted */
     const amp=(rr(.9,1.7)*(1.5-.62*grow)).toFixed(2);
+    /* nothing on a sapling, a full crop at the far end — the money grows the
+       way the trees do */
+    const coins=Math.round(Math.max(0,grow-.22)*rr(3.4,6.2));
+    /* depth dims the leaves, not the whole tree: a coin gated by the same
+       opacity as the foliage it hangs in can only ever be one more pale blob,
+       and the point is that it reads as money */
     out.push(`<span class="jtree" style="left:${x.toFixed(2)}%;bottom:${lift.toFixed(1)}px;`+
-      `width:${w.toFixed(1)}px;height:${h.toFixed(1)}px;opacity:${(.055+.085*depth).toFixed(3)};`+
+      `width:${w.toFixed(1)}px;height:${h.toFixed(1)}px;--dim:${(.075+.10*depth).toFixed(3)};`+
       `--d:${rr(6.5,12.5).toFixed(1)}s;--del:${(-rnd()*13).toFixed(1)}s;--a:${amp}deg">`+
-      TREE_SHAPES[Math.floor(rnd()*TREE_SHAPES.length)]+`</span>`);
+      treeSVG(TREE_SHAPES[Math.floor(rnd()*TREE_SHAPES.length)],coins,rnd)+`</span>`);
   }
   return `<div class="dh-wood" aria-hidden="true">${out.join("")}</div>`;
 }

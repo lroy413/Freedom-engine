@@ -683,6 +683,34 @@ chk('  growing better than twice over along the way',tl.full/tl.sap>2,true);
 chk('the small ones move more than the big ones',tl.sapAmp>tl.fullAmp,true);
 chk('the wind is a sway about each trunk',[tl.anim,tl.dir],['tsway','alternate']);
 chk('  pivoting at the foot, not the middle',tl.atFoot,true);
+/* the point of the theme: money grows on the trees, and how much depends on
+   how far along the road the tree stands */
+const cn=await p.evaluate(()=>{
+  const t=[...document.querySelectorAll('.jtree')].map(e=>({
+    x:parseFloat(e.style.left),
+    coins:e.querySelectorAll('.coin:not(.fell)').length,
+    fell:e.querySelectorAll('.coin.fell').length})).sort((a,b)=>a.x-b.x);
+  const sum=(a,k)=>a.reduce((s,x)=>s+x[k],0);
+  /* read both off the SAME tree: --dim varies per tree, and the glint means a
+     coin's opacity depends on when you look */
+  const host=[...document.querySelectorAll('.jtree')].find(e=>e.querySelector('.coin:not(.fell)'));
+  const c=host&&host.querySelector('.coin:not(.fell)'), f=host&&host.querySelector('.foliage');
+  return {sapCoins:sum(t.slice(0,3),'coins'), fullCoins:sum(t.slice(-6),'coins'),
+    frontHalf:sum(t.slice(0,16),'coins'), backHalf:sum(t.slice(16),'coins'),
+    total:sum(t,'coins'), fallen:sum(t,'fell'),
+    /* a coin gated by the same opacity as the leaves can only be a pale blob */
+    coinOp:c?+getComputedStyle(c).opacity:null,
+    leafOp:f?+getComputedStyle(f).opacity:null,
+    glint:c?getComputedStyle(c).animationName:null,
+    /* the ring inside the disc is what makes it a coin and not fruit */
+    hasRim:!!document.querySelector('.jtree .coin .rim')};});
+chk('nothing on the saplings at the trailhead',cn.sapCoins,0);
+chk('  a full crop at the far end',cn.fullCoins>12,true);
+chk('  and most of the money on the back half of the road',cn.backHalf>cn.frontHalf*2.5,true);
+chk('  and some on the ground under the oldest',cn.fallen>0,true);
+chk('a coin is a disc with a ring in it',cn.hasRim,true);
+chk('  brighter than the leaves of its own tree',cn.coinOp>cn.leafOp*1.5,true);
+chk('  and it glints',cn.glint,'coinglint');
 chk('the same wood survives a re-render',await p.evaluate(()=>{
   const a=document.querySelector('.dh-wood').innerHTML;
   saveAll(); renderDashHero();
