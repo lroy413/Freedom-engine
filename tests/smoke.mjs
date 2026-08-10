@@ -350,6 +350,55 @@ chk('a holding that pays out in cash keeps its share count',dl.plainShares,100);
 chk('  with nothing to explain',dl.plainNote,false);
 chk('both payments are still logged as dividends',dl.logged,2);
 
+console.log('\n— the debt bar is what you still owe, against what it can reach —');
+const db1=await p.evaluate(()=>{
+  db.accounts=[]; db.recurring=[];
+  db.debts=[
+    {id:"x1",name:"Visa",kind:"card",balance:250,limit:1000,start:400},
+    {id:"x2",name:"Amex",kind:"card",balance:600,limit:1000},
+    {id:"x3",name:"Store card",kind:"store",balance:50,limit:1000},
+    {id:"x4",name:"No-limit card",kind:"card",balance:300,start:800},
+    {id:"x5",name:"Car loan",kind:"auto",balance:3478,start:10500},
+    {id:"x6",name:"Collection",kind:"collection",balance:1900},
+    {id:"x7",name:"Cleared card",kind:"card",balance:0,limit:1000,start:900}];
+  saveAll(); setView('credit');
+  const f=id=>db.debts.find(d=>d.id===id);
+  return {ceil:db.debts.map(d=>debtCeiling(d)),
+    owed:db.debts.map(d=>+debtOwedPct(d).toFixed(1)),
+    col:db.debts.map(d=>debtBarColor(d).replace(/var\(--|\)/g,''))};});
+chk('a card measures against its limit',db1.ceil[0],1000);
+chk('  a card without one falls back to the most owed',db1.ceil[3],800);
+chk('  a loan measures against what it was written for',db1.ceil[4],10500);
+chk('  a debt with neither measures against itself',db1.ceil[5],1900);
+chk('the bar is the balance, not the progress',db1.owed,[25,60,5,37.5,33.1,100,0]);
+chk('  so an untouched collection reads full, not empty',db1.owed[5],100);
+chk('  and a car loan 67% paid shows the third that is left',db1.owed[4],33.1);
+chk('under 10% utilization is healthy',db1.col[2],'pos');
+chk('  over 10% is worth watching',db1.col[0],'debt');
+chk('  over 30% is the one a score reacts to',db1.col[1],'neg');
+chk('a loan is not coloured by how early it is',db1.col[4],'debt');
+chk('a cleared debt is green',db1.col[6],'pos');
+const db2=await p.evaluate(()=>{
+  const rows=[...document.querySelectorAll('#debtList .dcard')];
+  const at=i=>({meta:rows[i].querySelector('.dmeta').textContent,
+    of:(rows[i].querySelector('.dof')||{textContent:''}).textContent.trim(),
+    w:rows[i].querySelector('.bar>span').style.width});
+  return {visa:at(0),loan:at(4),cleared:at(6)};});
+chk('a card row reports utilization',db2.visa.meta.includes('25% of limit used'),true);
+chk('  and names the limit under the balance',db2.visa.of,'of $1,000 limit');
+chk('  and draws it',db2.visa.w,'25%');
+chk('a loan row still reports progress',db2.loan.meta.includes('67% paid off'),true);
+chk('  while drawing what is left',db2.loan.w,'33%');
+chk('a cleared debt keeps its full green bar',db2.cleared.w,'100%');
+/* the point of the change: using the card has to move the bar */
+await p.evaluate(()=>{db.debts.find(x=>x.id==="x1").balance=700;saveAll();});
+await p.waitForTimeout(300);                       // saveAll re-renders on the next tick
+const db3=await p.evaluate(()=>({
+  w:document.querySelectorAll('#debtList .dcard')[0].querySelector('.bar>span').style.width,
+  col:debtBarColor(db.debts.find(x=>x.id==="x1")).replace(/var\(--|\)/g,'')}));
+chk('spending on the card fills the bar',db3.w,'70%');
+chk('  and turns it red',db3.col,'neg');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
 await b.close();

@@ -4636,12 +4636,15 @@ function renderCredit(){
     const pct=orig?Math.min(100,Math.max(0,(paid/orig)*100)):0;
     const pays=(d.payments||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
     const isCard=isRevolving(d), acct=db.accounts.find(a=>a.debtId===d.id), dbill=debtBill(d);
+    /* the bar is what is still owed against the ceiling — see debtCeiling() */
+    const owed=debtOwedPct(d), hasLim=isCard&&num(d.limit)>0;
     const editing=editDebt===d.id, done=bal<=0;
     const state=done?"ok":d.id===nextId?"warn":"bad";
     const label=done?"PAID":d.id===nextId?`<span class="tlong">ATTACK NEXT</span><span class="tshort">NEXT</span>`:"OPEN";
     const kindLabel=debtKindOf(d).label;
     const pmo=payoffMonths(bal,d.apr,d.payment);
-    const meta=[kindLabel, orig>bal?`${pct.toFixed(0)}% paid off`:null,
+    const meta=[kindLabel,
+                hasLim?`${owed.toFixed(0)}% of limit used`:(orig>bal?`${pct.toFixed(0)}% paid off`:null),
                 num(d.apr)?`${num(d.apr)}% APR`:null,
                 (pmo&&isFinite(pmo))?`${pmo} mo to clear`:null,
                 acct?"synced from your bank":null,
@@ -4651,11 +4654,11 @@ function renderCredit(){
       <div class="dtop" data-dopen="${d.id}">
         <span class="tag ${state}">${label}</span>
         <div class="dinfo"><div class="dname">${esc(d.name)}</div><div class="dmeta">${esc(meta)}</div></div>
-        <div class="damt"><div class="dbal">${fmt(bal)}</div>${orig>bal?`<div class="dof">of ${fmt(orig)}</div>`:""}</div>
+        <div class="damt"><div class="dbal">${fmt(bal)}</div>${hasLim?`<div class="dof">of ${fmt(num(d.limit))} limit</div>`:orig>bal?`<div class="dof">of ${fmt(orig)}</div>`:""}</div>
         <button class="aedit${editing?" on":""}" data-dedit="${d.id}" aria-label="Edit this debt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
       </div>
       <div class="dbarrow">
-        <div class="bar"><span style="width:${pct.toFixed(0)}%;background:${done?'var(--pos)':'var(--debt)'}"></span></div>
+        <div class="bar" title="${done?"Cleared":hasLim?`${fmt(bal)} of your ${fmt(num(d.limit))} limit used`:`${fmt(bal)} still owed of ${fmt(debtCeiling(d))}`}"><span style="width:${done?100:owed.toFixed(0)}%;background:${debtBarColor(d)}"></span></div>
         ${done&&payOpen!==d.id?`<span class="dclear">Cleared</span>`:`<button class="btn sm primary dpaybtn" data-dpay="${d.id}">${payOpen===d.id?"Cancel":"Pay"}</button>`}
       </div>
       ${payOpen===d.id?`
@@ -4683,7 +4686,10 @@ function renderCredit(){
           if(po)return `<div class="note" style="margin-top:12px;font-size:13px">Paying ${fmt(num(d.payment))}/mo${num(d.apr)?` at ${num(d.apr)}% APR`:""} clears this in about <b>${mo} month${mo===1?"":"s"}</b> — around <b>${esc(monthYear(po))}</b>.</div>`;
           if(mo===Infinity)return `<div class="note" style="margin-top:12px;font-size:13px;border-left-color:var(--warn)">At ${fmt(num(d.payment))}/mo the interest outruns the payment — this never clears. It needs more than ${fmt(bal*num(d.apr)/100/12)}/mo just to hold steady.</div>`;
           return ""; })()}
-        ${orig&&orig<bal?`<div class="note" style="margin-top:12px;font-size:13px;border-left-color:var(--warn)">The original is below the current balance, so progress shows as zero. Raise it to what the debt started at.</div>`:""}
+        ${hasLim?`<div class="note" style="margin-top:12px;font-size:13px">The bar is what you owe against the ${fmt(num(d.limit))} limit, so it rises when you use the card and falls when you pay it down. It turns amber past 10% and red past 30% — the points a credit score starts to notice.</div>`
+          :isCard?`<div class="note" style="margin-top:12px;font-size:13px;border-left-color:var(--warn)">No credit limit set, so the bar measures against the most you have ever owed. Add the limit and it becomes utilization instead — the number your score actually reacts to.</div>`
+          :`<div class="note" style="margin-top:12px;font-size:13px">The bar is what is still owed of the ${fmt(debtCeiling(d))} this started at. It empties as you pay it down.</div>`}
+        ${!isCard&&orig&&orig<bal?`<div class="note" style="margin-top:12px;font-size:13px;border-left-color:var(--warn)">The original is below the current balance, so the bar reads full and progress shows as zero. Raise it to what the debt started at.</div>`:""}
         ${acct?`<div class="note" style="margin-top:12px;font-size:13px">Linked to the <b>${esc(acct.name)}</b> account. Editing the balance here updates it there too, and a bank sync will overwrite both.</div>`:""}
         ${dbill?`<div class="note" style="margin-top:12px;font-size:13px">In <b>Budget → Bills</b> as <b>${fmt(num(dbill.amount))}</b>/mo${dbill.estimated?` <span class="muted">(estimated minimum — set a payment above or edit the bill to lock it)</span>`:""}, due the ${(num(dbill.dueDay)||1)}. Checking it off there logs the payment here too.</div>`
           :`<div class="note" style="margin-top:12px;font-size:13px">Not in your monthly bills. Add it and the payment you're planning shows up alongside rent, so the budget knows about it.</div>`}
@@ -4782,6 +4788,29 @@ const minPayment=d=>{ const b=num(d.balance); if(b<=0)return 0;
   return Math.min(b,Math.max(25,Math.round(b*0.02))); };
 const debtPayAmount=d=>num(d.payment)>0?num(d.payment):(isRevolving(d)?minPayment(d):0);
 function debtOrig(d){ const st=num(d.start), b=num(d.balance); return st>0?st:b; }
+/* How far a debt can go, and therefore what its bar is measured against. A card
+   can be run straight back up to its limit, so the limit is the ceiling and the
+   bar rises every time you use it. A loan only ever shrinks from what it was
+   written for. With neither on file, the most you have ever owed stands in —
+   which makes an untouched collection read as full rather than as nothing. */
+function debtCeiling(d){
+  if(isRevolving(d)&&num(d.limit)>0) return num(d.limit);
+  return Math.max(debtOrig(d),num(d.balance));
+}
+/* The share of that ceiling still owed. This is the bar: it fills as a card is
+   used and drains as a loan is paid down, so a full bar always means the same
+   thing — you are at the top of what this debt can be. */
+function debtOwedPct(d){ const c=debtCeiling(d); return c>0?Math.min(100,Math.max(0,num(d.balance)/c*100)):0; }
+/* A card's colour follows utilization, on the same thresholds as the Card
+   utilization figure above the list, because that is the number a credit score
+   reacts to. A loan just shows what is left — being early on a car note is not
+   a warning, so it stays one colour. */
+function debtBarColor(d){
+  if(num(d.balance)<=0) return "var(--pos)";
+  if(isRevolving(d)&&num(d.limit)>0){ const u=num(d.balance)/num(d.limit)*100;
+    return u>30?"var(--neg)":u>10?"var(--debt)":"var(--pos)"; }
+  return "var(--debt)";
+}
 /* Money you have actually paid while using this app. Kept separate from
    (original − balance), which on a car loan includes years of payments made
    long before you opened the app. */
