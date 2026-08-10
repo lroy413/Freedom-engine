@@ -647,45 +647,50 @@ chk('the matched deposit explains why it is not doubled',
   await p.evaluate(()=>/Same money as the/.test(document.getElementById('editSheetBody').textContent)),true);
 await p.evaluate(()=>closeEditor()); await p.waitForTimeout(300);
 
-console.log('\n— a treeline along the road, moving the way a still afternoon moves one —');
-await p.evaluate(()=>{db.settings.trees=undefined;saveAll();setView('dash');});
+console.log('\n— the wood lines the freedom road and grows along it —');
+await p.evaluate(()=>{db.settings.trees=undefined;
+  db.recurring=[{id:"w1",name:"Rent",category:"Rent/Mortgage",amount:1450,dueDay:1,tier:"essential"}];
+  db.budgets={Groceries:400}; db.budgetMeta={};
+  db.income=[{id:"w2",name:"Roommate",model:"monthly",amount:900,payFreq:"monthly",passive:true}];
+  saveAll(); setView('dash');});
 await p.waitForTimeout(500);
 const tl=await p.evaluate(()=>{
-  const sv=document.querySelector('.dashhero .treeline');
-  const cs=sv?getComputedStyle(sv):null, g=document.querySelector('.tsway');
-  const gs=g?getComputedStyle(g):null;
-  return {n:document.querySelectorAll('.tsway').length,
-    behind:cs?+cs.zIndex:null, contentAbove:+getComputedStyle(document.querySelector('.dh-top')).zIndex,
-    inert:cs?cs.pointerEvents:null, faded:cs?/gradient/.test(cs.maskImage+cs.webkitMaskImage):null,
-    anim:gs?gs.animationName:null, dir:gs?gs.animationDirection:null,
-    /* rotating about each trunk's base is what makes it a sway and not a slide */
-    box:gs?gs.transformBox:null,
-    /* computed origin resolves the 50%/100% against the fill-box, so check the
-       thing that matters: the pivot sits at the foot of the tree, not its middle */
-    atFoot:(()=>{ if(!g||!gs)return null;
-      const bb=g.getBBox(), oy=parseFloat(gs.transformOrigin.split(' ')[1]);
-      return Math.abs(oy-bb.height)<1.5;})(),
-    /* only the personal card — a business card is not the journey */
-    onBiz:document.querySelectorAll('.dashhero.biz .treeline').length};});
-chk('the hero grows a wood',tl.n>30,true);
-chk('  drawn behind everything it must not compete with',[tl.behind,tl.contentAbove],[0,1]);
+  const t=[...document.querySelectorAll('.jtree')].map(e=>({
+    x:parseFloat(e.style.left), h:parseFloat(e.style.height),
+    a:parseFloat(getComputedStyle(e).getPropertyValue('--a'))})).sort((a,b)=>a.x-b.x);
+  const avg=(arr,k)=>+(arr.reduce((s,x)=>s+x[k],0)/arr.length).toFixed(2);
+  const track=document.querySelector('.dh-rtrack'), wood=document.querySelector('.dh-wood');
+  const tb=track.getBoundingClientRect(), wb=wood.getBoundingClientRect();
+  const gs=getComputedStyle(document.querySelector('.jtree'));
+  return {n:t.length, sap:avg(t.slice(0,6),'h'), full:avg(t.slice(-6),'h'),
+    sapAmp:avg(t.slice(0,6),'a'), fullAmp:avg(t.slice(-6),'a'),
+    sharesTrack:Math.abs(tb.x-wb.x)<1&&Math.abs(tb.width-wb.width)<1,
+    behind:track.firstElementChild.className,
+    inert:getComputedStyle(wood).pointerEvents,
+    anim:gs.animationName, dir:gs.animationDirection,
+    /* the computed origin resolves 50%/100% into px, so check what matters:
+       the pivot sits at the foot of the tree, not its middle */
+    atFoot:Math.abs(parseFloat(gs.transformOrigin.split(' ')[1])
+      -document.querySelector('.jtree').getBoundingClientRect().height)<1.5};});
+chk('the road grows a wood',tl.n>24,true);
+chk('  in the track itself, sharing the stops coordinates',tl.sharesTrack,true);
+chk('  painted before the road, so nothing is obscured',tl.behind,'dh-wood');
 chk('  and catching no taps',tl.inert,'none');
-chk('  fading out upward rather than ending in a hard edge',tl.faded,true);
-chk('the wind is a sway about each trunk',[tl.anim,tl.dir,tl.box],['tsway','alternate','fill-box']);
-chk('  rotating from the base, not the middle',tl.atFoot,true);
-chk('business cards stay bare',tl.onBiz,0);
-/* built from a fixed seed: a wood that reshuffles on every save would be worse
-   than no wood at all */
-chk('the same forest survives a re-render',await p.evaluate(()=>{
-  const a=document.querySelector('.treeline').innerHTML;
+chk('saplings at the trailhead',tl.sap<22,true);
+chk('  full trees at the far end',tl.full>36,true);
+chk('  growing better than twice over along the way',tl.full/tl.sap>2,true);
+/* a sapling whips where a grown tree barely leans */
+chk('the small ones move more than the big ones',tl.sapAmp>tl.fullAmp,true);
+chk('the wind is a sway about each trunk',[tl.anim,tl.dir],['tsway','alternate']);
+chk('  pivoting at the foot, not the middle',tl.atFoot,true);
+chk('the same wood survives a re-render',await p.evaluate(()=>{
+  const a=document.querySelector('.dh-wood').innerHTML;
   saveAll(); renderDashHero();
-  return a===document.querySelector('.treeline').innerHTML;}),true);
-chk('it can be turned off',await p.evaluate(async()=>{db.settings.trees=false;saveAll();renderDashHero();
-  await new Promise(r=>setTimeout(r,80));
-  return document.querySelectorAll('.treeline').length;}),0);
-chk('  and back on',await p.evaluate(async()=>{db.settings.trees=true;saveAll();renderDashHero();
-  await new Promise(r=>setTimeout(r,80));
-  return document.querySelectorAll('.treeline .tsway').length>30;}),true);
+  return a===document.querySelector('.dh-wood').innerHTML;}),true);
+chk('it can be turned off',await p.evaluate(()=>{db.settings.trees=false;renderDashHero();
+  return document.querySelectorAll('.jtree').length;}),0);
+chk('  and back on',await p.evaluate(()=>{db.settings.trees=true;renderDashHero();
+  return document.querySelectorAll('.jtree').length>24;}),true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
