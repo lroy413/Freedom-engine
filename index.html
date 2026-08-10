@@ -223,6 +223,10 @@
   .tag{font-size:12px;font-weight:690;padding:3px 10px;border-radius:16px;letter-spacing:.02em}
   .tag.ok{background:#e4f6ec;color:#0a9150} .tag.warn{background:#fcf0dd;color:#c07a10} .tag.bad{background:#fbe6e4;color:var(--neg)}
   .tag.notax{background:var(--raise);color:var(--muted);border:1px solid var(--line2)}
+  /* An open account in good standing: the absence of a problem, not a warning.
+     It has to hold the badge column's width without competing with the two
+     badges that actually mean something. */
+  .tag.neutral{background:var(--raise);color:var(--ink2)}
   @media(max-width:820px){ .between>.flex{flex-wrap:wrap;min-width:0} .iname{width:auto!important;flex:1 1 90px;min-width:0} }
   .empty{padding:36px;text-align:center;color:var(--muted);font-size:15px}
   .note{font-size:15px;color:var(--ink2);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
@@ -4677,9 +4681,15 @@ function renderCredit(){
     /* the bar is what is still owed against the ceiling — see debtCeiling() */
     const owed=debtOwedPct(d), hasLim=isCard&&num(d.limit)>0;
     const editing=editDebt===d.id, done=bal<=0;
-    const state=done?"ok":d.id===nextId?"warn":"bad";
-    const label=done?"PAID":d.id===nextId?`<span class="tlong">ATTACK NEXT</span><span class="tshort">NEXT</span>`:"OPEN";
-    const kindLabel=debtKindOf(d).label;
+    /* standing wins the badge: knowing an account is in collections matters
+       more than knowing it is next in line, and the meta carries the target
+       marker in the rare case the two land on the same debt */
+    const stand=debtStanding(d), isNext=d.id===nextId&&!done;
+    const badge=stand||(isNext?{cls:"warn",long:"ATTACK NEXT",short:"NEXT"}
+                              :{cls:"neutral",long:"OPEN",short:"OPEN"});
+    const label=badge.long===badge.short?esc(badge.long)
+      :`<span class="tlong">${esc(badge.long)}</span><span class="tshort">${esc(badge.short)}</span>`;
+    const kindLabel=d.kind==="collection"?"Closed account":debtKindOf(d).label;
     const pmo=payoffMonths(bal,d.apr,d.payment);
     const meta=[kindLabel,
                 hasLim?`${owed.toFixed(0)}% of limit used`:(orig>bal?`${pct.toFixed(0)}% paid off`:null),
@@ -4690,8 +4700,8 @@ function renderCredit(){
                 pays.length?`${pays.length} payment${pays.length===1?"":"s"}`:null].filter(Boolean).join(" · ");
     return `<div class="dcard${editing?" editing":""}${done?" done":""}">
       <div class="dtop" data-dopen="${d.id}">
-        <span class="tag ${state}">${label}</span>
-        <div class="dinfo"><div class="dname">${esc(d.name)}</div><div class="dmeta">${esc(meta)}</div></div>
+        <span class="tag ${badge.cls}">${label}</span>
+        <div class="dinfo"><div class="dname">${esc(d.name)}</div><div class="dmeta">${isNext&&stand?`<span class="tagline">Attack next</span> · `:""}${esc(meta)}</div></div>
         <div class="damt"><div class="dbal">${fmt(bal)}</div>${hasLim?`<div class="dof">of ${fmt(num(d.limit))} limit</div>`:orig>bal?`<div class="dof">of ${fmt(orig)}</div>`:""}</div>
         <button class="aedit${editing?" on":""}" data-dedit="${d.id}" aria-label="Edit this debt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
       </div>
@@ -4843,6 +4853,21 @@ function debtOwedPct(d){ const c=debtCeiling(d); return c>0?Math.min(100,Math.ma
    utilization figure above the list, because that is the number a credit score
    reacts to. A loan just shows what is left — being early on a car note is not
    a warning, so it stays one colour. */
+/* Where a debt stands, which is not the same question as which one to attack
+   next — those two truths were sharing one badge, and everything that was
+   neither paid nor next came out red. That said an open card in good standing
+   was as alarming as an account in collections.
+   Red is kept for the one thing that genuinely is: a closed, charged-off
+   account. An open card or loan reads neutral, because carrying one is not a
+   problem in itself — how hard you are leaning on it is the bar's job, and the
+   bar already turns red past 30%. */
+function debtStanding(d){
+  if(num(d.balance)<=0) return {cls:"ok",long:"PAID",short:"PAID"};
+  /* a collection is not an open account: it was closed and charged off, and
+     the balance follows you regardless */
+  if(d.kind==="collection") return {cls:"bad",long:"IN COLLECTIONS",short:"COLLECTION"};
+  return null;                                   // open — the caller decides
+}
 function debtBarColor(d){
   if(num(d.balance)<=0) return "var(--pos)";
   if(isRevolving(d)&&num(d.limit)>0){ const u=num(d.balance)/num(d.limit)*100;

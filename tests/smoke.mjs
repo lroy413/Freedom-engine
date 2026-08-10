@@ -435,6 +435,37 @@ await p.fill('#nd-bal','99'); await p.click('#nd-add'); await p.waitForTimeout(4
 chk('a debt with no name is refused',await p.evaluate(()=>({n:db.debts.length,open:!document.getElementById('editSheet').hidden})),{n:2,open:true});
 await p.evaluate(()=>closeEditor()); await p.waitForTimeout(300);
 
+console.log('\n— the badge says where a debt stands, and red means one thing —');
+await p.evaluate(()=>{db.recurring=[];
+  db.debts=[
+    {id:"b1",name:"Credit Card",kind:"card",balance:246,limit:750},
+    {id:"b2",name:"Mission Lane",kind:"collection",balance:1400},
+    {id:"b3",name:"Car loan",kind:"auto",balance:3478,start:10500},
+    {id:"b4",name:"Milestone",kind:"card",balance:10,limit:500},
+    {id:"b5",name:"Old medical",kind:"medical",balance:0,start:400}];
+  saveAll(); setView('credit');});
+await p.waitForTimeout(500);
+const bg=await p.$$eval('#debtList .dcard',rs=>rs.map(r=>{const t=r.querySelector('.tag');
+  return {txt:(t.querySelector('.tshort')||t).textContent.trim(),
+    cls:[...t.classList].filter(c=>c!=='tag')[0],
+    meta:r.querySelector('.dmeta').textContent.trim()};}));
+chk('an open card is neutral, not a warning',[bg[0].txt,bg[0].cls],['OPEN','neutral']);
+chk('  and so is a loan being paid down',[bg[2].txt,bg[2].cls],['OPEN','neutral']);
+chk('a collection is red',[bg[1].txt,bg[1].cls],['COLLECTION','bad']);
+chk('  and is not called open — it is a closed account',bg[1].meta,'Closed account');
+chk('the smallest balance is still the one to attack',[bg[3].txt,bg[3].cls],['NEXT','warn']);
+chk('a cleared debt is green',[bg[4].txt,bg[4].cls],['PAID','ok']);
+chk('nothing else is red',bg.filter(x=>x.cls==='bad').length,1);
+/* standing outranks strategy: being in collections matters more than being
+   next in line, so the target marker moves into the meta */
+await p.evaluate(()=>{db.debts.find(d=>d.id==="b4").balance=5000;
+  db.debts.find(d=>d.id==="b2").balance=80;saveAll();});
+await p.waitForTimeout(500);
+const bg2=await p.$$eval('#debtList .dcard',rs=>{const t=rs[1].querySelector('.tag');
+  return [(t.querySelector('.tshort')||t).textContent.trim(),rs[1].querySelector('.dmeta').textContent.trim()];});
+chk('a collection that is also the target keeps its badge',bg2[0],'COLLECTION');
+chk('  and picks the target up in the meta',bg2[1],'Attack next · Closed account');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
 await b.close();
