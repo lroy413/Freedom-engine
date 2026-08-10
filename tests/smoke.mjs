@@ -403,6 +403,32 @@ console.log('\nâ€” adding a debt is a sheet, not a form parked under the list â€
 await p.evaluate(()=>{db.debts=[];saveAll();setView('credit');});
 await p.waitForTimeout(400);
 chk('nothing owed says so',await p.$eval('#debtList',e=>/Nothing owed here yet/.test(e.textContent)),true);
+/* the card used to hold 60px of empty plot area to say one line of grey text,
+   and the Log button wrapped onto a row of its own */
+const cs=await p.evaluate(()=>{const card=document.querySelector('#view-credit .row2 .card');
+  const row=card.querySelector('.inline'), bt=card.querySelector('#addScoreBtn');
+  const bot=e=>Math.round(e.getBoundingClientRect().bottom);
+  return {chartShown:!document.getElementById('creditChart').hidden,
+    chartH:Math.round(document.getElementById('creditChart').getBoundingClientRect().height),
+    rowH:Math.round(row.getBoundingClientRect().height),   // one line ~73, two ~130
+    sameRow:bot(bt)===bot(row.querySelector('#scoreDate')),
+    scoreClear:Math.round(row.querySelector('#scoreVal').getBoundingClientRect().right)
+              <=Math.round(bt.getBoundingClientRect().left)};});
+chk('no chart is drawn with nothing to plot',cs.chartShown,false);
+chk('  so it takes no height at all',cs.chartH,0);
+chk('the whole row fits on one line',cs.rowH<100,true);
+chk('  the button sits beside the fields, not under them',cs.sameRow,true);
+chk('  and the score box stays clear of it',cs.scoreClear,true);
+await p.evaluate(()=>{db.creditLog=[{date:"2026-02-01",score:598},{date:"2026-08-01",score:645}];saveAll();});
+await p.waitForTimeout(400);
+chk('two scores bring the chart back',await p.evaluate(()=>!document.getElementById('creditChart').hidden),true);
+/* it was a hardcoded blue that stayed the same shade in all three themes */
+const sparkHues=await p.evaluate(async()=>{const out=[];
+  for(const t of ["light","dark","bushido"]){ db.settings.theme=t; syncTheme(); renderCredit();
+    out.push((document.getElementById('creditChart').innerHTML.match(/stroke="(#[0-9a-f]{6})"/i)||[])[1]); }
+  db.settings.theme="light"; syncTheme(); return out;});
+chk('  drawn off the ramp, so each theme gets its own blue',new Set(sparkHues).size,3);
+await p.evaluate(()=>{db.creditLog=[];saveAll();}); await p.waitForTimeout(300);
 chk('  and the form is not sitting open',await p.evaluate(()=>!document.querySelector('#view-credit #nd-name')),true);
 await p.click('#addDebtBtn'); await p.waitForTimeout(400);
 chk('+ Add debt pulls the sheet out',await p.evaluate(()=>!document.getElementById('editSheet').hidden),true);

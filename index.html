@@ -1647,12 +1647,18 @@
     <div class="grid row2">
       <div class="card pad">
         <div class="between"><h2 style="font-size:16px">Credit score</h2><span class="muted" style="font-size:13px">enter it whenever you check</span></div>
-        <div id="creditChart" style="margin:12px 0"></div>
-        <div class="inline">
-          <div class="field" style="width:auto"><label>Date</label><input id="scoreDate" type="date" class="miniedit" style="width:150px;text-align:left"></div>
-          <div class="field" style="width:auto"><label>Score</label><input id="scoreVal" type="number" class="miniedit" style="width:100px;text-align:left" placeholder="640"></div>
-          <button class="btn" id="addScoreBtn">Log score</button>
+        <!-- the chart is hidden outright until there are two points to join:
+             an empty plot area held 60px to say one line of grey text -->
+        <div id="creditChart" style="margin:12px 0" hidden></div>
+        <div class="inline" style="flex-wrap:nowrap;margin-top:12px">
+          <!-- min-width:0 on the inputs: a flex item floors at its intrinsic
+               width, and a bare number input's is ~150px, so width:100% alone
+               let it slide out under the button -->
+          <div class="field" style="flex:1 1 auto;min-width:0"><label>Date</label><input id="scoreDate" type="date" class="miniedit" style="width:100%;min-width:0;text-align:left"></div>
+          <div class="field" style="width:84px;flex:none"><label>Score</label><input id="scoreVal" type="number" class="miniedit" style="width:100%;min-width:0;text-align:left" placeholder="640"></div>
+          <button class="btn" id="addScoreBtn" style="flex:none">Log</button>
         </div>
+        <div class="muted" style="font-size:13px;margin-top:10px" id="scoreHint" hidden></div>
       </div>
       <div class="card pad">
         <h2 style="font-size:16px;margin-bottom:4px">Card utilization</h2>
@@ -4590,18 +4596,22 @@ function renderBudget(){
 }
 
 /* CREDIT & DEBT */
+/* Callers hide this until there are two points to join, so it always draws.
+   Resolved off the ramp rather than a hardcoded blue, which belonged to no
+   theme and stayed the same shade in all three. */
 function sparkline(points,w,h){
-  if(points.length<2)return `<div class="muted" style="font-size:13px;padding:20px 0">Log at least two scores to see the trend.</div>`;
-  const xs=points.map((p,i)=>i),ys=points.map(p=>p.score);
-  const minY=Math.min(...ys)-10,maxY=Math.max(...ys)+10;
+  if(points.length<2)return "";
+  const ys=points.map(p=>p.score);
+  const minY=Math.min.apply(null,ys)-10,maxY=Math.max.apply(null,ys)+10;
   const X=i=>20+i/(points.length-1)*(w-30), Y=v=>h-18-(v-minY)/(maxY-minY||1)*(h-30);
+  const line=cssVar("--c-blue","#2563eb"), axis=cssVar("--muted","#68707d");
   const d=points.map((p,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(p.score).toFixed(1)}`).join(" ");
-  const dots=points.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.score).toFixed(1)}" r="3" fill="#2563eb"/>`).join("");
+  const dots=points.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.score).toFixed(1)}" r="3" fill="${line}"/>`).join("");
   const first=points[0],last=points[points.length-1];
   return `<svg width="100%" viewBox="0 0 ${w} ${h}" style="max-width:100%">
-    <path d="${d}" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"/>${dots}
-    <text x="20" y="${h-3}" font-size="10" fill="#68707d">${first.date.slice(2)}</text>
-    <text x="${w-6}" y="${h-3}" font-size="10" fill="#68707d" text-anchor="end">${last.date.slice(2)}</text>
+    <path d="${d}" fill="none" stroke="${line}" stroke-width="2.5" stroke-linejoin="round"/>${dots}
+    <text x="20" y="${h-3}" font-size="10" fill="${axis}">${first.date.slice(2)}</text>
+    <text x="${w-6}" y="${h-3}" font-size="10" fill="${axis}" text-anchor="end">${last.date.slice(2)}</text>
   </svg>`;
 }
 let payOpen=null,editDebt=null,histOpen=null,editDebtFields=null;
@@ -4661,7 +4671,11 @@ function renderCredit(){
     <div class="card kpi"><div class="label">Credit score</div><div class="val">${sc?sc.score:"—"}</div><div class="sub">${sc?"as of "+sc.date:"log one to start"}</div></div>
     <div class="card kpi"><div class="label">Card utilization</div><div class="val ${u.pct!=null&&u.pct>30?'neg':u.pct!=null?'pos':''}">${u.pct!=null?u.pct.toFixed(0)+"%":"—"}</div><div class="sub">${u.pct!=null?"lower is better":"add card limits"}</div></div>`;
   const pts=[...db.creditLog].sort((a,b)=>a.date.localeCompare(b.date));
-  document.getElementById("creditChart").innerHTML=sparkline(pts,360,140);
+  const cc=document.getElementById("creditChart");
+  cc.hidden=pts.length<2; cc.innerHTML=pts.length<2?"":sparkline(pts,360,112);
+  const shint=document.getElementById("scoreHint");
+  /* only worth saying once there is a lone point waiting for company */
+  if(shint){ shint.hidden=pts.length!==1; shint.textContent="One logged — add another check to see the trend."; }
   document.getElementById("scoreDate").value=todayISO();
   document.getElementById("utilVal").textContent=u.pct!=null?u.pct.toFixed(0)+"%":"—";
   const ub=document.querySelector("#utilBar>span"); const upct=u.pct!=null?Math.min(100,u.pct):0;
@@ -4756,7 +4770,7 @@ function renderCredit(){
           <div class="muted" style="font-size:13px;margin:8px 0 2px">${fmt(pays.reduce((s,p)=>s+num(p.amount),0))} logged. Removing one puts it back on the balance.</div>
         </div>`:""}
       </div>`:""}
-    </div>`; }).join("")||`<div class="empty">Nothing owed here yet — hit <b>+ Add debt</b> above. Cards and loans that come in from a bank sync land here on their own.</div>`;
+    </div>`; }).join("")||`<div class="empty">Nothing owed here yet. Add one above, or let a bank sync bring your cards and loans in on their own.</div>`;
   const findDebt=id=>id?db.debts.find(x=>x.id===id):null;
   const mirror=d=>{ const a=db.accounts.find(x=>x.debtId===d.id); if(a)a.value=num(d.balance); };
   const dl=document.getElementById("debtList");
