@@ -334,15 +334,17 @@ chk('the schedule marks a reinvested payment',dr.up,true);
 chk('a year of reinvestment is priced in shares',dr.sharesYr,3.5714);
 /* the point of the flag: logging a payment has to move the share count, or the
    position drifts away from the brokerage one dividend at a time */
-const dl=await p.evaluate(()=>{
-  const set=(id,v)=>{const el=document.getElementById(id);el.value=v;};
-  setView('invest');
-  set('divName','SCHD'); set('divAmt','28'); document.getElementById('addDivBtn').click();
-  const after={shares:db.holdings[1].shares,avgCost:+db.holdings[1].avgCost.toFixed(4),
-    note:!document.getElementById('divLogNote').hidden};
-  set('divName','O'); set('divAmt','25'); document.getElementById('addDivBtn').click();
-  return {...after,plainShares:db.holdings[0].shares,
-    plainNote:!document.getElementById('divLogNote').hidden,logged:db.dividends.length};});
+/* the log form is a sheet now, so drive it the way a tap would */
+const logDiv=async(name,amt)=>{ await p.evaluate(()=>setView('invest')); await p.waitForTimeout(200);
+  await p.click('#openDivLog'); await p.waitForTimeout(250);
+  await p.fill('#divName',name); await p.fill('#divAmt',String(amt));
+  await p.click('#divSave'); await p.waitForTimeout(350); };
+await logDiv('SCHD',28);
+const dlA=await p.evaluate(()=>({shares:db.holdings[1].shares,avgCost:+db.holdings[1].avgCost.toFixed(4),
+  note:!document.getElementById('divLogNote').hidden}));
+await logDiv('O',25);
+const dl={...dlA,...await p.evaluate(()=>({plainShares:db.holdings[0].shares,
+  plainNote:!document.getElementById('divLogNote').hidden,logged:db.dividends.length}))};
 chk('logging $28 on a $28 reinvesting holding buys a share',dl.shares,101);
 chk('  and the money paid joins the cost basis',dl.avgCost,26.0198);
 chk('  and it says so',dl.note,true);
@@ -406,21 +408,33 @@ chk('nothing owed says so',await p.$eval('#debtList',e=>/Nothing owed here yet/.
 /* the card used to hold 60px of empty plot area to say one line of grey text,
    and the Log button wrapped onto a row of its own */
 const cs=await p.evaluate(()=>{const card=document.querySelector('#view-credit .row2 .card');
-  const row=card.querySelector('.inline'), bt=card.querySelector('#addScoreBtn');
-  const bot=e=>Math.round(e.getBoundingClientRect().bottom);
+  const row=card.querySelector('.scorerow'), bt=card.querySelector('#addScoreBtn');
+  const r=e=>e.getBoundingClientRect();
   return {chartShown:!document.getElementById('creditChart').hidden,
-    chartH:Math.round(document.getElementById('creditChart').getBoundingClientRect().height),
-    rowH:Math.round(row.getBoundingClientRect().height),   // one line ~73, two ~130
-    sameRow:bot(bt)===bot(row.querySelector('#scoreDate')),
-    scoreClear:Math.round(row.querySelector('#scoreVal').getBoundingClientRect().right)
-              <=Math.round(bt.getBoundingClientRect().left)};});
+    chartH:Math.round(r(document.getElementById('creditChart')).height),
+    rowH:Math.round(r(row).height),                       // one line, never two
+    sameRow:Math.round(r(bt).top)===Math.round(r(row.querySelector('#scoreVal')).top),
+    scoreClear:Math.round(r(row.querySelector('#scoreVal')).right)<=Math.round(r(bt).left),
+    dateIsAControl:!document.getElementById('scoreDate').hidden,
+    when:document.getElementById('scoreWhenBtn').textContent};});
 chk('no chart is drawn with nothing to plot',cs.chartShown,false);
 chk('  so it takes no height at all',cs.chartH,0);
-chk('the whole row fits on one line',cs.rowH<100,true);
-chk('  the button sits beside the fields, not under them',cs.sameRow,true);
-chk('  and the score box stays clear of it',cs.scoreClear,true);
-await p.evaluate(()=>{db.creditLog=[{date:"2026-02-01",score:598},{date:"2026-08-01",score:645}];saveAll();});
-await p.waitForTimeout(400);
+chk('the score row is one line',cs.rowH<70,true);
+chk('  with the button beside the field',cs.sameRow,true);
+chk('  and the field clear of it',cs.scoreClear,true);
+/* a native date control sizes itself differently in every engine, so it is
+   never asked to share a row — it is a word until you tap it */
+chk('the date reads as a word, not a control',cs.dateIsAControl,false);
+chk('  and the word is today',cs.when,'today');
+await p.click('#scoreWhenBtn'); await p.waitForTimeout(300);
+chk('tapping it hands over a real date field',
+  await p.evaluate(()=>!document.getElementById('scoreDate').hidden),true);
+await p.fill('#scoreDate','2026-02-01'); await p.fill('#scoreVal','598');
+await p.click('#addScoreBtn'); await p.waitForTimeout(400);
+chk('a backdated score logs on that date',await p.evaluate(()=>db.creditLog.map(x=>[x.date,x.score])),[['2026-02-01',598]]);
+chk('  and the date falls back to today for the next one',
+  await p.evaluate(()=>document.getElementById('scoreWhenBtn').textContent),'today');
+await p.fill('#scoreVal','645'); await p.click('#addScoreBtn'); await p.waitForTimeout(400);
 chk('two scores bring the chart back',await p.evaluate(()=>!document.getElementById('creditChart').hidden),true);
 /* it was a hardcoded blue that stayed the same shade in all three themes */
 const sparkHues=await p.evaluate(async()=>{const out=[];
@@ -491,6 +505,53 @@ const bg2=await p.$$eval('#debtList .dcard',rs=>{const t=rs[1].querySelector('.t
   return [(t.querySelector('.tshort')||t).textContent.trim(),rs[1].querySelector('.dmeta').textContent.trim()];});
 chk('a collection that is also the target keeps its badge',bg2[0],'COLLECTION');
 chk('  and picks the target up in the meta',bg2[1],'Attack next · Closed account');
+
+console.log('\n— the graphics have depth, and ids that do not collide —');
+await p.evaluate(()=>{
+  db.settings.theme="light"; syncTheme();
+  db.snapshots=[{m:"2026-05",cash:6100,invest:6600,net:3900},{m:"2026-06",cash:7400,invest:7200,net:5600},
+    {m:"2026-07",cash:9800,invest:8400,net:8100},{m:"2026-08",cash:13200,invest:12100,net:11300}];
+  db.creditLog=[{date:"2026-02-01",score:598},{date:"2026-08-01",score:645}];
+  db.budgets={Groceries:500,Restaurants:220}; db.budgetMeta={};
+  db.holdings=[{id:"gh",name:"Realty",ticker:"O",shares:10,price:58,avgCost:52,
+    divPerShare:.264,divFreq:"monthly",hist:[{p:52},{p:55},{p:58}]}];
+  db.transactions=[{id:"gt",date:monthKey(todayISO())+"-05",desc:"Kroger",category:"Groceries",amount:-320},
+    {id:"gt2",date:monthKey(todayISO())+"-06",desc:"Out",category:"Restaurants",amount:-140}];
+  saveAll(); renderAll();});
+await p.waitForTimeout(500);
+const gfx=await p.evaluate(async()=>{
+  for(const v of ["dash","credit","budget","invest","trends"]){ setView(v); }
+  await new Promise(r=>setTimeout(r,300));
+  const ids=[...document.querySelectorAll('svg [id]')].map(e=>e.id);
+  /* read the refs off live SVG attributes — the whole app's source sits in a
+     script tag inside body, so innerHTML would scan uninterpolated code too */
+  const refs=[];
+  document.querySelectorAll('svg *').forEach(el=>{
+    for(const a of el.attributes){ const m=/^url\(#(.+)\)$/.exec(a.value.trim()); if(m)refs.push(m[1]); }});
+  return {dupes:ids.length-new Set(ids).size,
+    hasIds:ids.length>0, refs:refs.length,
+    /* every reference has to resolve, or a fill silently renders as nothing */
+    dangling:refs.filter(id=>!document.getElementById(id)).length};});
+chk('every gradient and filter has its own id',gfx.dupes,0);
+chk('  and there are some',gfx.hasIds,true);
+chk('  and something using them',gfx.refs>0,true);
+chk('  with nothing pointing at a def that does not exist',gfx.dangling,0);
+const depth=await p.evaluate(()=>{setView('budget');
+  const sp=document.querySelector('#budgetList .bar>span');
+  const st=getComputedStyle(sp,'::after');
+  return {overlay:/gradient/.test(st.backgroundImage),
+    trough:/inset/.test(getComputedStyle(sp.parentElement).boxShadow)};});
+chk('a progress bar is lit from above',depth.overlay,true);
+chk('  and sits in a recessed trough',depth.trough,true);
+const catbar=await p.evaluate(()=>{setView('budget');
+  const rows=[...document.querySelectorAll('#budgetList .brow')];
+  const fill=r=>r.querySelector('.bar>span').style.background;
+  const dot=r=>r.querySelector('.bdot').style.background;
+  return {matchesDot:rows.every(r=>fill(r)===dot(r)), n:rows.length,
+    distinct:new Set(rows.map(fill)).size};});
+chk('an envelope bar carries its own category colour',catbar.matchesDot,true);
+chk('  so two envelopes no longer look identical',catbar.distinct,catbar.n);
+await p.evaluate(()=>{db.settings.theme="light";syncTheme();});
 
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
