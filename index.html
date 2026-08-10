@@ -1039,7 +1039,45 @@
      marker without needing a z-index of its own. Trees are free to stand
      taller than the 44px track — the top of a full-grown one crosses the road
      line, which is what a treeline behind a road does. */
-  .dh-wood{position:absolute;inset:0;pointer-events:none;color:#fff}
+  /* Top aligned with the track — which is why it lives inside it, so yFor's
+     coordinates need no translating — and extended down past the caption so the
+     trunks stand on the foot of the card. The caption is a later sibling, so it
+     paints over the wood without either needing a z-index. */
+  .dh-wood{position:absolute;left:0;right:0;top:0;bottom:-40px;pointer-events:none;color:#fff}
+  /* the outer span carries the gust, the inner the idle sway — two rotations
+     that have to compose, and one element can only run one transform animation */
+  .jsway{display:block;width:100%;height:100%;transform-origin:50% 100%;
+    animation:tsway var(--d,10s) ease-in-out var(--del,0s) infinite alternate}
+  @keyframes tsway{
+    from{transform:rotate(calc(var(--a,1.2deg) * -1))}
+    to{transform:rotate(var(--a,1.2deg))}
+  }
+  /* weather, not a metronome: at rest for four fifths of the cycle, then a lean
+     and two smaller ones settling back */
+  @keyframes gust{
+    0%,62%,100%{transform:translateX(-50%) rotate(0deg)}
+    70%{transform:translateX(-50%) rotate(var(--g,2deg))}
+    79%{transform:translateX(-50%) rotate(calc(var(--g,2deg) * -.42))}
+    87%{transform:translateX(-50%) rotate(calc(var(--g,2deg) * .18))}
+    93%{transform:translateX(-50%) rotate(calc(var(--g,2deg) * -.07))}
+  }
+  /* ---------- leaves crossing the card ----------
+     Sits over the whole hero and under its content. Each spends most of its
+     cycle at zero opacity, so what you get is the occasional one drifting past
+     rather than a permanent stream. */
+  .hero-weather{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;
+    border-radius:inherit}
+  .hleaf{position:absolute;left:-5%;display:block;width:var(--lw,5px);height:calc(var(--lw,5px) * .62);
+    border-radius:60% 12% 60% 12%;background:rgba(255,255,255,.8);opacity:0;
+    animation:leafdrift var(--gp,17s) linear var(--ldel,0s) infinite}
+  .hleaf.gold{background:#ffd479}
+  /* still for the first half, then it crosses while the wood is leaning */
+  @keyframes leafdrift{
+    0%,52%{opacity:0;transform:translate3d(0,0,0) rotate(0deg)}
+    59%{opacity:.45}
+    88%{opacity:.45}
+    96%,100%{opacity:0;transform:translate3d(var(--lx,240%),var(--ly,-20px),0) rotate(var(--lr,320deg))}
+  }
   /* --dim carries how far back a tree stands and is spent on the leaves alone,
      so the coins keep a level of their own — a couple of percent of gold is
      what makes them read as money rather than as one more pale blob. */
@@ -1052,18 +1090,14 @@
   @keyframes coinglint{from{opacity:.24}to{opacity:.5}}
   html[data-theme="bushido"] .jtree .coin{fill:#e8c56a}
   html[data-theme="light"] .jtree .coin{fill:#f2c14e}
-  /* no will-change: 32 permanently promoted layers is a lot to ask of a phone
-     for a decoration, and an animating transform gets promoted anyway */
-  .jtree{position:absolute;display:block;transform:translateX(-50%);
-    transform-origin:50% 100%}
+  /* no will-change: permanently promoted layers are a lot to ask of a phone for
+     a decoration, and an animating transform gets promoted anyway.
+     Rooted at the layer's foot: a transform is composited, so the wind costs no
+     repaints, and the pivot at the base is what makes it a sway not a slide. */
+  .jtree{position:absolute;bottom:0;display:block;transform:translateX(-50%);
+    transform-origin:50% 100%;
+    animation:gust var(--gp,17s) ease-in-out var(--gd,0s) infinite}
   .jtree svg{display:block;width:100%;height:100%;fill:currentColor}
-  /* rotate about the trunk's base: a transform is composited, so the wind costs
-     no repaints, and the pivot at the foot is what makes it a sway not a slide */
-  .jtree{animation:tsway var(--d,10s) ease-in-out var(--del,0s) infinite alternate}
-  @keyframes tsway{
-    from{transform:translateX(-50%) rotate(calc(var(--a,1.2deg) * -1))}
-    to{transform:translateX(-50%) rotate(var(--a,1.2deg))}
-  }
   /* the light hero is a saturated emerald and the trees can afford to be
      darker there than white; on the dark themes white is what reads */
   html[data-theme="light"] .dh-wood{color:#022c22}
@@ -1337,9 +1371,11 @@
     .bmeta{white-space:normal;overflow:visible;text-overflow:clip;flex-wrap:wrap;row-gap:1px}
   }
   @media(prefers-reduced-motion:reduce){
-    /* the wood stays, the wind and the glinting stop */
+    /* the wood stays; the wind, the glinting and the leaves stop */
     .jtree{animation:none;transform:translateX(-50%)}
+    .jsway{animation:none}
     .jtree .coin{animation:none;opacity:.85}
+    .hero-weather{display:none}
     .bar span,.gbar>span,.bprog span,.dh-rtrack .jfill{animation:none}
     .jyou::after{animation:none;opacity:0}
     /* the nav keeps its glass but stops moving — a bar that resizes under a
@@ -3257,7 +3293,7 @@ const TREE_SHAPES=(()=>{
      that seven trees share. */
   return Array.from({length:7},()=>{
     const W=24,H=40,cx=12;
-    const cy=H-rr(.34,.48)*H, cr=rr(7.4,10.4), tw=rr(1.0,1.7);
+    const cy=H-rr(.44,.58)*H, cr=rr(7.4,10.4), tw=rr(1.0,1.7);
     let blobs="";
     const n=Math.round(rr(4,6));
     for(let i=0;i<n;i++){
@@ -3266,7 +3302,12 @@ const TREE_SHAPES=(()=>{
     }
     blobs+=`<ellipse cx="${cx}" cy="${cy.toFixed(1)}" rx="${(cr*.85).toFixed(1)}" ry="${(cr*.78).toFixed(1)}"/>`;
     const trunk=`<path d="M${(cx-tw).toFixed(1)},${H} L${(cx-tw*.4).toFixed(1)},${cy.toFixed(1)} L${(cx+tw*.4).toFixed(1)},${cy.toFixed(1)} L${(cx+tw).toFixed(1)},${H} Z"/>`;
-    return {W,H,cx,cy,cr,body:`<g class="foliage">${trunk}${blobs}</g>`};
+    /* The box is cropped to the drawing. Left at a fixed 40 tall, the canopy
+       floats in the middle and better than a third of every tree's height is
+       empty air above it — which is why a tree sized to reach the road stopped
+       well short of it. */
+    const top=Math.max(0,cy-cr*1.12-.5);
+    return {W,H,top,cx,cy,cr,body:`<g class="foliage">${trunk}${blobs}</g>`};
   });
 })();
 /* Money does grow on these — that is the whole point of the road. Coins hang in
@@ -3278,7 +3319,7 @@ const TREE_SHAPES=(()=>{
    read as a coin instead of fruit. They twinkle on their own offsets, which is
    the playful part and costs one opacity animation each. */
 function treeSVG(shape,coins,rnd){
-  const {W,H,cx,cy,cr,body}=shape;
+  const {W,H,top,cx,cy,cr,body}=shape;
   let out="";
   for(let i=0;i<coins;i++){
     const a=(i/Math.max(1,coins))*Math.PI*2+rnd()*1.2, d=cr*(.34+rnd()*.5);
@@ -3292,7 +3333,7 @@ function treeSVG(shape,coins,rnd){
   if(coins>=3){ const k=1+Math.round(rnd());
     for(let i=0;i<k;i++){ const fx=cx+(rnd()*2-1)*cr*.9;
       fell+=`<circle class="coin fell" cx="${fx.toFixed(1)}" cy="${(H-.9).toFixed(1)}" r="1.3" style="--cd:${(3+rnd()*3).toFixed(1)}s;--cdel:${(-rnd()*6).toFixed(1)}s"/>`; } }
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true" focusable="false">${body}${fell}${out}</svg>`;
+  return `<svg viewBox="0 ${top.toFixed(1)} ${W} ${(H-top).toFixed(1)}" preserveAspectRatio="none" aria-hidden="true" focusable="false">${body}${fell}${out}</svg>`;
 }
 /* The wood lines the freedom road, in the road's own coordinates: x is the same
    0-100 the stops use, so a tree at 60% stands where 60% of the way stands.
@@ -3306,39 +3347,79 @@ function treeSVG(shape,coins,rnd){
 
    yFor is passed in so this never has to re-derive the curve — one definition
    of where the road is. */
-function roadWood(yFor){
+/* The wood is rooted at the foot of the card and grows up toward the road, and
+   it only reaches as far as you have. `cov` is the same fraction the marker
+   sits at, so the treeline IS the progress bar: earn another hundred a month
+   of passive income and the wood extends, the newest trees arriving as seedlings
+   at the frontier while everything behind them stays exactly where it was.
+
+   Positions are fixed across the whole road rather than spread over the covered
+   part, precisely so growth adds trees instead of shuffling the ones you had. */
+const WOOD_H=84;    // track (44) + the caption band beneath it; keep in step with .dh-wood's bottom
+function roadWood(yFor,cov){
   if(db.settings.trees===false) return "";
   let s=915311;
   const rnd=()=>{s=(s*1103515245+12345)&0x7fffffff; return s/0x7fffffff;};
   const rr=(a,b)=>a+rnd()*(b-a);
-  const N=32, out=[];
+  /* always a seedling or two at the trailhead, so a book that has not started
+     still shows where the wood begins */
+  const edge=Math.max(3,Math.min(100,cov*100));
+  const N=22, out=[];
   for(let i=0;i<N;i++){
-    const x=((i+.12+rnd()*.76)/N)*106-3;            // slight overhang at both ends
+    const x=((i+.12+rnd()*.76)/N)*104-2;
+    /* draw the whole sequence either way so the seeded randomness stays in
+       lockstep — a tree past the frontier is skipped, not re-rolled */
+    const depth=rnd(), shape=Math.floor(rnd()*TREE_SHAPES.length);
+    const jitH=rr(.9,1.1), jitW=rr(.42,.54), dur=rr(6.5,12.5), del=-rnd()*13, ampR=rr(.9,1.7);
     const g=Math.max(0,Math.min(1,x/100));
-    /* a sapling at the trailhead, a full tree at the end. Eased so the growth
-       is visible early rather than all arriving in the last third. */
-    const grow=.13+.87*Math.pow(g,.8);
-    const depth=rnd();                               // near trees bigger and clearer
-    const h=(9+36*grow)*(.74+.5*depth)*rr(.88,1.12);
-    const w=h*rr(.5,.62);
-    /* the ground lifts with the road, so the whole band tilts the way it does */
-    const lift=(44-yFor(Math.max(0,Math.min(100,x))))*.28;
+    const grow=.1+.9*Math.pow(g,.62);
+    const coins=Math.round(Math.max(0,grow-.28)*rr(3.4,6.2));
+    if(x>edge) continue;
+    /* Height is measured against the gap between the ground and the road right
+       here, taken in proportion to how grown the tree is: a seedling is a fifth
+       of the way up, a full one all but touches the line. That is what makes it
+       read as growing toward the road rather than sitting under it. */
+    const reach=WOOD_H-yFor(Math.max(0,Math.min(100,x)))-2;
+    const h=reach*(.22+.78*grow)*(.86+.22*depth)*jitH;
+    const w=h*jitW;
     /* a sapling whips where a grown tree barely leans — more angle on the
        small ones, which is both truer and where the movement is wanted */
-    const amp=(rr(.9,1.7)*(1.5-.62*grow)).toFixed(2);
-    /* nothing on a sapling, a full crop at the far end — the money grows the
-       way the trees do */
-    const coins=Math.round(Math.max(0,grow-.22)*rr(3.4,6.2));
+    const amp=(ampR*(1.5-.62*grow)).toFixed(2);
+    /* the gust arrives left to right, so it reads as weather crossing the wood
+       rather than every tree twitching at once */
+    const gd=(-(x/100)*2.6-rnd()*.5).toFixed(2);
     /* depth dims the leaves, not the whole tree: a coin gated by the same
        opacity as the foliage it hangs in can only ever be one more pale blob,
        and the point is that it reads as money */
-    out.push(`<span class="jtree" style="left:${x.toFixed(2)}%;bottom:${lift.toFixed(1)}px;`+
-      `width:${w.toFixed(1)}px;height:${h.toFixed(1)}px;--dim:${(.075+.10*depth).toFixed(3)};`+
-      `--d:${rr(6.5,12.5).toFixed(1)}s;--del:${(-rnd()*13).toFixed(1)}s;--a:${amp}deg">`+
-      treeSVG(TREE_SHAPES[Math.floor(rnd()*TREE_SHAPES.length)],coins,rnd)+`</span>`);
+    out.push(`<span class="jtree" style="left:${x.toFixed(2)}%;width:${w.toFixed(1)}px;height:${h.toFixed(1)}px;`+
+      `--dim:${(.12+.15*depth).toFixed(3)};--gd:${gd}s;--g:${(1.6+1.5*depth).toFixed(2)}deg">`+
+      `<span class="jsway" style="--d:${dur.toFixed(1)}s;--del:${del.toFixed(1)}s;--a:${amp}deg">`+
+      treeSVG(TREE_SHAPES[shape],coins,rnd)+`</span></span>`);
   }
   return `<div class="dh-wood" aria-hidden="true">${out.join("")}</div>`;
 }
+/* Leaves crossing the card, on the same weather as the gust. They spend most of
+   their cycle invisible, so what you see is the occasional one drifting past
+   rather than a permanent stream — this is the whole difference between a
+   flourish and a screensaver. Every hero card gets them; only the personal one
+   has a road for the wood to line. */
+const HERO_LEAVES=(()=>{
+  let s=5150420;
+  const rnd=()=>{s=(s*1103515245+12345)&0x7fffffff; return s/0x7fffffff;};
+  const rr=(a,b)=>a+rnd()*(b-a);
+  const out=[];
+  /* Every leaf runs the gust's own 17-second period, and crosses during the
+     stretch when the gust is passing through the trees. So it is one weather
+     event — the wood leans, a few leaves go by — and then stillness, rather
+     than a permanent drift that would read as a screensaver. */
+  for(let i=0;i<7;i++){
+    const gold=i%3===0;                              // a little of it is money
+    out.push(`<i class="hleaf${gold?" gold":""}" style="top:${rr(22,78).toFixed(0)}%;`+
+      `--lw:${rr(4,7).toFixed(1)}px;--lx:${rr(160,320).toFixed(0)}%;--ly:${rr(-46,-8).toFixed(0)}px;`+
+      `--lr:${rr(200,520).toFixed(0)}deg;--ldel:${(-rnd()*2.4).toFixed(2)}s"></i>`);
+  }
+  return `<div class="hero-weather" aria-hidden="true">${out.join("")}</div>`;
+})();
 function renderDashHero(){
   const el=document.getElementById("dashHero"); if(!el)return;
   const snaps=(db.snapshots||[]).slice().sort((a,b)=>a.m.localeCompare(b.m));
@@ -3426,7 +3507,7 @@ function renderDashHero(){
         <button class="dh-rgo" data-go="goals" aria-label="Open the freedom tracker">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></div>
       <div class="dh-rtrack">
-        ${roadWood(yFor)}
+        ${roadWood(yFor,cov)}
         <svg viewBox="0 0 100 44" preserveAspectRatio="none" aria-hidden="true">
           <path class="jbase" d="${d}"/>
           ${cov>0.004?`<path class="jfill" d="${d}" pathLength="100" style="stroke-dasharray:${(cov*100).toFixed(2)} 999"/>`:""}
@@ -3447,6 +3528,7 @@ function renderDashHero(){
   const gp=heroGoal?goalPct(heroGoal):null;
   const sts=safeToSpend();
   const personal=`<div class="dashhero${nw<0?" below":""}">
+    ${db.settings.trees===false?"":HERO_LEAVES}
     <div class="dh-top">
       <div class="dh-col">
         <div class="dh-greet">${esc(when)}</div>
@@ -3485,6 +3567,7 @@ function renderDashHero(){
     const pl=bizPL(b.id,y), draw=bizDraw(b.id,y);
     const margin=pl.rev>0?pl.profit/pl.rev*100:null;
     return `<div class="dashhero biz" style="--bh:${b.color}">
+      ${db.settings.trees===false?"":HERO_LEAVES}
       <div class="dh-top">
         <button class="dh-tap" data-go="business" aria-label="Open ${esc(b.name)}">
           <div class="dh-greet">${esc(BIZ_KINDS[b.kind].label)} · ${esc(y)}</div>

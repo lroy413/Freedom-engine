@@ -647,78 +647,91 @@ chk('the matched deposit explains why it is not doubled',
   await p.evaluate(()=>/Same money as the/.test(document.getElementById('editSheetBody').textContent)),true);
 await p.evaluate(()=>closeEditor()); await p.waitForTimeout(300);
 
-console.log('\n— the wood lines the freedom road and grows along it —');
-await p.evaluate(()=>{db.settings.trees=undefined;
+console.log('\n— the wood only reaches as far as you have, and grows with you —');
+const seedWood=pv=>p.evaluate(v=>{db.settings.trees=undefined;
   db.recurring=[{id:"w1",name:"Rent",category:"Rent/Mortgage",amount:1450,dueDay:1,tier:"essential"}];
   db.budgets={Groceries:400}; db.budgetMeta={};
-  db.income=[{id:"w2",name:"Roommate",model:"monthly",amount:900,payFreq:"monthly",passive:true}];
-  saveAll(); setView('dash');});
-await p.waitForTimeout(500);
-const tl=await p.evaluate(()=>{
+  db.income=[{id:"w2",name:"Roommate",model:"monthly",amount:v,payFreq:"monthly",passive:true}];
+  db.businesses=[]; db.transactions=[];
+  saveAll(); setView('dash');},pv);
+const readWood=()=>p.evaluate(()=>{
   const t=[...document.querySelectorAll('.jtree')].map(e=>({
-    x:parseFloat(e.style.left), h:parseFloat(e.style.height),
-    a:parseFloat(getComputedStyle(e).getPropertyValue('--a'))})).sort((a,b)=>a.x-b.x);
-  const avg=(arr,k)=>+(arr.reduce((s,x)=>s+x[k],0)/arr.length).toFixed(2);
-  const track=document.querySelector('.dh-rtrack'), wood=document.querySelector('.dh-wood');
-  const tb=track.getBoundingClientRect(), wb=wood.getBoundingClientRect();
-  const gs=getComputedStyle(document.querySelector('.jtree'));
-  return {n:t.length, sap:avg(t.slice(0,6),'h'), full:avg(t.slice(-6),'h'),
-    sapAmp:avg(t.slice(0,6),'a'), fullAmp:avg(t.slice(-6),'a'),
-    sharesTrack:Math.abs(tb.x-wb.x)<1&&Math.abs(tb.width-wb.width)<1,
-    behind:track.firstElementChild.className,
-    inert:getComputedStyle(wood).pointerEvents,
-    anim:gs.animationName, dir:gs.animationDirection,
-    /* the computed origin resolves 50%/100% into px, so check what matters:
-       the pivot sits at the foot of the tree, not its middle */
-    atFoot:Math.abs(parseFloat(gs.transformOrigin.split(' ')[1])
-      -document.querySelector('.jtree').getBoundingClientRect().height)<1.5};});
-chk('the road grows a wood',tl.n>24,true);
-chk('  in the track itself, sharing the stops coordinates',tl.sharesTrack,true);
-chk('  painted before the road, so nothing is obscured',tl.behind,'dh-wood');
-chk('  and catching no taps',tl.inert,'none');
-chk('saplings at the trailhead',tl.sap<22,true);
-chk('  full trees at the far end',tl.full>36,true);
-chk('  growing better than twice over along the way',tl.full/tl.sap>2,true);
-/* a sapling whips where a grown tree barely leans */
-chk('the small ones move more than the big ones',tl.sapAmp>tl.fullAmp,true);
-chk('the wind is a sway about each trunk',[tl.anim,tl.dir],['tsway','alternate']);
-chk('  pivoting at the foot, not the middle',tl.atFoot,true);
-/* the point of the theme: money grows on the trees, and how much depends on
-   how far along the road the tree stands */
-const cn=await p.evaluate(()=>{
-  const t=[...document.querySelectorAll('.jtree')].map(e=>({
-    x:parseFloat(e.style.left),
-    coins:e.querySelectorAll('.coin:not(.fell)').length,
-    fell:e.querySelectorAll('.coin.fell').length})).sort((a,b)=>a.x-b.x);
-  const sum=(a,k)=>a.reduce((s,x)=>s+x[k],0);
-  /* read both off the SAME tree: --dim varies per tree, and the glint means a
-     coin's opacity depends on when you look */
-  const host=[...document.querySelectorAll('.jtree')].find(e=>e.querySelector('.coin:not(.fell)'));
-  const c=host&&host.querySelector('.coin:not(.fell)'), f=host&&host.querySelector('.foliage');
-  return {sapCoins:sum(t.slice(0,3),'coins'), fullCoins:sum(t.slice(-6),'coins'),
-    frontHalf:sum(t.slice(0,16),'coins'), backHalf:sum(t.slice(16),'coins'),
-    total:sum(t,'coins'), fallen:sum(t,'fell'),
-    /* a coin gated by the same opacity as the leaves can only be a pale blob */
-    coinOp:c?+getComputedStyle(c).opacity:null,
-    leafOp:f?+getComputedStyle(f).opacity:null,
-    glint:c?getComputedStyle(c).animationName:null,
-    /* the ring inside the disc is what makes it a coin and not fruit */
-    hasRim:!!document.querySelector('.jtree .coin .rim')};});
-chk('nothing on the saplings at the trailhead',cn.sapCoins,0);
-chk('  a full crop at the far end',cn.fullCoins>12,true);
-chk('  and most of the money on the back half of the road',cn.backHalf>cn.frontHalf*2.5,true);
-chk('  and some on the ground under the oldest',cn.fallen>0,true);
-chk('a coin is a disc with a ring in it',cn.hasRim,true);
-chk('  brighter than the leaves of its own tree',cn.coinOp>cn.leafOp*1.5,true);
-chk('  and it glints',cn.glint,'coinglint');
-chk('the same wood survives a re-render',await p.evaluate(()=>{
-  const a=document.querySelector('.dh-wood').innerHTML;
-  saveAll(); renderDashHero();
-  return a===document.querySelector('.dh-wood').innerHTML;}),true);
+    x:+parseFloat(e.style.left).toFixed(1), h:+parseFloat(e.style.height).toFixed(1),
+    coins:e.querySelectorAll('.coin:not(.fell)').length})).sort((a,b)=>a.x-b.x);
+  const fs=freedomState(), th=fs.tiers[fs.tiers.length-1];
+  const wood=document.querySelector('.dh-wood'), card=document.querySelector('.dashhero');
+  const o=document.querySelector('.jtree'), inr=o&&o.querySelector('.jsway');
+  return {cov:+Math.min(1,fs.passive.total/th.need).toFixed(3), n:t.length,
+    lastX:t.length?t[t.length-1].x:null, tallest:t.length?Math.max.apply(null,t.map(z=>z.h)):0,
+    shortest:t.length?Math.min.apply(null,t.map(z=>z.h)):0,
+    xs:t.map(z=>z.x), coins:t.reduce((a,z)=>a+z.coins,0),
+    /* trunks stand on the foot of the card, not on the road */
+    footGap:wood?+(card.getBoundingClientRect().bottom-wood.getBoundingClientRect().bottom).toFixed(0):null,
+    gust:o?getComputedStyle(o).animationName:null,
+    sway:inr?getComputedStyle(inr).animationName:null};});
+await seedWood(300); await p.waitForTimeout(450);
+const w1=await readWood();
+await seedWood(1600); await p.waitForTimeout(450);
+const w2=await readWood();
+await seedWood(4000); await p.waitForTimeout(450);
+const w3=await readWood();
+chk('barely started, barely a wood',[w1.cov<.2,w1.n<6],[true,true]);
+chk('  and it stops at the marker',w1.lastX<=w1.cov*100+4,true);
+chk('more passive income, more wood',w2.n>w1.n,true);
+chk('  and more again',w3.n>w2.n,true);
+chk('  reaching the end of the road once every tier is covered',[w3.cov,w3.lastX>90],[1,true]);
+/* growth must ADD trees at the frontier, never move the ones already standing */
+chk('the trees you had do not move as it grows',
+  w2.xs.slice(0,w1.n).join()===w1.xs.join(),true);
+chk('trunks stand on the foot of the card',Math.abs(w3.footGap)<10,true);
+chk('  seedlings at the trailhead, full trees at the end',[w3.shortest<24,w3.tallest>60],[true,true]);
+chk('the crop grows with the wood',w3.coins>w1.coins,true);
+/* two rotations that have to compose: one element runs one transform animation */
+chk('the gust rides outside the idle sway',[w3.gust,w3.sway],['gust','tsway']);
+const wl=await p.evaluate(()=>{
+  const wood=document.querySelector('.dh-wood');
+  return {inert:getComputedStyle(wood).pointerEvents,
+    behind:document.querySelector('.dh-rtrack').firstElementChild.className};});
+chk('  catching no taps',wl.inert,'none');
+chk('  painted before the road',wl.behind,'dh-wood');
 chk('it can be turned off',await p.evaluate(()=>{db.settings.trees=false;renderDashHero();
-  return document.querySelectorAll('.jtree').length;}),0);
-chk('  and back on',await p.evaluate(()=>{db.settings.trees=true;renderDashHero();
-  return document.querySelectorAll('.jtree').length>24;}),true);
+  return document.querySelectorAll('.jtree,.hleaf').length;}),0);
+
+console.log('\n— weather on every hero card —');
+const lv=await p.evaluate(async()=>{
+  db.settings.trees=true;
+  db.businesses=[{id:"lb",name:"Photo",color:"#38bdf8",kind:"sole",drawPct:70,linkProfit:true}];
+  db.transactions=[{id:"lt",date:todayISO(),desc:"Shoot",amount:1200,category:"Income",bizId:"lb",bizPct:100}];
+  saveAll(); await new Promise(r=>setTimeout(r,350));
+  const cards=[...document.querySelectorAll('.dashhero')];
+  const leaf=document.querySelector('.hleaf'), cs=leaf&&getComputedStyle(leaf);
+  return {cards:cards.length,
+    everyCard:cards.every(c=>c.querySelector('.hleaf')),
+    /* the business card has no road, so it gets the weather but not the wood */
+    bizWood:!!document.querySelector('.dashhero.biz .dh-wood'),
+    clipped:getComputedStyle(document.querySelector('.hero-weather')).overflow,
+    anim:cs?cs.animationName:null};});
+chk('the business card gets one too',[lv.cards,lv.everyCard],[2,true]);
+chk('  but no wood, having no road to line',lv.bizWood,false);
+chk('leaves are clipped to the card',lv.clipped,'hidden');
+chk('  and they drift',lv.anim,'leafdrift');
+/* mostly invisible, and moving only while the wood leans: a permanent drift
+   would be a screensaver, not weather. Sampled by driving the animation to a
+   given phase rather than by waiting out a 17-second cycle. */
+const phase=await p.evaluate(()=>{
+  const el=document.querySelector('.hleaf'), a=el.getAnimations()[0];
+  const at=f=>{a.currentTime=a.effect.getTiming().duration*f;
+    return +(+getComputedStyle(el).opacity).toFixed(2);};
+  const o=[at(.1),at(.4),at(.7),at(.99)];
+  const gustA=document.querySelector('.jtree').getAnimations()[0];
+  const same=a.effect.getTiming().duration===gustA.effect.getTiming().duration;
+  a.play(); return {o,same};});
+chk('out of sight early in the cycle',[phase.o[0],phase.o[1]],[0,0]);
+chk('  crossing while the gust passes',phase.o[2]>.2,true);
+chk('  and gone again by the end',phase.o[3],0);
+chk('leaves and the gust share one weather cycle',phase.same,true);
+await p.evaluate(()=>{db.businesses=[];db.transactions=[];saveAll();});
+await p.waitForTimeout(300);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
