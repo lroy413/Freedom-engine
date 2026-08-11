@@ -778,6 +778,36 @@ await p.evaluate(()=>{db.settings.navSlots2=undefined;navPage=0;saveAll();setVie
 await p.setViewportSize({width:1440,height:1200});
 await p.waitForTimeout(300);
 
+console.log('\n— a view preference saves quietly —');
+const hideToast=()=>p.evaluate(()=>document.getElementById('toast').classList.remove('show'));
+const toastUp=()=>p.evaluate(()=>document.getElementById('toast').classList.contains('show'));
+await p.evaluate(()=>{setView('goals');}); await p.waitForTimeout(300); await hideToast();
+/* the suite has already filled the stack, so what matters is that a preference
+   does not add to it */
+const undoBefore=await p.evaluate(()=>undoStack.length);
+await p.evaluate(()=>{goalSort='name';setPref('goalSort','name');}); await p.waitForTimeout(250);
+chk('changing how goals sort raises no toast',await toastUp(),false);
+chk('  but it is saved',await p.evaluate(()=>pref('goalSort','')),'name');
+chk('  and adds nothing to the undo stack',await p.evaluate(()=>undoStack.length),undoBefore);
+await p.evaluate(()=>{const s=document.querySelector('.bbside');
+  if(s){s.scrollLeft=s.clientWidth;} navPage=1; setPref('navPage',1);});
+await p.waitForTimeout(250);
+chk('nor does switching the bar across',await toastUp(),false);
+/* the real thing still has to announce itself and still has to be undoable */
+await p.evaluate(()=>{db.transactions.push({id:"qz",date:todayISO(),desc:"Kroger",amount:-20,category:"Groceries"});saveAll();});
+await p.waitForTimeout(400);
+chk('a change to your money still does',await toastUp(),true);
+chk('  and can be undone',await p.evaluate(()=>undoStack.length>0),true);
+await p.evaluate(()=>undo()); await p.waitForTimeout(400);
+chk('undo gives back the transaction',await p.evaluate(()=>!db.transactions.some(t=>t.id==="qz")),true);
+/* the preference must not be swept into that snapshot, or Undo starts meaning
+   "put that panel back" as well */
+chk('  and leaves the preferences alone',
+  await p.evaluate(()=>[pref('goalSort',''),pref('navPage',0)]),['name',1]);
+await p.evaluate(()=>{goalSort='soon';setPref('goalSort','soon');navPage=0;setPref('navPage',0);
+  db.transactions=[];saveAll();setView('dash');});
+await p.waitForTimeout(300);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
 await b.close();

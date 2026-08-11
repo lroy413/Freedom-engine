@@ -3076,7 +3076,19 @@ function renderComingUp(){
    the bills view, the goal sort and every collapse state reset on reload while
    the dashboard sections remembered. One store, saved with everything else. */
 function pref(k,d){ const p=(db.settings&&db.settings.ui)||{}; return p[k]===undefined?d:p[k]; }
-function setPref(k,v){ db.settings.ui=db.settings.ui||{}; db.settings.ui[k]=v; persist(); }
+/* Which panel is open, which set of shortcuts the bar is showing, how the goals
+   are sorted — none of that is a change to your money. It should not raise a
+   "Change saved" toast and it should not be undoable, or Undo starts meaning
+   "put that panel back" instead of "give me my transaction back".
+   Written straight through, with the undo baseline moved along with it so the
+   preference is not swept into the next real change's snapshot either. */
+function setPref(k,v){ db.settings.ui=db.settings.ui||{}; db.settings.ui[k]=v; persistQuiet(); }
+function persistQuiet(){
+  db.updatedAt=new Date().toISOString();
+  const cur=JSON.stringify(db);
+  lastSerialized=cur;
+  try{ localStorage.setItem(LS_KEY,cur); }catch(e){}
+}
 
 /* ======================= SAFE TO SPEND & INSIGHTS =======================
    One number for the days you don't want to think: what you can spend today
