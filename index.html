@@ -6742,10 +6742,17 @@ function renderNWSheet(){
 }
 
 /* ---------- BUSINESS SCREEN ---------- */
-let openBiz=null, addBizOpen=false, bizYear=null, bizDetail=null;
+let openBiz=null, addBizOpen=false, bizYear=null, bizDetail=null, bizAutoOpened=false;
 function renderBusiness(){
   const list=document.getElementById("bizList"); if(!list)return;
   const y=bizYear||todayISO().slice(0,4);
+  /* The P&L, the Schedule C mapping and the tagged transactions all live inside
+     a business's panel, so with one business and nothing expanded this screen
+     opened as a single row above a blank page. With only one there is nothing
+     to choose between — open it. Once only: doing it on every render would
+     make the close button spring straight back open. */
+  const bl=bizList().filter(b=>b.active!==false);
+  if(!bizAutoOpened&&openBiz===null&&bl.length===1){ openBiz=bl[0].id; bizAutoOpened=true; }
   /* add panel */
   const ap=document.getElementById("addBizPanel");
   ap.hidden=!addBizOpen;

@@ -916,6 +916,30 @@ await p.evaluate(()=>{db.settings.retire={};db.accounts=[];db.holdings=[];db.tra
   editRetire=null;saveAll();setView('dash');});
 await p.waitForTimeout(300);
 
+console.log('\n— the business screen opens with its books —');
+const bzs=await p.evaluate(async()=>{
+  db.businesses=[{id:"zb",name:"Freedom Films",kind:"sole",color:"#38bdf8",drawPct:70,linkProfit:true}];
+  db.transactions=[{id:"zt",date:todayISO(),desc:"Shoot",category:"Income",amount:2400,bizId:"zb",bizPct:100}];
+  openBiz=null; bizAutoOpened=false; saveAll(); setView('business');
+  await new Promise(r=>setTimeout(r,320));
+  const h=()=>Math.round(document.getElementById('view-business').getBoundingClientRect().height);
+  const opened=h();
+  const c=document.querySelector('[data-bizclose]'); if(c)c.click();
+  await new Promise(r=>setTimeout(r,250));
+  const closed=h();
+  renderBusiness(); await new Promise(r=>setTimeout(r,250));
+  return {opened,closed,staysClosed:h(),
+    sections:[...document.querySelectorAll('#view-business .sectiontitle h2')].map(x=>x.textContent)};});
+/* the P&L, the Schedule C mapping and the tagged transactions all live in the
+   panel, so one business and nothing expanded was a row above a blank page */
+chk('one business opens expanded',bzs.opened>600,true);
+chk('  showing the books',bzs.sections.includes('Profit & loss')&&bzs.sections.includes('Schedule C'),true);
+/* and the close button must not spring straight back open */
+chk('closing it sticks',bzs.closed<300,true);
+chk('  through a re-render',bzs.staysClosed,bzs.closed);
+await p.evaluate(()=>{db.businesses=[];db.transactions=[];openBiz=null;bizAutoOpened=false;saveAll();setView('dash');});
+await p.waitForTimeout(300);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
 await b.close();
