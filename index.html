@@ -970,6 +970,9 @@
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .bdot{width:7px;height:7px;border-radius:50%;flex:none}
   .bmeta .bneg{color:var(--neg);font-weight:620} .bmeta .bwarn{color:var(--warn-ink);font-weight:620}
+  /* the same amber the bill rows use, so a question on an account row reads the
+     same way a question anywhere else does */
+  .ameta .bwarn{color:var(--warn-ink);font-weight:640}
   .bamt{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;flex:none}
   .brow.paid .bamt{color:var(--muted);text-decoration:line-through}
   .brow.paid .bname{color:var(--ink2)}
@@ -1841,6 +1844,32 @@
     <div class="stack rowcard" id="debtList"></div>
   </section>
 
+  <!-- RETIREMENT -->
+  <section class="view" id="view-retire">
+    <h1 class="page">Retirement</h1>
+    <p class="lead">The money you can't spend yet. What's in it, what's going in, and what it turns into if you keep at it — arithmetic on your own numbers, not a forecast and not advice.</p>
+    <div class="grid kpis" id="retireKpis" style="margin-bottom:16px"></div>
+
+    <div class="sectiontitle"><h2>Accounts</h2><span class="hint">tap one to add a contribution</span>
+      <span class="spacer"></span><button class="btn sm primary" id="addRetireBtn">+ Account</button></div>
+    <div class="card" id="retireList" style="margin-bottom:16px"></div>
+
+    <div class="sectiontitle"><h2>Where it lands</h2><span class="hint">at the rate you set</span></div>
+    <div class="card pad" style="margin-bottom:16px">
+      <div id="retireProj"></div>
+      <div class="formgrid" style="margin-top:16px">
+        <div class="field"><label>Your age now</label><input id="retAge" type="number" min="16" max="99" placeholder="34"></div>
+        <div class="field"><label>Retire at</label><input id="retTarget" type="number" min="30" max="99" placeholder="65"></div>
+        <div class="field"><label>Assumed return <span class="muted" style="font-weight:400">% a year</span></label><input id="retRate" type="number" step="any" placeholder="7"></div>
+        <div class="field"><label>Monthly contribution <span class="muted" style="font-weight:400">going forward</span></label><input id="retMonthly" type="number" placeholder="500"></div>
+      </div>
+      <div class="note" style="margin-top:14px;font-size:13px">Compound growth on the numbers above. Markets do not return the same amount every year, so treat this as the shape of the thing rather than a promise.</div>
+    </div>
+
+    <div class="sectiontitle"><h2>Contributions</h2><span class="hint" id="retYearHint"></span></div>
+    <div class="card" id="retireContribs"></div>
+  </section>
+
   <!-- INVESTMENTS -->
   <section class="view" id="view-invest">
     <h1 class="page">Investments</h1>
@@ -2059,7 +2088,7 @@ const DEFAULT_CATS=["Income","Rent/Mortgage","Electric","Gas (Utility)","Water",
   "Car Payment","Auto & Gas","Transit & Parking","Insurance","Subscriptions","Food","Groceries","Restaurants",
   "Coffee","Household","Home Maintenance","Shopping","Clothing","Health","Personal Care","Fitness","Pets",
   "Childcare","Education","Entertainment","Travel","Gifts","Charity","Gear",
-  "Debt Payment","Savings","Transfer","Fees","Misc","Uncategorized"];
+  "Debt Payment","Savings","Transfer","Investment","Fees","Misc","Uncategorized"];
 function seedAccounts(){
   const bank=uid();
   return [
@@ -2643,6 +2672,19 @@ const ACCT_KINDS={
   cd:{label:"CD / term deposit",group:"Bank accounts",color:"#0891b2"},
   digital:{label:"Digital wallet",group:"Digital wallets",color:"#7c5cf0"},
   cash:{label:"Physical cash",group:"Cash",color:"#0ca35a"},
+  /* Money in a brokerage or a 401(k) is yours, but it is not money you can
+     spend on Thursday — and a bank sync files both as plain deposit accounts.
+     Typed as their own kinds they stay out of cash, safe-to-spend and runway
+     while still counting toward what you are worth. */
+  brokerage:{label:"Brokerage",group:"Investments",color:"#7c5cf0",invest:true},
+  crypto:{label:"Crypto",group:"Investments",color:"#a855f7",invest:true},
+  r401k:{label:"401(k)",group:"Retirement",color:"#6366f1",invest:true,retire:true},
+  r403b:{label:"403(b)",group:"Retirement",color:"#6366f1",invest:true,retire:true},
+  ira:{label:"Traditional IRA",group:"Retirement",color:"#4f46e5",invest:true,retire:true},
+  roth:{label:"Roth IRA",group:"Retirement",color:"#4338ca",invest:true,retire:true},
+  sep:{label:"SEP / Solo 401(k)",group:"Retirement",color:"#4338ca",invest:true,retire:true},
+  hsa:{label:"HSA",group:"Retirement",color:"#0891b2",invest:true,retire:true},
+  pension:{label:"Pension",group:"Retirement",color:"#3730a3",invest:true,retire:true},
   credit:{label:"Credit card",group:"Cards & credit",color:"#dc2626",liability:true,revolving:true},
   lineofcredit:{label:"Line of credit",group:"Cards & credit",color:"#b91c1c",liability:true,revolving:true,debtKind:"loc"},
   autoloan:{label:"Auto loan",group:"Loans",color:"#ea580c",liability:true,installment:true,debtKind:"auto"},
@@ -2653,7 +2695,7 @@ const ACCT_KINDS={
 };
 const HOLDER_KINDS=Object.entries(ACCT_KINDS).filter(([,o])=>o.holder);
 const LEAF_KINDS=Object.entries(ACCT_KINDS).filter(([,o])=>!o.holder);
-const ACCT_GROUPS=["Bank accounts","Digital wallets","Cash","Cards & credit","Loans","Other"];
+const ACCT_GROUPS=["Bank accounts","Digital wallets","Cash","Investments","Retirement","Cards & credit","Loans","Other"];
 const kindOf=a=>ACCT_KINDS[a.kind]||ACCT_KINDS.other;
 const topAccounts=()=>db.accounts.filter(a=>!a.parentId||!db.accounts.some(p=>p.id===a.parentId));
 const kidsOf=id=>db.accounts.filter(a=>a.parentId===id);
@@ -2669,9 +2711,30 @@ const isInstallment=a=>!!kindOf(a).installment;
    downstream sum flip sign, so a liability always holds a positive "amount owed". */
 const owed=a=>Math.abs(num(a.value));
 const debtKindFor=a=>kindOf(a).debtKind||"card";
-const assetBalance=a=>hasKids(a.id)?kidsOf(a.id).filter(k=>!isLiab(k)).reduce((s,k)=>s+num(k.value),0):(isLiab(a)?0:num(a.value));
+/* An investment or retirement account is an asset but not cash. Everything that
+   asks "what can I spend" has to walk past it, and everything that asks "what
+   am I worth" has to count it. */
+const isInvestAcct=a=>!!kindOf(a).invest;
+/* Names a bank hands over for accounts that are not spendable. Only ever used to
+   raise a question on the row, never to change a type behind your back. */
+const INVEST_HINTS=/\b(401|403b|457|ira|roth|hsa|pension|annuity|brokerage|robinhood|vanguard|fidelity|schwab|etrade|e\*trade|betterment|wealthfront|coinbase|empower|primerica|tsp|sep|solo ?k|invest|crypto|securities)\b/i;
+const looksInvested=n=>INVEST_HINTS.test(String(n||""));
+const isRetireAcct=a=>!!kindOf(a).retire;
+const assetBalance=a=>hasKids(a.id)?kidsOf(a.id).filter(k=>!isLiab(k)&&!isInvestAcct(k)).reduce((s,k)=>s+num(k.value),0):((isLiab(a)||isInvestAcct(a))?0:num(a.value));
 const liabBalance=a=>hasKids(a.id)?kidsOf(a.id).filter(isLiab).reduce((s,k)=>s+owed(k),0):(isLiab(a)?owed(a):0);
 const totalCash=()=>topAccounts().reduce((s,a)=>s+assetBalance(a),0);
+/* counted across every account, nested or not — a brokerage under a bank holder
+   is still a brokerage */
+const investAccounts=()=>db.accounts.filter(a=>isInvestAcct(a)&&!hasKids(a.id));
+const retireAccounts=()=>investAccounts().filter(isRetireAcct);
+const brokerageTotal=()=>investAccounts().filter(a=>!isRetireAcct(a)).reduce((s,a)=>s+num(a.value),0);
+const retirementTotal=()=>retireAccounts().reduce((s,a)=>s+num(a.value),0);
+/* You said the synced balance wins, so a position you have typed in is there for
+   its cost basis, its gain and its dividends — the account it lives in carries
+   the money. With no investment account on file nothing else is representing
+   those positions, so then they carry it themselves. */
+const holdingsCarryValue=()=>investAccounts().length===0;
+const investedTotal=()=>brokerageTotal()+retirementTotal()+(holdingsCarryValue()?investTotal():0);
 const cardAccounts=()=>db.accounts.filter(isLiab);
 const linkedDebt=a=>a.debtId?db.debts.find(d=>d.id===a.debtId):null;
 /* balances on cards that aren't mirrored into Debt payoff — added so they still
@@ -2806,14 +2869,31 @@ function upcomingDividends(days){
   return out.sort((a,b)=>a.date.localeCompare(b.date));
 }
 const totalDebt=()=>db.debts.reduce((s,d)=>s+num(d.balance),0);
-const totalAssets=()=>totalCash()+investTotal();
+const totalAssets=()=>totalCash()+investedTotal();
 const netWorth=()=>totalAssets()-totalDebt()-unlinkedCardDebt();
 function monthsWithData(){ const s=new Set(db.transactions.map(t=>monthKey(t.date))); s.add(monthKey(todayISO())); return [...s].sort().reverse(); }
 /* Money you move between your own accounts isn't income and isn't spending —
    it's the same dollars in a different pocket. Anything filed under Transfer is
    left out of every income, spending, budget and burn figure. */
-const NEUTRAL_CATS=["Transfer"];
-const isNeutral=t=>NEUTRAL_CATS.includes(t&&t.category);
+const NEUTRAL_CATS=["Transfer","Investment"];
+/* Buying shares is not spending and selling them is not income — the money has
+   not left the account, it has changed shape. Nor is a dividend paid into a
+   brokerage money you can spend; it is money you now own more of.
+   So everything that happens inside an investment or retirement account is
+   neutral, and only a transfer out to a bank counts as money arriving.
+   Anything you type by hand can still be categorised however you like — this
+   applies to what the account itself reports. */
+let _iaCache=null,_iaKey="";
+function investAcctIds(){
+  const key=(db.updatedAt||"")+"|"+(db.accounts||[]).length;
+  if(_iaCache&&_iaKey===key) return _iaCache;
+  _iaKey=key; _iaCache=new Set((db.accounts||[]).filter(isInvestAcct).map(a=>a.id));
+  return _iaCache;
+}
+/* looked up through a set, not a find: isNeutral runs once per transaction per
+   total, and there can be thousands of them */
+const isInvestTx=t=>!!(t&&t.acctId&&investAcctIds().has(t.acctId));
+const isNeutral=t=>NEUTRAL_CATS.includes(t&&t.category)||isInvestTx(t);
 /* Business money is kept out of personal totals — a lens you bought for a shoot
    isn't personal spending, and the revenue isn't personal income. What the
    business hands you shows up separately as a draw. personalAmt() splits a
@@ -3002,7 +3082,7 @@ const CAT_HUE={Income:"emerald",Savings:"teal","Rent/Mortgage":"violet",
   Health:"rose","Personal Care":"fuchsia",Fitness:"rose",Pets:"teal",
   Childcare:"cyan",Education:"blue",Entertainment:"fuchsia",Travel:"sky",
   Gifts:"rose",Charity:"teal",Gear:"slate","Debt Payment":"rose",
-  Transfer:"slate",Fees:"slate",Misc:"slate",Uncategorized:"slate",
+  Transfer:"slate",Investment:"violet",Fees:"slate",Misc:"slate",Uncategorized:"slate",
   Rent:"violet","Transport/Gas":"orange"};
 const catHueVar=c=>RAMP[CAT_HUE[c]||"slate"]||"--c-slate";
 /* resolved live so a theme switch repaints every slice */
@@ -3580,7 +3660,7 @@ function renderDashHero(){
         <div class="dh-sub">${sts.safe>=0?`≈ ${fmt(Math.max(0,sts.perDay))}/day left`:"short this month"}</div>
       </button>
       <div class="dh-stat"><div class="k">On hand</div><div class="v">${fmt(spendableCash())}</div>${taxHeld()>0?`<div class="dh-sub">${fmt(taxHeld())} held for tax</div>`:""}</div>
-      <div class="dh-stat"><div class="k">Invested</div><div class="v">${fmt(investTotal())}</div></div>
+      <div class="dh-stat"><div class="k">Invested</div><div class="v">${fmt(investedTotal())}</div></div>${retirementTotal()>0?`<div class="dh-sub">${fmt(retirementTotal())} in retirement</div>`:""}
       <div class="dh-stat"><div class="k">Owed</div><div class="v">${fmt(totalDebt())}</div></div>
       <div class="dh-stat"><div class="k">Runway</div><div class="v">${runwayText()}</div></div>
       <div class="dh-stat"><div class="k">Next payday</div><div class="v">${np?esc(shortDate(np)):"—"}</div></div>
@@ -5422,10 +5502,134 @@ function sparkFor(h,dir){
     <path d="${d} L116,38 L4,38 Z" fill="url(#${gid})"/>
     <path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
 }
+/* ---------- RETIREMENT ----------
+   Its own screen because the question is different. Everywhere else the app
+   asks what you can spend; here it asks what you are building and how long you
+   have. The accounts are ordinary accounts typed as retirement kinds, so a bank
+   sync fills them in and net worth already counts them — this view adds the
+   contributions going in and the arithmetic on where that lands. */
+const retireCfg=()=>{ const c=(db.settings&&db.settings.retire)||{};
+  return {age:num(c.age)||null,target:num(c.target)||65,rate:c.rate==null?7:num(c.rate),
+    monthly:num(c.monthly)||0}; };
+function setRetireCfg(k,v){ db.settings.retire=Object.assign({},db.settings.retire||{},{[k]:v}); saveAll(); }
+const retireContribs=a=>Array.isArray(a.contribs)?a.contribs:[];
+const contribIn=(a,y)=>retireContribs(a).filter(c=>String(c.date).slice(0,4)===String(y))
+  .reduce((s,c)=>s+num(c.amount),0);
+const contribByWho=(y,who)=>retireAccounts().reduce((s,a)=>s+retireContribs(a)
+  .filter(c=>String(c.date).slice(0,4)===String(y)&&(who?c.who==="employer":c.who!=="employer"))
+  .reduce((t,c)=>t+num(c.amount),0),0);
+/* Compound the balance forward and add each month's contribution as it lands,
+   which is what a monthly deposit actually does — annualising it first would
+   quietly credit a year of growth to money that has not arrived. */
+function retireProject(){
+  const c=retireCfg(), bal=retirementTotal();
+  const yrs=c.age?Math.max(0,c.target-c.age):null;
+  if(yrs==null) return {years:null,end:bal,pts:[bal],labels:["now"]};
+  const r=c.rate/100/12, n=Math.round(yrs*12);
+  let v=bal; const pts=[bal], labels=["now"];
+  for(let i=1;i<=n;i++){ v=v*(1+r)+c.monthly;
+    if(i%12===0){ pts.push(v); labels.push("+"+(i/12)+"y"); } }
+  return {years:yrs,end:v,pts,labels,contributed:c.monthly*n};
+}
+let editRetire=null;
+function renderRetire(){
+  const y=todayISO().slice(0,4);
+  const accts=retireAccounts(), bal=retirementTotal();
+  const mine=contribByWho(y,false), emp=contribByWho(y,true);
+  const pj=retireProject(), c=retireCfg();
+  /* the app's one question, asked of this money: what would it pay you */
+  const monthlyAt=pj.end*(assumedYield()/100)/12;
+  const k=document.getElementById("retireKpis");
+  if(k) k.innerHTML=`
+    <div class="card kpi"><div class="label">Put away</div><div class="val" style="color:var(--invest)">${fmt(bal)}</div><div class="sub">${accts.length?`across ${accts.length} account${accts.length===1?"":"s"}`:"no retirement accounts yet"}</div></div>
+    <div class="card kpi"><div class="label">In this year</div><div class="val pos">${fmt(mine+emp)}</div><div class="sub">${emp>0?`${fmt(mine)} you · ${fmt(emp)} employer`:(mine>0?"all yours":"nothing logged yet")}</div></div>
+    <div class="card kpi"><div class="label">${pj.years!=null?`At ${c.target}`:"Projected"}</div><div class="val">${pj.years!=null?fmt(pj.end):"—"}</div><div class="sub">${pj.years!=null?`${pj.years} year${pj.years===1?"":"s"} of growth`:"add your age below"}</div></div>
+    <div class="card kpi"><div class="label">Would pay you</div><div class="val">${pj.years!=null?fmt(monthlyAt):"—"}</div><div class="sub">${pj.years!=null?`a month at ${assumedYield()}%`:"set an age to see it"}</div></div>`;
+  const list=document.getElementById("retireList");
+  if(list) list.innerHTML=accts.length?accts.map(a=>{
+    const kd=kindOf(a), inY=contribIn(a,y), open=editRetire===a.id;
+    return `<div class="brow${open?" editing":""}">
+      <div class="bmain" data-retopen="${esc(a.id)}">
+        <span class="bdot" style="background:${kd.color};width:9px;height:9px"></span>
+        <div class="binfo"><div class="bname">${esc(a.name)}</div>
+          <div class="bmeta">${esc(kd.label)}${inY>0?` · ${fmt(inY)} in ${esc(y)}`:""}${a.sfId||a.sfAcct?" · synced":""}</div></div>
+        <div class="damt"><div class="dbal">${fmt(num(a.value))}</div>
+          <div class="dof">${bal>0?Math.round(num(a.value)/bal*100)+"% of it":"—"}</div></div>
+      </div>
+      ${open?`<div class="bpanel">
+        <div class="formgrid">
+          <div class="field"><label>Balance</label><input type="number" step="0.01" value="${num(a.value)}" data-retbal="${a.id}"></div>
+          <div class="field"><label>Type</label><select data-retkind="${a.id}">${Object.entries(ACCT_KINDS).filter(([,o])=>o.retire).map(([v,o])=>`<option value="${v}" ${a.kind===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
+        </div>
+        <div class="note" style="margin-top:14px;font-size:13px"><b>Add a contribution</b> — what went in, and whether it was yours or your employer's.</div>
+        <div class="formgrid" style="margin-top:10px">
+          <div class="field"><label>Date</label><input type="date" id="rc-date" value="${todayISO()}"></div>
+          <div class="field"><label>Amount</label><input type="number" step="0.01" id="rc-amt" placeholder="500"></div>
+          <div class="field"><label>From</label><select id="rc-who"><option value="you">You</option><option value="employer">Employer match</option></select></div>
+          <button class="btn primary" data-retadd="${a.id}">Add</button>
+        </div>
+        <div class="toolbar" style="margin:14px 0 0">
+          <span class="muted" style="font-size:13px">${retireContribs(a).length} contribution${retireContribs(a).length===1?"":"s"} logged</span>
+          <div class="spacer"></div>
+          <button class="btn sm primary" data-retdone="1">Done</button>
+        </div>
+      </div>`:""}
+    </div>`;}).join("")
+    :`<div class="empty">Nothing here yet. Add a 401(k), an IRA or an HSA — or set an existing account's type to one of those on the Accounts screen and it lands here.</div>`;
+  if(list){
+    list.querySelectorAll("[data-retopen]").forEach(el=>el.onclick=()=>{
+      const id=el.dataset.retopen; editRetire=editRetire===id?null:id; renderRetire();});
+    list.querySelectorAll("[data-retdone]").forEach(b=>b.onclick=()=>{editRetire=null;renderRetire();});
+    list.querySelectorAll("[data-retbal]").forEach(i=>i.onchange=e=>{
+      const a=db.accounts.find(x=>x.id===e.currentTarget.dataset.retbal); if(a){a.value=num(e.currentTarget.value);saveAll();}});
+    list.querySelectorAll("[data-retkind]").forEach(sel=>sel.onchange=e=>{
+      const a=db.accounts.find(x=>x.id===e.currentTarget.dataset.retkind); if(a){a.kind=e.currentTarget.value;saveAll();}});
+    list.querySelectorAll("[data-retadd]").forEach(b=>b.onclick=e=>{
+      const a=db.accounts.find(x=>x.id===e.currentTarget.dataset.retadd); if(!a)return;
+      const amt=num((document.getElementById("rc-amt")||{}).value); if(!amt)return;
+      if(!Array.isArray(a.contribs))a.contribs=[];
+      a.contribs.push({id:uid(),date:(document.getElementById("rc-date")||{}).value||todayISO(),
+        amount:amt,who:(document.getElementById("rc-who")||{}).value==="employer"?"employer":"you"});
+      /* the money is in the account now, so the balance should say so */
+      a.value=num(a.value)+amt;
+      saveAll();});
+  }
+  const pe=document.getElementById("retireProj");
+  if(pe) pe.innerHTML=pj.years==null
+    ? `<div class="empty" style="padding:22px">Put your age in below and this works out where it lands.</div>`
+    : chartLine([{name:"Retirement",points:pj.pts,color:cssVar("--invest","#7c5cf0"),area:true}],
+        {labels:pj.labels,h:200,labelEnd:true})
+      +`<div class="note" style="margin-top:12px;font-size:13px">${fmt(bal)} today${c.monthly>0?` plus ${fmt(c.monthly)} a month`:""} at ${c.rate}% a year is <b>${fmt(pj.end)}</b> in ${pj.years} years${c.monthly>0?` — ${fmt(pj.contributed)} of that is money you put in.`:"."}</div>`;
+  const set=(id,v)=>{const el=document.getElementById(id); if(el&&document.activeElement!==el)el.value=v;};
+  set("retAge",c.age||""); set("retTarget",c.target); set("retRate",c.rate); set("retMonthly",c.monthly||"");
+  const yh=document.getElementById("retYearHint"); if(yh)yh.textContent=y;
+  const cl=document.getElementById("retireContribs");
+  if(cl){ const rows=[];
+    accts.forEach(a=>retireContribs(a).forEach(x=>rows.push({a,x})));
+    rows.sort((p,q)=>String(q.x.date).localeCompare(String(p.x.date)));
+    cl.innerHTML=rows.length?`<div class="${rows.length>6?"scrollrows":""}">`+rows.slice(0,40).map(({a,x})=>
+      `<div class="brow"><div class="bmain">
+        <span class="tdate">${esc(txDate(x.date))}</span>
+        <div class="binfo"><div class="bname">${esc(a.name)}</div>
+          <div class="bmeta">${x.who==="employer"?"employer match":"your contribution"}</div></div>
+        <div class="damt"><div class="dbal pos">${fmt2(num(x.amount))}</div></div>
+        <button class="btn ghost sm" data-retdel="${esc(a.id)}|${esc(x.id)}" aria-label="Remove">✕</button>
+      </div></div>`).join("")+`</div>`
+      :`<div class="empty" style="padding:22px">No contributions logged. Open an account above to add one.</div>`;
+    cl.querySelectorAll("[data-retdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{
+      const [aid,cid]=b.dataset.retdel.split("|");
+      const a=db.accounts.find(x=>x.id===aid); if(!a)return;
+      const gone=retireContribs(a).find(x=>x.id===cid);
+      a.contribs=retireContribs(a).filter(x=>x.id!==cid);
+      /* putting a contribution back takes the money out of the balance again */
+      if(gone)a.value=Math.max(0,num(a.value)-num(gone.amount));
+      saveAll();}));
+  }
+}
 function renderInvest(){
   const val=investTotal(),cost=investCost(),gain=val-cost;
   document.getElementById("investKpis").innerHTML=`
-    <div class="card kpi"><div class="label">Portfolio value</div><div class="val invest" style="color:var(--invest)">${fmt(val)}</div><div class="sub">${db.holdings.length} holdings</div></div>
+    <div class="card kpi"><div class="label">Portfolio value</div><div class="val invest" style="color:var(--invest)">${fmt(val)}</div><div class="sub">${db.holdings.length} holding${db.holdings.length===1?"":"s"}${holdingsCarryValue()?"":" · net worth uses the account balances"}</div></div>
     <div class="card kpi"><div class="label">Total gain / loss</div><div class="val ${gain>=0?'pos':'neg'}">${gain>=0?'+':''}${fmt(gain)}</div><div class="sub">${cost?((gain/cost)*100).toFixed(1)+"% vs cost":"add cost basis"}</div></div>
     <div class="card kpi"><div class="label">Est. annual dividends</div><div class="val pos">${fmt(estAnnualDiv())}</div><div class="sub">${(()=>{
       if(!(estAnnualDiv()>0)) return "add tickers to estimate";
@@ -5753,7 +5957,7 @@ function renderCash(){
         <div class="hitem"><div class="k">Banks</div><div class="v">${fmt(groupTotal("Bank accounts"))}</div></div>
         <div class="hitem"><div class="k">Wallets</div><div class="v">${fmt(groupTotal("Digital wallets"))}</div></div>
         <div class="hitem"><div class="k">Cash</div><div class="v">${fmt(groupTotal("Cash"))}</div></div>
-        <div class="hitem"><div class="k">Investments</div><div class="v">${fmt(investTotal())}</div></div>
+        <div class="hitem"><div class="k">Investments</div><div class="v">${fmt(investedTotal())}</div></div>
         ${cardAccounts().length?`<div class="hitem"><div class="k">Owed</div><div class="v neg">${fmt(Math.abs(groupTotal("Cards & credit"))+Math.abs(groupTotal("Loans")))}</div></div>`:""}
       </div></div>`; }
   const box=document.getElementById("acctList"); if(!box)return;
@@ -5767,10 +5971,15 @@ function renderCash(){
           num(a.apr)?`${num(a.apr)}% APR`:null,
           ld?"in Debt payoff":"not tracked as debt"].filter(Boolean).join(" · ")
       :o.label;
+    /* A bank sync files a 401(k) and a brokerage as plain deposit accounts,
+       which puts them straight into money-on-hand. It cannot be corrected
+       automatically without guessing at someone's money, but the guess is good
+       enough to point at — one tap on the row fixes it. */
+    const misfiled=!isHolder&&!isLiab(a)&&!isInvestAcct(a)&&looksInvested(a.name);
     return `<div class="arow${isSub?" sub":""}${editing?" editing":""}" data-caopen="${a.id}">
       ${kids.length?`<button class="twist${open?" open":""}" data-catog="${a.id}" aria-label="${open?'Collapse':'Expand'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>`:`<span class="twist ghosted"></span>`}
       <div class="glyph${isSub?" small":""}" style="background:${o.color}">${esc(acctInitials(a.name))}</div>
-      <div class="ainfo"><div class="aname">${esc(a.name)}</div><div class="ameta">${esc(meta)}</div></div>
+      <div class="ainfo"><div class="aname">${esc(a.name)}</div><div class="ameta">${esc(meta)}${misfiled?` · <span class="bwarn" title="Counting as money on hand. If this is a brokerage or a retirement account, change its type.">investment?</span>`:""}</div></div>
       <div class="abal${isHolder?" roll":""}${isLiab(a)?" owed":""}">${isLiab(a)?"-"+fmt(owed(a)):fmt(acctBalance(a))}${isHolder?`<em>total</em>`:isLiab(a)?`<em>owed</em>`:""}</div>
       <button class="aedit${editing?" on":""}" data-caedit="${a.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
     </div>
@@ -6423,7 +6632,7 @@ function nwMovement(){
   const snaps=(db.snapshots||[]).slice().sort((a,b)=>b.m.localeCompare(a.m));
   const cur=snaps.find(s=>s.m===monthKey(todayISO())), prev=snaps.find(s=>s.m<monthKey(todayISO()));
   if(!prev) return null;
-  const nowVals={cash:totalCash(),invest:investTotal(),debt:totalDebt()+unlinkedCardDebt()};
+  const nowVals={cash:totalCash(),invest:investedTotal(),debt:totalDebt()+unlinkedCardDebt()};
   /* raw is which way the thing itself moved, so the arrow points honestly;
      good is whether that was in your favour, which is what the colour says.
      Debt falling is a down arrow and a green one — both true at once. */
@@ -7238,12 +7447,13 @@ const ICONS={
  invest:'<rect x="3" y="12" width="4.5" height="9" rx="1.2"/><rect x="9.75" y="7" width="4.5" height="14" rx="1.2"/><rect x="16.5" y="3" width="4.5" height="18" rx="1.2"/>',
  data:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8.9 19a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
  tax:'<path d="M9 3h6l1 4H8l1-4z"/><path d="M6 7h12l1.2 12.2A2 2 0 0 1 17.2 21H6.8a2 2 0 0 1-2-1.8L6 7z"/><path d="M12 11v6M9.5 12.5h5M9.5 15.5h5"/>',
+ retire:'<path d="M12 21s-7-4.3-7-9.5A4.5 4.5 0 0 1 12 8a4.5 4.5 0 0 1 7 3.5C19 16.7 12 21 12 21z"/><path d="M12 8V3"/>',
  business:'<path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/><path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/>'
 };
 const VIEWS=[
  {id:"dash",label:"Home"},{id:"accounts",label:"Accounts"},{id:"income",label:"Income"},
  {id:"expenses",label:"Spending"},{id:"budget",label:"Budget"},{id:"goals",label:"Goals"},
- {id:"credit",label:"Debt"},{id:"invest",label:"Invest"},{id:"tax",label:"Tax"},
+ {id:"credit",label:"Debt"},{id:"invest",label:"Invest"},{id:"retire",label:"Retirement"},{id:"tax",label:"Tax"},
  {id:"business",label:"Business"},{id:"data",label:"Settings"}
 ];
 const viewLabel=id=>{const v=VIEWS.find(x=>x.id===id);return v?v.label:id;};
@@ -7544,6 +7754,7 @@ const VIEW_RENDERERS={
   goals:()=>{renderGoals();renderForecast();},
   credit:()=>{renderCredit();},
   invest:()=>{renderInvest();},
+  retire:()=>{renderRetire();},
   tax:()=>{renderTax();},
   business:()=>{renderBusiness();},
   data:()=>{renderCats();renderRules();}
@@ -7677,6 +7888,12 @@ document.getElementById("scoreWhenBtn").addEventListener("click",()=>{scoreDateO
      one here puts a modal overlay in front of the sheet on desktop */
   const d=document.getElementById("scoreDate"); if(d)d.focus();});
 document.getElementById("scoreDate").addEventListener("change",renderCredit);
+/* the projection inputs write straight to settings and redraw */
+[["retAge","age"],["retTarget","target"],["retRate","rate"],["retMonthly","monthly"]].forEach(([id,k])=>{
+  const el=document.getElementById(id); if(el)el.addEventListener("change",e=>setRetireCfg(k,num(e.target.value)));});
+document.getElementById("addRetireBtn").addEventListener("click",()=>{
+  const a={id:uid(),name:"New retirement account",kind:"r401k",value:0,parentId:null,contribs:[]};
+  db.accounts.push(a); editRetire=a.id; saveAll();});
 document.getElementById("addHoldingBtn").addEventListener("click",()=>{db.holdings.push({id:uid(),name:"New holding",ticker:"",shares:0,price:0,avgCost:0,divPerShare:0,divFreq:"quarterly",divBasis:"payment"});saveAll();});
 document.getElementById("refreshAllBtn").addEventListener("click",async e=>{
   // hold the node: after an await, e.currentTarget is null
@@ -8211,7 +8428,7 @@ document.getElementById("resetBtn").addEventListener("click",()=>{if(confirm("Re
 function captureSnapshot(){
   if(!Array.isArray(db.snapshots)) db.snapshots=[];
   const m=monthKey(todayISO());
-  const row={m,d:todayISO(),cash:totalCash(),invest:investTotal(),debt:totalDebt(),net:netWorth(),auto:true};
+  const row={m,d:todayISO(),cash:totalCash(),invest:investedTotal(),debt:totalDebt(),net:netWorth(),auto:true};
   const i=db.snapshots.findIndex(s=>s.m===m);
   if(i>=0){ if(db.snapshots[i].manual) return; db.snapshots[i]=Object.assign(db.snapshots[i],row); }
   else db.snapshots.push(row);
@@ -8288,7 +8505,12 @@ function chartLine(series,opt){
   for(let v=lo;v<=hi+1e-6;v+=step){ const y=Y(v);
     g.push(`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="${CH.grid}" stroke-width="1"/>`);
     g.push(`<text x="${padL-9}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="11" fill="${CH.axis}" style="font-variant-numeric:tabular-nums">${fmt(v)}</text>`); }
-  const xl=[]; labels.forEach((l,i)=>{ if(n>8&&i%Math.ceil(n/7)!==0&&i!==n-1)return;
+  /* the last label is worth forcing, but not on top of the one before it */
+  const xl=[]; const step2=n>8?Math.ceil(n/7):1; let lastShown=-99;
+  labels.forEach((l,i)=>{ const forced=(i===n-1);
+    if(n>8&&i%step2!==0&&!forced)return;
+    if(forced&&i-lastShown<Math.max(2,step2*.6))return;
+    lastShown=i;
     xl.push(`<text x="${X(i).toFixed(1)}" y="${H-9}" text-anchor="middle" font-size="11" fill="${CH.axis}">${esc(l)}</text>`); });
   // End labels only read when the lines separate. If any two would sit on top of each
   // other, drop them all and let the legend + axis carry it (never stack labels).
@@ -8457,7 +8679,7 @@ function envSetup(){
 }
 
 /* go — never let one failure blank the whole app */
-[["renderBudget"],["renderPaychecks"],["renderInvest"],["renderCredit"],["renderGoalsList"],
+[["renderBudget"],["renderPaychecks"],["renderInvest"],["renderRetire"],["renderCredit"],["renderGoalsList"],
  ["renderTax"],["renderBusiness"],["renderReview"],["renderHistoryList"],["renderNWSheet"],
  ["renderTx"],["renderIncome"],["renderDash"]].forEach(([n])=>{
   try{ if(typeof window[n]==="function") window[n]=_keepScroll(window[n]); }catch(e){} });

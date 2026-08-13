@@ -808,6 +808,74 @@ await p.evaluate(()=>{goalSort='soon';setPref('goalSort','soon');navPage=0;setPr
   db.transactions=[];saveAll();setView('dash');});
 await p.waitForTimeout(300);
 
+console.log('\n— an investment account is an asset, not cash —');
+const iv=await p.evaluate(()=>{
+  db.accounts=[
+    {id:"c1",name:"USAA Classic Checking",kind:"checking",value:6743},
+    {id:"e1",name:"Empower Retirement Primerica",kind:"r401k",value:33195,contribs:[]},
+    {id:"rh",name:"Robinhood individual (0932)",kind:"brokerage",value:2782},
+    {id:"rc",name:"Robinhood Crypto (4565)",kind:"crypto",value:8}];
+  db.debts=[]; db.paychecks=[]; db.recurring=[]; db.budgets={}; db.budgetMeta={};
+  db.holdings=[{id:"h1",ticker:"O",name:"Realty",shares:40,price:58,avgCost:52}];
+  db.transactions=[
+    {id:"b1",date:todayISO(),desc:"Bought SCHD",amount:-500,category:"Uncategorized",acctId:"rh"},
+    {id:"b2",date:todayISO(),desc:"Sold O",amount:900,category:"Income",acctId:"rh"},
+    {id:"b3",date:todayISO(),desc:"Kroger",amount:-60,category:"Groceries",acctId:"c1"}];
+  saveAll();
+  const mk=monthKey(todayISO()), t=monthTotals(mk);
+  return {cash:totalCash(), brokerage:brokerageTotal(), retirement:retirementTotal(),
+    invested:investedTotal(), holdings:investTotal(), net:netWorth(),
+    inc:t.inc, exp:t.exp, carry:holdingsCarryValue()};});
+chk('a 401k and a brokerage stay out of cash',iv.cash,6743);
+chk('  the brokerage and the crypto are investments',iv.brokerage,2790);
+chk('  the 401k is retirement',iv.retirement,33195);
+/* you chose: the synced balance wins, so typed positions do not add again */
+chk('typed holdings do not add on top of the account',[iv.holdings,iv.invested],[2320,35985]);
+chk('  net worth counts each dollar once',iv.net,6743+35985);
+/* buying is not spending and selling is not income — the money changed shape */
+chk('a trade inside a brokerage is neither income',iv.inc,0);
+chk('  nor spending',iv.exp,60);
+/* with nothing else representing them, positions have to carry their own value */
+chk('holdings carry the value when there is no investment account',
+  await p.evaluate(()=>{const keep=db.accounts.slice();
+    db.accounts=keep.filter(a=>a.kind==='checking');
+    const r=[holdingsCarryValue(),investedTotal()];
+    db.accounts=keep; return r;}),[true,2320]);
+/* a bank files both as deposit accounts; the app may point at it, never fix it */
+chk('a misfiled account is questioned, not corrected',await p.evaluate(()=>({
+  flags:["Empower Retirement Primerica","Robinhood individual (0932)","USAA Classic Checking"].map(looksInvested),
+  untouched:db.accounts.find(a=>a.id==="e1").kind})),{flags:[true,true,false],untouched:"r401k"});
+
+console.log('\n— the retirement screen —');
+const rt=await p.evaluate(async()=>{
+  db.settings.retire={age:34,target:65,rate:7,monthly:600};
+  setView('retire'); await new Promise(r=>setTimeout(r,300));
+  const pj=retireProject();
+  return {renders:document.getElementById('view-retire').offsetHeight>200,
+    accounts:[...document.querySelectorAll('#retireList .bname')].map(x=>x.textContent),
+    years:pj.years, end:Math.round(pj.end), contributed:Math.round(pj.contributed),
+    kpis:[...document.querySelectorAll('#retireKpis .kpi .val')].map(x=>x.textContent)};});
+chk('it renders',rt.renders,true);
+chk('  listing the retirement accounts only',rt.accounts,["Empower Retirement Primerica"]);
+chk('31 years to run',rt.years,31);
+/* 33,195 compounded monthly at 7% with 600 a month added as it lands */
+chk('  compounding monthly, not annually',rt.end,1081237);
+chk('  and it says how much of that you put in',rt.contributed,223200);
+chk('the headline is what is put away',rt.kpis[0],'$33,195');
+const rcon=await p.evaluate(async()=>{
+  const a=db.accounts.find(x=>x.id==="e1");
+  a.contribs=[{id:"k1",date:todayISO(),amount:500,who:"you"},
+              {id:"k2",date:todayISO(),amount:250,who:"employer"}];
+  a.value=33195; saveAll(); await new Promise(r=>setTimeout(r,300));
+  const y=todayISO().slice(0,4);
+  return {mine:contribByWho(y,false), emp:contribByWho(y,true),
+    rows:document.querySelectorAll('#retireContribs .brow').length};});
+chk('contributions split you from your employer',[rcon.mine,rcon.emp],[500,250]);
+chk('  and every one is listed',rcon.rows,2);
+await p.evaluate(()=>{db.settings.retire={};db.accounts=[];db.holdings=[];db.transactions=[];
+  editRetire=null;saveAll();setView('dash');});
+await p.waitForTimeout(300);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');
 await b.close();
