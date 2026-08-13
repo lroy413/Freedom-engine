@@ -841,6 +841,46 @@ chk('holdings carry the value when there is no investment account',
     db.accounts=keep.filter(a=>a.kind==='checking');
     const r=[holdingsCarryValue(),investedTotal()];
     db.accounts=keep; return r;}),[true,2320]);
+/* and an account can be switched the other way, one at a time */
+const sw=await p.evaluate(async()=>{
+  const rh=db.accounts.find(a=>a.id==="rh"); rh.fromHoldings=true; saveAll();
+  await new Promise(r=>setTimeout(r,150));
+  const on={brok:brokerageTotal(),inv:investedTotal(),ret:retirementTotal()};
+  editAcct="rh"; renderCash(); await new Promise(r=>setTimeout(r,150));
+  const offered=!!document.querySelector('[data-cafromh="rh"]');
+  editAcct="c1"; renderCash(); await new Promise(r=>setTimeout(r,150));
+  const onBank=!!document.querySelector('[data-cafromh="c1"]');
+  editAcct=null; delete rh.fromHoldings; saveAll();
+  return {...on,offered,onBank};});
+chk('a switched account stands aside',sw.brok,8);              // the crypto still counts
+chk('  and the positions carry it instead',sw.inv,8+33195+2320);
+chk('  leaving the others alone',sw.ret,33195);
+chk('the switch is offered on an investment account',sw.offered,true);
+chk('  and not on a bank account',sw.onBank,false);
+/* assetBalance answers "how much of this is spendable", which is zero for an
+   investment account — a group header that asked it read $0 above rows that
+   plainly were not */
+const gh=await p.evaluate(async()=>{setView('accounts');
+  await new Promise(r=>setTimeout(r,300));
+  const o={}; document.querySelectorAll('#acctList .grouphead').forEach(e=>o[e.children[0].textContent]=e.children[1].textContent);
+  return o;});
+chk('the Investments group totals its accounts',gh.Investments,'$2,790');
+chk('  and Retirement totals its own',gh.Retirement,'$33,195');
+chk('  while money on hand stays cash',gh['Total money on hand'],'$6,743');
+/* the retirement sub-line belongs inside its stat, not beside it as a sixth
+   item that steals a slot and ragged-wraps the grid */
+const hg=await p.evaluate(async()=>{setView('dash');
+  await new Promise(r=>setTimeout(r,300));
+  const st=[...document.querySelectorAll('.dashhero .dh-stat')];
+  const inv=st.find(e=>/Invested/.test(e.textContent));
+  const rows=new Set(st.map(e=>Math.round(e.getBoundingClientRect().y)));
+  return {subInside:!!(inv&&inv.querySelector('.dh-sub')),
+    strays:document.querySelectorAll('.dh-stats > .dh-sub').length,
+    stats:st.length, rows:rows.size};});
+chk('retirement is noted under Invested',hg.subInside,true);
+chk('  not as a stat of its own',hg.strays,0);
+/* three rows was the symptom: the stray item took a slot and pushed one out */
+chk('  so six stats never spill to a third row',[hg.stats,hg.rows<=2],[6,true]);
 /* a bank files both as deposit accounts; the app may point at it, never fix it */
 chk('a misfiled account is questioned, not corrected',await p.evaluate(()=>({
   flags:["Empower Retirement Primerica","Robinhood individual (0932)","USAA Classic Checking"].map(looksInvested),

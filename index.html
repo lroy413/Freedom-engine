@@ -2727,13 +2727,18 @@ const totalCash=()=>topAccounts().reduce((s,a)=>s+assetBalance(a),0);
    is still a brokerage */
 const investAccounts=()=>db.accounts.filter(a=>isInvestAcct(a)&&!hasKids(a.id));
 const retireAccounts=()=>investAccounts().filter(isRetireAcct);
-const brokerageTotal=()=>investAccounts().filter(a=>!isRetireAcct(a)).reduce((s,a)=>s+num(a.value),0);
-const retirementTotal=()=>retireAccounts().reduce((s,a)=>s+num(a.value),0);
-/* You said the synced balance wins, so a position you have typed in is there for
-   its cost basis, its gain and its dividends — the account it lives in carries
-   the money. With no investment account on file nothing else is representing
-   those positions, so then they carry it themselves. */
-const holdingsCarryValue=()=>investAccounts().length===0;
+/* By default the balance an account reports is the truth and a position you have
+   typed in is there for its cost basis, its gain and its dividends. An account
+   can be switched the other way — for one you keep by hand, or one the bank
+   reports a stale or partial balance for — and then it stands aside and the
+   positions carry the money. With no investment account at all nothing else
+   represents those positions, so they carry it themselves. */
+const byHoldings=a=>!!(a&&a.fromHoldings);
+const brokerageTotal=()=>investAccounts().filter(a=>!isRetireAcct(a)&&!byHoldings(a)).reduce((s,a)=>s+num(a.value),0);
+const retirementTotal=()=>retireAccounts().filter(a=>!byHoldings(a)).reduce((s,a)=>s+num(a.value),0);
+/* retirement's own screen shows what is in the accounts, flagged or not */
+const retirementShown=()=>retireAccounts().reduce((s,a)=>s+num(a.value),0);
+const holdingsCarryValue=()=>investAccounts().length===0||investAccounts().some(byHoldings);
 const investedTotal=()=>brokerageTotal()+retirementTotal()+(holdingsCarryValue()?investTotal():0);
 const cardAccounts=()=>db.accounts.filter(isLiab);
 const linkedDebt=a=>a.debtId?db.debts.find(d=>d.id===a.debtId):null;
@@ -2808,8 +2813,15 @@ function payoffDateISO(bal,apr,pmt){ const m=payoffMonths(bal,apr,pmt);
   if(m==null||!isFinite(m))return null;
   const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+m); return isoOf(d); }
 const LIAB_GROUPS=["Cards & credit","Loans"];
+/* assetBalance answers "how much of this is spendable", which is zero for an
+   investment account by design — so a group header for Investments or
+   Retirement has to ask for the balance itself or it reads $0 above rows that
+   plainly are not. */
+const INVEST_GROUPS=["Investments","Retirement"];
 const groupTotal=g=>topAccounts().filter(a=>kindOf(a).group===g)
-  .reduce((s,a)=>s+(LIAB_GROUPS.includes(g)?liabBalance(a):assetBalance(a)),0);
+  .reduce((s,a)=>s+(LIAB_GROUPS.includes(g)?liabBalance(a)
+    :INVEST_GROUPS.includes(g)?(hasKids(a.id)?kidsOf(a.id).filter(k=>!isLiab(k)).reduce((t,k)=>t+num(k.value),0):num(a.value))
+    :assetBalance(a)),0);
 function dedupeName(n){
   const w=String(n||"").trim().split(/\s+/);
   for(let k=Math.floor(w.length/2);k>=1;k--){
@@ -3660,7 +3672,7 @@ function renderDashHero(){
         <div class="dh-sub">${sts.safe>=0?`≈ ${fmt(Math.max(0,sts.perDay))}/day left`:"short this month"}</div>
       </button>
       <div class="dh-stat"><div class="k">On hand</div><div class="v">${fmt(spendableCash())}</div>${taxHeld()>0?`<div class="dh-sub">${fmt(taxHeld())} held for tax</div>`:""}</div>
-      <div class="dh-stat"><div class="k">Invested</div><div class="v">${fmt(investedTotal())}</div></div>${retirementTotal()>0?`<div class="dh-sub">${fmt(retirementTotal())} in retirement</div>`:""}
+      <div class="dh-stat"><div class="k">Invested</div><div class="v">${fmt(investedTotal())}</div>${retirementTotal()>0?`<div class="dh-sub">${fmt(retirementTotal())} in retirement</div>`:""}</div>
       <div class="dh-stat"><div class="k">Owed</div><div class="v">${fmt(totalDebt())}</div></div>
       <div class="dh-stat"><div class="k">Runway</div><div class="v">${runwayText()}</div></div>
       <div class="dh-stat"><div class="k">Next payday</div><div class="v">${np?esc(shortDate(np)):"—"}</div></div>
@@ -5534,7 +5546,7 @@ function retireProject(){
 let editRetire=null;
 function renderRetire(){
   const y=todayISO().slice(0,4);
-  const accts=retireAccounts(), bal=retirementTotal();
+  const accts=retireAccounts(), bal=retirementShown();
   const mine=contribByWho(y,false), emp=contribByWho(y,true);
   const pj=retireProject(), c=retireCfg();
   /* the app's one question, asked of this money: what would it pay you */
@@ -5988,6 +6000,9 @@ function renderCash(){
         <div class="field"><label>Name</label><input value="${esc(a.name)}" data-caname="${a.id}"></div>
         <div class="field"><label>Type</label><select data-cakind="${a.id}">${opts(isHolder?HOLDER_KINDS:LEAF_KINDS,a.kind)}</select></div>
         ${isHolder?"":`<div class="field"><label>${isLiab(a)?"Balance owed":"Balance"}</label><input type="number" value="${num(a.value)}" data-caval="${a.id}"></div>`}
+        ${(!isHolder&&isInvestAcct(a))?`<label class="flex" style="grid-column:1/-1;gap:8px;font-size:15px;align-items:flex-start">
+          <input type="checkbox" data-cafromh="${a.id}" ${byHoldings(a)?"checked":""} style="margin-top:3px">
+          <span>Value comes from my holdings <span class="muted" style="font-size:13px">for an account you keep by hand, or one the bank reports a stale balance for. Its balance stops counting and the positions on the Investments screen carry it instead.</span></span></label>`:""}
         ${isLiab(a)?`
         ${isInstallment(a)?`<div class="field"><label>Original loan amount</label><input type="number" value="${num(a.orig)||""}" placeholder="24000" data-caorig="${a.id}"></div>`
           :`<div class="field"><label>Credit limit</label><input type="number" value="${num(a.limit)||""}" placeholder="750" data-calim="${a.id}"></div>`}
@@ -6027,6 +6042,9 @@ function renderCash(){
   box.querySelectorAll("[data-caadd]").forEach(b=>b.onclick=e=>{const pid=e.currentTarget.dataset.caadd;
     const p=db.accounts.find(x=>x.id===pid); if(p)p.collapsed=false;
     const n={id:uid(),name:"Checking",kind:"checking",value:0,parentId:pid}; db.accounts.push(n); editAcct=n.id; saveAll();});
+  box.querySelectorAll("[data-cafromh]").forEach(i=>i.onchange=e=>{
+    const a=db.accounts.find(x=>x.id===e.currentTarget.dataset.cafromh);
+    if(a){ if(e.currentTarget.checked)a.fromHoldings=true; else delete a.fromHoldings; saveAll(); }});
   box.querySelectorAll("[data-caname]").forEach(i=>i.onchange=e=>{const a=db.accounts.find(x=>x.id===e.target.dataset.caname);if(a){a.name=e.target.value;saveAll();}});
   box.querySelectorAll("[data-caval]").forEach(i=>i.onchange=e=>{const a=db.accounts.find(x=>x.id===e.target.dataset.caval);
     if(a){ const v=num(e.target.value); a.value=isLiab(a)?Math.abs(v):v; saveAll(); }});
