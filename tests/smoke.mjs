@@ -268,13 +268,17 @@ const sts=await p.evaluate(()=>{
   const mirrored=db.debts.some(d=>debtBill(d));
   return {cash:Math.round(a.cash),debt:Math.round(a.debt),goals:Math.round(a.goals),
     safe:Math.round(a.safe),bills:Math.round(a.bills),mirrored};});
-chk('a debt payment is reserved',sts.debt>0,true);
+/* a loan with a payment bills itself now, so the reserve reaches it through
+   Bills rather than through the debt-specific path — and must not do both */
+chk('a debt payment is reserved',sts.bills>=400,true);
+chk('  once, through the bill it made',[sts.mirrored,sts.debt],[true,0]);
 chk('a dated goal reserves its monthly share',sts.goals,50);
 chk('an undated goal reserves nothing',sts.goals<100,true);
 chk('safe = cash − bills − envelopes − debt − goals',
   sts.safe, sts.cash-sts.bills-sts.debt-sts.goals);
 chk('promised money is no longer counted as spendable',sts.safe<sts.cash,true);
-const sts2=await p.evaluate(()=>{db.goals=[];db.debts=[];saveAll();return Math.round(safeToSpend().safe);});
+const sts2=await p.evaluate(()=>{db.goals=[];db.debts=[];db.recurring=[];saveAll();
+  return Math.round(safeToSpend().safe);});
 chk('with nothing promised it returns to cash',sts2,5000);
 
 console.log('\n— freedom tiers: envelopes carry a tier, and Thrive needs margin —');
@@ -939,6 +943,111 @@ chk('closing it sticks',bzs.closed<300,true);
 chk('  through a re-render',bzs.staysClosed,bzs.closed);
 await p.evaluate(()=>{db.businesses=[];db.transactions=[];openBiz=null;bizAutoOpened=false;saveAll();setView('dash');});
 await p.waitForTimeout(300);
+
+console.log('\n— the forecast prices what you spend, not only what you planned —');
+const fc=await p.evaluate(()=>{
+  const rel=n=>{const d=dayOf(todayISO());d.setDate(d.getDate()+n);return isoOf(d);};
+  const MK=monthKey(todayISO());
+  const prev=(()=>{const d=dayOf(todayISO());d.setDate(1);d.setMonth(d.getMonth()-1);return monthOf(d);})();
+  db.accounts=[{id:"f1",name:"Checking",kind:"checking",value:4180}];
+  db.income=[{id:"fi",name:"Ozark Law",model:"monthly",amount:3400,payFreq:"biweekly",firstPay:rel(3)}];
+  db.recurring=[{id:"fr",name:"Rent",category:"Rent/Mortgage",amount:1450,dueDay:1,tier:"essential"}];
+  db.budgets={Groceries:500}; db.budgetMeta={};
+  db.debts=[{id:"fd",name:"Car loan",kind:"auto",balance:3478,payment:290,apr:6.9}];
+  db.paychecks=[]; db.holdings=[];
+  db.transactions=[
+    {id:"fx1",date:MK+"-07",desc:"Kroger",category:"Groceries",amount:-320,acctId:"f1"},
+    {id:"fx2",date:MK+"-09",desc:"Life",category:"Shopping",amount:-1400,acctId:"f1"},
+    {id:"fx3",date:prev+"-12",desc:"Life",category:"Shopping",amount:-2600,acctId:"f1"}];
+  db.settings.burnOverride=null;
+  saveAll();
+  const f=forecastTo(rel(292));
+  return {bills:Math.round(f.bills), planned:Math.round(f.flex), used:Math.round(f.other),
+    fromBurn:f.fromBurn, months:f.burnMonths,
+    billNames:db.recurring.map(b=>b.name).sort(),
+    carBilled:!!db.recurring.find(b=>/Car loan/.test(b.name))};});
+/* a car note is a fixed monthly obligation as much as rent; leaving it out of
+   bills until you asked flattered both the budget and the forecast */
+chk('a loan with a payment bills itself',fc.carBilled,true);
+chk('  so the forecast charges it',fc.bills,1740);
+/* bills and envelopes are the plan; the unbudgeted half of a month was invisible */
+chk('the plan says $500 a month of flexible spending',fc.planned,500);
+chk('  what you actually spend outside bills is more',fc.used,2160);
+chk('  and the forecast uses the higher one',fc.fromBurn,true);
+/* measured, not inferred: subtracting bills from total burn discounts twice for
+   anyone who ticks bills off instead of importing them */
+chk('non-bill spending is measured directly',
+  await p.evaluate(()=>Math.round(nonBillBurn())),2160);
+chk('  and a bill payment is left out of it',await p.evaluate(()=>{
+  db.transactions.push({id:"fx4",date:monthKey(todayISO())+"-01",desc:"Rent",
+    category:"Rent/Mortgage",amount:-1450,acctId:"f1",billRef:"fr|"+monthKey(todayISO())});
+  const r=Math.round(nonBillBurn()); db.transactions.pop(); return r;}),2160);
+
+console.log('\n— a runway says how much it knows —');
+const rw=await p.evaluate(()=>{
+  const keep=db.transactions.slice();
+  db.transactions=[keep[0]];                       // one month, one transaction
+  const thin={months:burnMonths(),settled:burnIsSettled(),
+    warns:insights().some(i2=>i2.id==="runway")};
+  db.transactions=keep;
+  return {thin,fat:{months:burnMonths(),settled:burnIsSettled()}};});
+chk('one month of imports is not settled',[rw.thin.months,rw.thin.settled],[1,false]);
+chk('  and does not raise a runway warning',rw.thin.warns,false);
+chk('two months is',[rw.fat.months,rw.fat.settled],[2,true]);
+chk('a typed-in burn counts as settled whatever the history',await p.evaluate(()=>{
+  const keep=db.transactions.slice(); db.transactions=[keep[0]];
+  db.settings.burnOverride=2000; const r=burnIsSettled();
+  db.settings.burnOverride=null; db.transactions=keep; return r;}),true);
+await p.evaluate(()=>{db.debts=[];db.recurring=[];db.transactions=[];db.budgets={};
+  db.settings.burnOverride=null;saveAll();});
+await p.waitForTimeout(300);
+
+console.log('\n— a pre-tax contribution is a deduction, but not from every tax —');
+const rtx=await p.evaluate(()=>{
+  const Y=todayISO().slice(0,4);
+  const keepA=db.accounts.slice(), keepP=db.paychecks.slice(), keepI=db.income.slice();
+  db.income=[{id:"ri",name:"Freelance",model:"monthly",amount:6000,taxClass:"se"}];
+  db.paychecks=[{id:"rp",date:Y+"-03-14",source:"Freelance",gross:80000,net:80000}];
+  db.accounts=[{id:"ra",name:"Solo 401(k)",kind:"sep",value:40000,contribs:[
+      {id:"c1",date:Y+"-02-01",amount:10000,who:"me"},
+      {id:"c2",date:Y+"-02-01",amount:4000,who:"employer"},
+      {id:"c3",date:(+Y-1)+"-11-01",amount:9000,who:"me"}]},
+    {id:"rb",name:"Roth IRA",kind:"roth",value:12000,contribs:[
+      {id:"c4",date:Y+"-02-01",amount:7000,who:"me"}]}];
+  const withPre=taxEstimate(Y);
+  db.accounts=[];
+  const without=taxEstimate(Y);
+  db.accounts=keepA; db.paychecks=keepP; db.income=keepI; saveAll();
+  return {pre:Math.round(withPre.pre), se:[Math.round(withPre.se),Math.round(without.se)],
+    fedDrop:Math.round(without.fed-withPre.fed), stateDrop:Math.round(without.state-withPre.state),
+    owedDrop:Math.round(without.owed-withPre.owed),
+    fedRate:num(taxCfg().fedRate), stateRate:num(taxCfg().stateRate)};});
+chk('only your own contributions this year deduct',rtx.pre,10000);
+/* the expensive direction to be wrong in: SS and Medicare are owed on what you
+   earned, whatever you then put away */
+chk('  self-employment tax does not move',rtx.se[0],rtx.se[1]);
+chk('  federal drops by the marginal rate on it',rtx.fedDrop,Math.round(10000*rtx.fedRate/100));
+chk('  state drops by its own rate',rtx.stateDrop,Math.round(10000*rtx.stateRate/100));
+chk('  and that is the whole saving',rtx.owedDrop,rtx.fedDrop+rtx.stateDrop);
+/* a Roth is post-tax and a match was never your income — neither is a deduction */
+chk('a Roth and an employer match are not deductions',
+  rtx.pre,10000);
+
+console.log('\n— identical tiers say why they are identical —');
+const frx=await p.evaluate(async()=>{
+  const keepR=db.recurring.slice(), keepB=JSON.stringify(db.budgets), keepM=JSON.stringify(db.budgetMeta);
+  db.recurring=[{id:"q1",name:"Rent",category:"Rent/Mortgage",amount:1400,dueDay:1,tier:"essential"}];
+  db.budgets={}; db.budgetMeta={};
+  saveAll(); setView('goals'); renderFreedom();
+  const flat=!!document.querySelector('#freedomCard .frsame');
+  db.recurring.push({id:"q2",name:"Netflix",category:"Subscriptions",amount:23,dueDay:8,tier:"luxury"});
+  saveAll(); renderFreedom();
+  const split=!!document.querySelector('#freedomCard .frsame');
+  db.recurring=keepR; db.budgets=JSON.parse(keepB); db.budgetMeta=JSON.parse(keepM); saveAll();
+  return {flat,split};});
+chk('nothing flexible yet, so the note explains the twin bars',frx.flat,true);
+chk('  one luxury bill and the tiers separate',frx.split,false);
+await p.evaluate(()=>setView('dash')); await p.waitForTimeout(300);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:',errs.length?errs:'none');

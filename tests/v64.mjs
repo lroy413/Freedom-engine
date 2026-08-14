@@ -49,14 +49,20 @@ console.log('  buttons:', await p.$$eval('.dcard.editing .toolbar button',e=>e.m
 await p.click('[data-dbilladd="d1"]'); await p.waitForTimeout(800);
 console.log('  after + Add to budget:', await p.evaluate(()=>db.recurring.map(b=>b.name+' '+fmt(b.amount)+(b.estimated?' [est]':''))));
 console.log('  debt meta:', await p.$eval('#debtList .dmeta',e=>e.textContent.trim()));
-// a non-revolving debt does NOT auto-populate
+/* a loan with a set payment now bills itself too — a car note is a fixed
+   monthly obligation as much as rent, and leaving it out flattered the plan */
 await p.evaluate(()=>{db.debts.push({id:"d2",name:"Navy Federal Auto",balance:3477,start:24000,kind:"auto",payment:173,payments:[]});saveAll();});
 await p.waitForTimeout(800);
-console.log('\n  auto loan did NOT auto-add (loans have a real payment you set):', await p.evaluate(()=>db.recurring.map(b=>b.name)));
+console.log('\n  auto loan bills itself:', await p.evaluate(()=>db.recurring.map(b=>b.name+' '+fmt(b.amount)+' cat='+b.category)));
 await p.evaluate(()=>{setView('credit');editDebt="d2";renderCredit();}); await p.waitForTimeout(500);
-await p.click('[data-dbilladd="d2"]'); await p.waitForTimeout(800);
-console.log('  added it manually:', await p.evaluate(()=>db.recurring.map(b=>b.name+' '+fmt(b.amount)+' cat='+b.category)));
+console.log('  so there is nothing left to add by hand:', await p.evaluate(()=>!document.querySelector('[data-dbilladd="d2"]')));
 console.log('  (auto loan payments file under Car Payment, not Debt Payment)');
+// opting out keeps it out
+await p.evaluate(()=>{const bl=db.recurring.find(x=>x.debtId==="d2"); editBill=bl.id; setView('budget'); renderBudget();});
+await p.waitForTimeout(400);
+await p.click('[data-billdel]'); await p.waitForTimeout(700);
+await p.evaluate(()=>saveAll()); await p.waitForTimeout(700);
+console.log('  deleting it opts the loan out for good:', await p.evaluate(()=>({bills:db.recurring.map(b=>b.name),noBill:db.debts.find(d=>d.id==="d2").noBill})));
 // utilization covers store cards + LOC
 await p.evaluate(()=>{db.debts.push({id:"d3",name:"Store card",balance:200,start:200,kind:"store",limit:500,payments:[]});saveAll();});
 await p.waitForTimeout(700);

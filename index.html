@@ -919,6 +919,9 @@
   .frtick{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--pos)}
   .frpct{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted)}
   .frtier.cleared .frpct{color:var(--pos)}
+  .frsame{font-size:13px;color:var(--muted);margin-top:10px;padding-left:12px;
+    border-left:2px solid var(--line2)}
+  .frsame b{color:var(--ink2);font-weight:640}
   .frbar{height:7px;border-radius:16px;background:var(--line);overflow:hidden}
   .frbar>span{display:block;height:100%;border-radius:16px;transition:width .35s ease}
   .frmeta{font-size:12px;color:var(--muted);margin-top:4px}
@@ -969,7 +972,10 @@
   .bmeta{font-size:13px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:4px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .bdot{width:7px;height:7px;border-radius:50%;flex:none}
-  .bmeta .bneg{color:var(--neg);font-weight:620} .bmeta .bwarn{color:var(--warn-ink);font-weight:620}
+  .bmeta .bneg{color:var(--neg);font-weight:620}
+  /* amber for "this number knows less than it looks like it does", wherever it
+     is said — bill rows, account rows, a forecast note, a burn hint */
+  .bwarn{color:var(--warn-ink);font-weight:620}
   /* the same amber the bill rows use, so a question on an account row reads the
      same way a question anywhere else does */
   .ameta .bwarn{color:var(--warn-ink);font-weight:640}
@@ -2678,12 +2684,12 @@ const ACCT_KINDS={
      while still counting toward what you are worth. */
   brokerage:{label:"Brokerage",group:"Investments",color:"#7c5cf0",invest:true},
   crypto:{label:"Crypto",group:"Investments",color:"#a855f7",invest:true},
-  r401k:{label:"401(k)",group:"Retirement",color:"#6366f1",invest:true,retire:true},
-  r403b:{label:"403(b)",group:"Retirement",color:"#6366f1",invest:true,retire:true},
-  ira:{label:"Traditional IRA",group:"Retirement",color:"#4f46e5",invest:true,retire:true},
+  r401k:{label:"401(k)",group:"Retirement",color:"#6366f1",invest:true,retire:true,pretax:true},
+  r403b:{label:"403(b)",group:"Retirement",color:"#6366f1",invest:true,retire:true,pretax:true},
+  ira:{label:"Traditional IRA",group:"Retirement",color:"#4f46e5",invest:true,retire:true,pretax:true},
   roth:{label:"Roth IRA",group:"Retirement",color:"#4338ca",invest:true,retire:true},
-  sep:{label:"SEP / Solo 401(k)",group:"Retirement",color:"#4338ca",invest:true,retire:true},
-  hsa:{label:"HSA",group:"Retirement",color:"#0891b2",invest:true,retire:true},
+  sep:{label:"SEP / Solo 401(k)",group:"Retirement",color:"#4338ca",invest:true,retire:true,pretax:true},
+  hsa:{label:"HSA",group:"Retirement",color:"#0891b2",invest:true,retire:true,pretax:true},
   pension:{label:"Pension",group:"Retirement",color:"#3730a3",invest:true,retire:true},
   credit:{label:"Credit card",group:"Cards & credit",color:"#dc2626",liability:true,revolving:true},
   lineofcredit:{label:"Line of credit",group:"Cards & credit",color:"#b91c1c",liability:true,revolving:true,debtKind:"loc"},
@@ -2788,8 +2794,11 @@ function syncDebtBills(){
   db.debts.forEach(d=>{
     if(d.billId&&!db.recurring.some(b=>b.id===d.billId)){ d.billId=""; changed=true; }
     let bill=debtBill(d);
-    /* an active revolving balance gets a bill on its own, once */
-    if(!bill&&isRevolving(d)&&num(d.balance)>0&&d.noBill!==true){
+    /* An active revolving balance gets a bill on its own, once — and so does a
+       loan with a payment on file. A car note is a fixed monthly obligation as
+       much as rent is; leaving it out until you asked meant the budget's
+       "free to save" and the forecast both flattered you by its size. */
+    if(!bill&&num(d.balance)>0&&d.noBill!==true&&(isRevolving(d)||num(d.payment)>0)){
       bill=addDebtToBudget(d,{auto:true,estimated:true}); changed=true; }
     if(bill){
       if(bill.estimated){ const est=Math.round(debtPayAmount(d));
@@ -2947,8 +2956,24 @@ function monthTotals(mk){ let inc=0,exp=0,biz=0;
     const a=personalAmt(t); if(isBizTx(t)) biz+=Math.abs(bizAmt(t));
     if(a>0)inc+=a; else exp+=-a; }
   return {inc,exp,biz,surplus:inc-exp}; }
-function avgMonthlyBurn(){ const bm={}; for(const t of db.transactions){ const a=personalAmt(t); if(a<0&&!isNeutral(t)){const k=monthKey(t.date);bm[k]=(bm[k]||0)+(-a);} }
+/* How many months the average actually had. One month of imports produces a
+   figure indistinguishable in tone from one built on a year, and a runway is a
+   safety number — a confident wrong one is the dangerous kind. */
+function burnMonths(){ const s2=new Set();
+  for(const t of db.transactions){ const a=personalAmt(t);
+    if(a<0&&!isNeutral(t))s2.add(monthKey(t.date)); }
+  return Math.min(3,s2.size); }
+function avgMonthlyBurn(opt){ const noBills=!!(opt&&opt.noBills), bm={};
+  for(const t of db.transactions){ const a=personalAmt(t);
+    if(a<0&&!isNeutral(t)&&!(noBills&&t.billRef)){const k=monthKey(t.date);bm[k]=(bm[k]||0)+(-a);} }
   const ms=Object.keys(bm).sort().reverse().slice(0,3); if(!ms.length)return null; return ms.reduce((s,m)=>s+bm[m],0)/ms.length; }
+/* What you spend that is NOT a bill, measured rather than inferred. Subtracting
+   bills from total burn would only work if every bill were also logged as a
+   transaction, and this app tracks them separately — so that subtraction
+   discounts twice for anyone who ticks bills off instead of importing them. */
+const nonBillBurn=()=>avgMonthlyBurn({noBills:true});
+/* true once there is enough history to say a burn figure out loud */
+const burnIsSettled=()=>(db.settings.burnOverride!=null&&db.settings.burnOverride!=="")||burnMonths()>=2;
 function effectiveBurn(){ if(db.settings.burnOverride!=null&&db.settings.burnOverride!=="")return +db.settings.burnOverride;
   const a=avgMonthlyBurn(); if(a!=null)return Math.round(a);
   const rec=db.recurring.reduce((s,r)=>s+billMonthly(r),0); return rec||1000; }
@@ -3356,8 +3381,10 @@ function insights(){
       db.settings.lastFreedom={tier:st.next.key,pct:cur};
     }
   }
-  /* runway thin */
-  { const r=runwayMonths(); if(r>0&&r<2)
+  /* runway thin — but only once the burn behind it is worth acting on. A single
+     month of imports can produce any runway at all, and a warning built on that
+     teaches you to ignore warnings. */
+  { const r=runwayMonths(); if(r>0&&r<2&&burnIsSettled())
       push("runway","warn",`Runway is <b>${runwayText()}</b> — under two months of spending on hand.`,"goals"); }
 
   const rank={warn:0,info:1,good:2};
@@ -3674,7 +3701,7 @@ function renderDashHero(){
       <div class="dh-stat"><div class="k">On hand</div><div class="v">${fmt(spendableCash())}</div>${taxHeld()>0?`<div class="dh-sub">${fmt(taxHeld())} held for tax</div>`:""}</div>
       <div class="dh-stat"><div class="k">Invested</div><div class="v">${fmt(investedTotal())}</div>${retirementTotal()>0?`<div class="dh-sub">${fmt(retirementTotal())} in retirement</div>`:""}</div>
       <div class="dh-stat"><div class="k">Owed</div><div class="v">${fmt(totalDebt())}</div></div>
-      <div class="dh-stat"><div class="k">Runway</div><div class="v">${runwayText()}</div></div>
+      <div class="dh-stat"><div class="k">Runway</div><div class="v">${runwayText()}</div>${burnIsSettled()?"":`<div class="dh-sub">rough — ${burnMonths()||"no"} month${burnMonths()===1?"":"s"} of spending logged</div>`}</div>
       <div class="dh-stat"><div class="k">Next payday</div><div class="v">${np?esc(shortDate(np)):"—"}</div></div>
       ${gp!=null?`<button class="dh-goal" data-go="goals" style="background:none;border:0;padding:0;color:inherit;text-align:left;cursor:pointer">
         <div class="k" style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:660;opacity:.78">${esc(heroGoal.name)} ${gp.toFixed(0)}%</div>
@@ -5036,7 +5063,7 @@ function renderBudget(){
     (shown.length?`<div class="${shown.length>5?"scrollrows bills":""}">${shown.map(billRow).join("")}</div>`
       :`<div class="empty" style="padding:22px">${billView==="month"&&offCount?`Nothing due in ${esc(prettyMonth(mk))} here.`:"No bills in this view — pick another tab or clear the filter."}</div>`)+
       `<div class="brow sum"><div class="bmain"><span class="chk ghosted"></span>
-        <div class="binfo"><div class="bname">${shownPaid.length} of ${shownDue.length} due this month paid</div>
+        <div class="binfo"><div class="bname">${shownPaid.length} of ${shownDue.length} paid<span class="tlong"> this month</span></div>
         <div class="bmeta">${shownTotal-shownPaidAmt>0.005?fmt(shownTotal-shownPaidAmt)+" still to cover":shownPaidAmt-shownTotal>0.5?`all covered · ${fmt(shownPaidAmt-shownTotal)} ahead → next month`:"all covered"}${billView==="all"?` · ${fmt(shown.reduce((t,x)=>t+billMonthly(x),0))}/mo true cost`:""}</div></div>
         <div class="bamt">${fmt(shownTotal)}</div><span style="width:32px;flex:none"></span></div></div>`
     :`<div class="empty" style="padding:22px">No bills yet — hit <b>+ Bill</b> to add rent, car, insurance, phone.</div>`;
@@ -5878,7 +5905,7 @@ function renderForecast(){
     </div>
     ${chartLine([{name:"Projected cash",color:cssVar("--s1","#059669"),points:f.points,area:true}],
       {labels:f.labels,h:230,ref:goal,refColor:cssVar("--goal","#0ea5a0"),refLabel:`goal ${fmt(goal)}`})}
-    <div class="note" style="margin-top:14px">Over the next ${f.days} days this assumes <b>${fmt(f.payTotal)}</b> of income from your pay schedule${db.settings.taxEnabled?" (after tax)":""}, <b>${fmt(f.bills)}</b>/mo of bills, and <b>${fmt(f.flex)}</b>/mo of flexible budgets. Change any of those and this updates.</div>`;
+    <div class="note" style="margin-top:14px">Over the next ${f.days} days this assumes <b>${fmt(f.payTotal)}</b> of income from your pay schedule${db.settings.taxEnabled?" (after tax)":""}, <b>${fmt(f.bills)}</b>/mo of bills, and <b>${fmt(f.other)}</b>/mo of everything else${f.fromBurn?` — taken from what you actually spend beyond your bills, which is more than your envelopes plan for`:` from your envelopes`}. Change any of those and this updates.${f.fromBurn&&f.burnMonths<2?` <span class="bwarn">Only ${f.burnMonths} month of spending logged, so that figure is thin.</span>`:""}</div>`;
 }
 function renderHistoryList(){
   const el=document.getElementById("hsList"); if(!el)return;
@@ -6179,6 +6206,16 @@ function w2Withheld(year){
 }
 /* The estimate. Every line is shown on screen so you can check it against
    whatever your accountant says and change the rates that are wrong. */
+/* What you put into a pre-tax retirement account this year. Yours only: an
+   employer match was never your income, so it is not your deduction. Roth and a
+   pension are excluded by carrying no pretax flag. */
+function preTaxRetire(year){
+  const y=String(year||todayISO().slice(0,4));
+  return (db.accounts||[]).filter(a=>kindOf(a).pretax)
+    .reduce((s,a)=>s+(Array.isArray(a.contribs)?a.contribs:[])
+      .filter(c=>c.who!=="employer"&&String(c.date).slice(0,4)===y)
+      .reduce((t,c)=>t+num(c.amount),0),0);
+}
 function taxEstimate(year){
   const c=taxCfg(), y=year||todayISO().slice(0,4);
   const inc=seIncome(y);
@@ -6189,14 +6226,19 @@ function taxEstimate(year){
   const se=c.seOn===false?0:seBase*(num(c.seRate)/100);
   const halfSE=se/2;                                   // deductible above the line
   const qbi=c.qbi?Math.max(0,(net-halfSE))*0.20:0;     // 20% pass-through deduction
-  const fedBase=Math.max(0,net-halfSE-qbi);
+  /* A pre-tax contribution comes off income tax but NOT self-employment tax:
+     Social Security and Medicare are owed on what you earned whatever you then
+     put away. Getting that wrong would under-reserve by roughly 15% of every
+     dollar contributed, which is the expensive direction to be wrong in. */
+  const pre=Math.min(preTaxRetire(y),Math.max(0,net-halfSE));
+  const fedBase=Math.max(0,net-halfSE-qbi-pre);
   const fed=fedBase*(num(c.fedRate)/100);
-  const state=Math.max(0,net-halfSE)*(num(c.stateRate)/100);
+  const state=Math.max(0,net-halfSE-pre)*(num(c.stateRate)/100);
   const gross=se+fed+state;
   const credit=c.creditW2===false?0:w2Withheld(y);
   const owed=Math.max(0,gross-credit-num(c.otherCredits));
   const rate=net>0?owed/net*100:0;
-  return {year:y,inc,net,se,halfSE,qbi,fed,state,gross,credit,owed,rate,
+  return {year:y,inc,net,se,halfSE,qbi,pre,fed,state,gross,credit,owed,rate,
     fedBase,seBase,paid:taxPaid(y),reserved:taxReserved(y)};
 }
 const taxReserveLedger=y=>(db.tax.reserve||[]).filter(r=>!y||String(r.date).slice(0,4)===String(y));
@@ -6957,8 +6999,9 @@ function renderTax(){
       ${row("Business profit",fmt(e.inc.fromBiz),"","revenue less expenses across your businesses")}
       ${row("<b>Net self-employment income</b>","<b>"+fmt(e.net)+"</b>","")}
       ${row("Self-employment tax",fmt(e.se),"neg",`${num(c.seRate)}% on ${fmt(e.seBase)} — 92.35% of net, the standard base`)}
+      ${e.pre>0?row("Less pre-tax retirement","−"+fmt(e.pre),"pos","your own contributions this year — off income tax, not off SE tax"):""}
       ${row("Federal income tax",fmt(e.fed),"neg",`${num(c.fedRate)}% marginal on ${fmt(e.fedBase)}${c.qbi?" after the 20% QBI deduction":""}`)}
-      ${row(esc(c.stateName)+" state tax",fmt(e.state),"neg",`${num(c.stateRate)}% of net less half your SE tax`)}
+      ${row(esc(c.stateName)+" state tax",fmt(e.state),"neg",`${num(c.stateRate)}% of net less half your SE tax${e.pre>0?" and your contributions":""}`)}
       ${row("<b>Estimated for the year</b>","<b class='neg'>"+fmt(e.gross)+"</b>","")}
       ${e.credit>0?row("Less W-2 already withheld","−"+fmt(e.credit),"pos","tax your employer already sent in"):""}
       ${num(c.otherCredits)?row("Less other credits","−"+fmt(num(c.otherCredits)),"pos"):""}
@@ -7096,11 +7139,17 @@ function renderFreedom(){
     : `<div class="frhead"><div class="frlabel">Financial freedom</div>
        <div class="frbig">${fmt2(p.total)}<span class="frper">/mo</span></div>
        <div class="frsub">${next?"passive income right now":"every tier covered — you're free"}</div></div>`;
-  const bars=st.tiers.map(t=>`<button class="frtier${freeOpen===t.key?" open":""}${t.cleared?" cleared":""}" data-frtier="${t.key}">
+  /* Two tiers that price the same draw as two identical bars, which reads as a
+     rendering fault rather than as the true fact underneath it: nothing has been
+     tiered as flexible, so surviving and maintaining cost the same. Say it. */
+  const same=(a,b2)=>a.need>0&&Math.abs(a.need-b2.need)<0.5;
+  const dupes=st.tiers.filter((t,i)=>i>0&&same(t,st.tiers[i-1])).map(t=>t.key);
+  const bars=st.tiers.map(t=>`<button class="frtier${freeOpen===t.key?" open":""}${t.cleared?" cleared":""}${dupes.includes(t.key)?" samey":""}" data-frtier="${t.key}">
       <div class="frtop"><span class="frname"><span class="tdot" style="background:var(${t.color})"></span>${esc(t.label)}${t.cleared?` <span class="frtick">covered</span>`:""}</span>
         <span class="frright">${t.need>0?`<span class="frgap">${t.cleared?"covered":fmt(t.gap)+" to go"}</span><span class="frpct">${Math.round(t.pct)}%</span>`:`<span class="frpct">—</span>`}</span></div>
       <div class="frbar"><span style="width:${Math.max(t.pct>0?1.5:0,t.pct).toFixed(1)}%;background:var(${t.color})"></span></div>
     </button>`).join("");
+  const sameNote=dupes.length?`<div class="frsame">${dupes.length>1?"These tiers":"Two of these"} cost the same, because nothing is tiered as flexible yet — mark a bill or an envelope <b>Flexible</b> or <b>Luxury</b> and they separate.</div>`:"";
   const open=st.tiers.find(t=>t.key===freeOpen);
   const detail=open?`<div class="frpanel">
       <div class="note" style="margin:0 0 12px">${esc(open.note)}</div>
@@ -7127,7 +7176,7 @@ function renderFreedom(){
         ${p.fromDrip>0?`<div class="defrow" style="opacity:.72"><span class="k">Reinvested, not counted <span class="muted" style="font-weight:500">buys shares instead</span></span><span class="v" style="color:var(--invest)">${fmt2(p.fromDrip)}/mo</span></div>`:""}
       </div>
     </div>`:"";
-  el.innerHTML=`<div class="freedom">${head}<div class="frtiers">${bars}</div>${detail}</div>`;
+  el.innerHTML=`<div class="freedom">${head}<div class="frtiers">${bars}</div>${sameNote}${detail}</div>`;
   el.querySelectorAll("[data-frtier]").forEach(b=>b.onclick=()=>{
     freeOpen=freeOpen===b.dataset.frtier?null:b.dataset.frtier; renderFreedom();});
   const y=el.querySelector("#frYield");
@@ -7416,11 +7465,18 @@ function renderGoals(){
   const ss=document.getElementById("goalSort"); if(ss&&ss.value!==goalSort)ss.value=goalSort;
   const cash=totalCash();
   const set=(id,fn)=>{const el=document.getElementById(id);if(el)fn(el);};
-  set("runwayValG",el=>el.textContent=runwayText());
+  /* the number stays, but it stops sounding certain on one month of imports */
+  set("runwayValG",el=>{el.textContent=runwayText();
+    el.style.opacity=burnIsSettled()?"":"0.72";
+    el.title=burnIsSettled()?"":"Based on very little spending history — treat it as provisional.";});
   set("runwaySubG",el=>el.textContent=`${fmt(spendableCash())} spendable ÷ ${fmt(effectiveBurn())}/mo of spending${taxHeld()>0?` · ${fmt(taxHeld())} held for tax`:""}`);
   set("burnInputG",el=>el.value=(db.settings.burnOverride!=null&&db.settings.burnOverride!=="")?db.settings.burnOverride:"");
   const a=avgMonthlyBurn();
-  set("burnHintG",el=>el.textContent=db.settings.burnOverride?"":(a!=null?` auto: ~${fmt(Math.round(a))}/mo from imports`:" no data yet — using estimate"));
+  set("burnHintG",el=>{ if(db.settings.burnOverride){el.textContent="";return;}
+    if(a==null){el.textContent=" no spending logged yet — using your bills as a stand-in";return;}
+    const n=burnMonths();
+    el.innerHTML=` auto: ~${fmt(Math.round(a))}/mo, averaged over ${n} month${n===1?"":"s"} of imports`+
+      (n<2?` — <span class="bwarn">too little to lean on yet</span>`:"");});
   /* keep the legacy single goal pointed at the first cash goal so the dashboard
      bar, the income projection horizon and the forecast all still line up */
   const cg=db.goals.find(x=>x.kind==="cash"&&!x.done)||db.goals.find(x=>!x.done);
@@ -8526,10 +8582,16 @@ function chartLine(series,opt){
   const n=Math.max.apply(null,series.map(s=>s.points.length));
   const X=i=>padL+(n<=1?(W-padL-padR)/2:i/(n-1)*(W-padL-padR));
   const Y=v=>H-padB-((v-lo)/(hi-lo))*(H-padT-padB);
-  const g=[];
+  /* The viewBox stretches to the card's width, so on a phone eleven pixels of
+     type renders around six and the y labels crowd each other. Keep every grid
+     line and label every other one once there are more than five. */
+  const g=[]; let gi=0;
+  const rows=Math.floor((hi-lo)/step+1e-6)+1, everyLbl=rows>5?2:1;
   for(let v=lo;v<=hi+1e-6;v+=step){ const y=Y(v);
     g.push(`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="${CH.grid}" stroke-width="1"/>`);
-    g.push(`<text x="${padL-9}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="11" fill="${CH.axis}" style="font-variant-numeric:tabular-nums">${fmt(v)}</text>`); }
+    if(gi%everyLbl===0||v>=hi-1e-6)
+      g.push(`<text x="${padL-9}" y="${(y+4).toFixed(1)}" text-anchor="end" font-size="11" fill="${CH.axis}" style="font-variant-numeric:tabular-nums">${fmt(v)}</text>`);
+    gi++; }
   /* the last label is worth forcing, but not on top of the one before it */
   const xl=[]; const step2=n>8?Math.ceil(n/7):1; let lastShown=-99;
   labels.forEach((l,i)=>{ const forced=(i===n-1);
@@ -8598,7 +8660,13 @@ function forecastTo(toISO){
   const bills=db.recurring.reduce((s,b)=>s+billMonthly(b),0);   // headline "per month" figure
   const flex=Object.keys(db.budgets).filter(c=>budgetActiveIn(c,monthKey(todayISO())))
     .reduce((s,c)=>s+num(db.budgets[c]),0);
-  const dailyFlex=flex/30.44;
+  /* Bills and envelopes are what you PLANNED to spend. Everything outside them
+     — the unbudgeted half of most people's month — was invisible here, which is
+     how a 292-day forecast reached six figures. Take the higher of the plan and
+     what you actually spend beyond your bills, and say which one it used. */
+  const nb=nonBillBurn(), other=Math.max(flex,nb==null?0:nb);
+  const fromBurn=nb!=null&&other>flex+0.5;
+  const dailyFlex=other/30.44;
   const pay={};
   db.income.forEach(s=>{ const ds=payDates(s,start,toISO); if(ds)ds.forEach(d=>{pay[d]=(pay[d]||0)+netOf(s,perPaycheck(s));});
     else { const amt=scheduledPay(s,start,toISO); if(amt>0){ const days=Math.max(1,Math.round(daysBetween(start,toISO)));
@@ -8619,7 +8687,8 @@ function forecastTo(toISO){
     if(bal<lowest.v)lowest={v:bal,d:iso};
     if(guard%every===0||iso===toISO){ pts.push(bal); labels.push(shortMonth(monthKey(iso))+" "+cur.getDate()); }
   }
-  return {end:bal,points:pts,labels,events,bills,flex,lowest,
+  return {end:bal,points:pts,labels,events,bills,flex,lowest,other,fromBurn,
+    burnMonths:burnMonths(),
     payTotal:Object.keys(pay).reduce((s,k)=>s+pay[k],0),days:total};
 }
 
