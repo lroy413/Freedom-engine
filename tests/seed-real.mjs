@@ -121,7 +121,13 @@ export const SEED = (page) => page.evaluate(() => {
       payments: [], status: "sent", discount: 0, taxRate: 0, note: "" },
     { id: "iv5", bizId: "b1", number: "0005", clientId: "cl2", title: "Engagement session", issued: todayISO(), terms: "net15",
       items: [{ id: "e1i", desc: "Half day", unit: "day", qty: 0.5, rate: 1500, cost: 0, taxable: false }],
-      payments: [], status: "draft", discount: 0, taxRate: 0, note: "" }];
+      payments: [], status: "draft", discount: 0, taxRate: 0, note: "" },
+    /* booked months out: the deposit holds the date, the balance waits on the work */
+    { id: "iv6", bizId: "b1", number: "0006", clientId: "cl1", title: "Winter ball", issued: todayISO(),
+      serviceDate: (() => { const d = dayOf(todayISO()); d.setDate(d.getDate() + 92); return isoOf(d); })(),
+      terms: "completion", deposit: { pct: 30, when: "booking" },
+      items: [{ id: "f1i", desc: "Evening coverage", unit: "project", qty: 1, rate: 4800, cost: 0, taxable: false }],
+      payments: [], status: "sent", discount: 0, taxRate: 0, note: "Balance on delivery" }];
   db.snapshots = [];
   for (let m = Math.max(1, thisM - 5); m <= thisM; m++)
     db.snapshots.push({ m: `${Y}-${String(m).padStart(2, "0")}`, net: 28000 + m * 2100 });

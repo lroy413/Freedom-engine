@@ -361,6 +361,14 @@
     nav.tabs .ic{display:block}
     nav.tabs button.active{background:var(--accent-soft)}
     /* density pass: the phone should show more of the page, not bigger type */
+    /* A heading, a hint and an action will not fit across a phone, and the
+       flex wrap put the ACTION on the second row — the one thing you might
+       press, stranded under a sentence you only read once. The hint is what
+       should move: it drops to its own line and the button keeps its place
+       beside the title. */
+    .sectiontitle>.hint{order:99;flex-basis:100%;margin:1px 0 0}
+    .sectiontitle:has(button)>.spacer{display:none}
+    .sectiontitle:has(button)>h2{flex:1 1 auto;min-width:0}
     .grid{gap:10px}
     .kpis{grid-template-columns:1fr 1fr;gap:10px}
     /* Three cards in a two-across grid leaves one stranded at half width with

@@ -57,7 +57,16 @@ chk('marking it sent makes it money you are owed',
   { status: 'sent', owed: 3000 });
 
 console.log('\n— the deposit lands —');
-await p.click('#iv-depo'); await p.waitForTimeout(700);
+/* a deposit is a schedule now, not a one-off half payment: split the invoice,
+   then settle the first thing on it */
+await p.click('#iv-adddep'); await p.waitForTimeout(600);
+chk('splitting it makes two debts out of one',
+  await p.evaluate(() => invOutstanding(db.invoices[0]).map(x => `${x.label} ${Math.round(x.amount)}`)),
+  ['Deposit 1500', 'Balance 1500']);
+chk('  and the quick button offers the deposit by name',
+  await p.evaluate(() => { const n = document.querySelector('#iv-paynext'); return n ? n.textContent.trim() : null; }),
+  'Deposit — $1,500');
+await p.click('#iv-paynext'); await p.waitForTimeout(700);
 chk('half up front leaves half outstanding',
   await p.evaluate(() => ({ paid: Math.round(invPaid(db.invoices[0])), due: Math.round(invDue(db.invoices[0])),
     status: invStatus(db.invoices[0]) })), { paid: 1500, due: 1500, status: 'part' });
@@ -213,6 +222,78 @@ chk('the hero carries it',
   await p.evaluate(() => /Owed to you/i.test(document.getElementById('bizHero').textContent)), true);
 chk('  and the row says it instead of revenue',
   await p.evaluate(() => /owed/i.test(document.querySelector('#bizList [data-bizgo]').textContent)), true);
+
+console.log('\n— a gig booked months out —');
+/* The case this was built for: a November ball booked in August. The deposit
+   holds the date and lands now; the balance is not owed until the job is done.
+   Counting from the invoice would have the whole thing overdue all autumn. */
+const gig = await p.evaluate(() => {
+  const fwd = n => { const d = dayOf(todayISO()); d.setDate(d.getDate() + n); return isoOf(d); };
+  db.transactions = [];
+  db.invoices = [{ id: "nv", bizId: "b1", number: "0100", clientId: "", title: "The ball",
+    issued: todayISO(), serviceDate: fwd(90), terms: "completion",
+    deposit: { pct: 30, when: "booking" },
+    items: [{ id: "n1", desc: "Coverage", unit: "project", qty: 1, rate: 6000, cost: 0, taxable: false }],
+    payments: [], status: "sent", discount: 0, taxRate: 0 }];
+  normalize(); saveAll();
+  const v = db.invoices[0];
+  return { gig: gigDate(v), balanceDue: invDueDate(v), depDue: depositDueDate(v),
+    inst: invOutstanding(v).map(x => `${x.label} ${Math.round(x.amount)} due ${x.due}`),
+    late: invDaysLate(v), status: invStatus(v),
+    nextDue: invNextDue(v), owed: Math.round(receivables("b1").total),
+    lateAmt: Math.round(receivables("b1").late) };
+});
+const in90 = await p.evaluate(() => { const d = dayOf(todayISO()); d.setDate(d.getDate() + 90); return isoOf(d); });
+chk('the balance falls due on the job, not 30 days from today', gig.balanceDue, in90);
+chk('  the deposit is owed now', gig.depDue, await p.evaluate(() => todayISO()));
+chk('  and they are two debts with two dates',gig.inst,
+  [`Deposit 1800 due ${await p.evaluate(() => todayISO())}`, `Balance 4200 due ${in90}`]);
+chk('  nothing is late, because nothing is past its date', [gig.late, gig.status], [0, 'sent']);
+chk('  all $6,000 is owed to you', gig.owed, 6000);
+chk('  and none of it is past due', gig.lateAmt, 0);
+
+console.log('\n  the deposit lands, the balance keeps its date');
+chk('paying the deposit leaves the balance on the job date', await p.evaluate(() => {
+  const v = db.invoices[0];
+  v.payments = [{ id: "d1", date: todayISO(), amount: 1800, note: "deposit" }];
+  saveAll();
+  const open = invOutstanding(v).filter(x => x.remaining > 0.005);
+  return { status: invStatus(v), left: Math.round(invDue(v)),
+    next: open[0].label, nextDue: open[0].due, late: invDaysLate(v) }; }),
+  { status: 'part', left: 4200, next: 'Balance', nextDue: in90, late: 0 });
+
+console.log('\n  a missed deposit is chased on its own');
+chk('the deposit can be late while the balance is not owed at all', await p.evaluate(() => {
+  const back = n => { const d = dayOf(todayISO()); d.setDate(d.getDate() - n); return isoOf(d); };
+  const v = db.invoices[0];
+  v.payments = []; v.issued = back(20); v.deposit = { pct: 30, when: "booking" };
+  saveAll();
+  const r = receivables("b1");
+  return { total: Math.round(r.total), late: Math.round(r.late), oldest: r.oldest,
+    status: invStatus(v) }; }), { total: 6000, late: 1800, oldest: 20, status: 'overdue' });
+
+console.log('\n  and the forecast puts each half on its own date');
+const fc = await p.evaluate(() => {
+  const fwd = n => { const d = dayOf(todayISO()); d.setDate(d.getDate() + n); return isoOf(d); };
+  db.businesses[0].drawPct = 100; db.businesses[0].linkProfit = true;
+  db.accounts = [{ id: "a1", name: "Checking", kind: "checking", value: 500 }];
+  saveAll();
+  return { soon: Math.round(forecastTo(fwd(30)).owedIn),
+    later: Math.round(forecastTo(fwd(120)).owedIn) };
+});
+chk('within a month only the deposit is expected', fc.soon, 1800);
+chk('  past the job date, the whole thing is', fc.later, 6000);
+
+console.log('\n— a date you type yourself —');
+chk('custom terms take the date you give them', await p.evaluate(() => {
+  const v = db.invoices[0];
+  v.terms = "custom"; v.due = "2027-01-15"; delete v.deposit; v.payments = [];
+  saveAll();
+  return [invDueDate(v), invNextDue(v)]; }), ['2027-01-15', '2027-01-15']);
+chk('  clearing the job date drops terms that needed it', await p.evaluate(() => {
+  const v = db.invoices[0];
+  v.terms = "gig14"; v.serviceDate = ""; normalize(); saveAll();
+  return v.terms; }), 'net30');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:', errs.length ? errs : 'none');

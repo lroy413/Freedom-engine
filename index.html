@@ -818,6 +818,13 @@ function normalize(){
     if(!Array.isArray(v.payments))v.payments=[];
     v.payments.forEach(p=>{ if(!p.id)p.id=uid(); if(!p.date)p.date=todayISO(); });
     if(!PAY_TERMS[v.terms])v.terms="net30";
+    if(v.serviceDate===undefined)v.serviceDate="";
+    /* terms that count from the work need the work to have a date */
+    if((PAY_TERMS[v.terms]||{}).fromGig&&!v.serviceDate)v.terms="net30";
+    if(v.deposit){ const d=v.deposit;
+      if(d.pct===undefined&&d.amount===undefined)d.pct=50;
+      if(!DEPOSIT_DUE[d.when])d.when="booking";
+      if(d.due===undefined)d.due=""; }
     if(!v.issued)v.issued=todayISO();
     if(v.discount===undefined)v.discount=0;
     if(v.taxRate===undefined)v.taxRate=0;
@@ -4789,16 +4796,67 @@ function invTotals(v) {
 }
 const invPaid = v => (Array.isArray(v && v.payments) ? v.payments : []).reduce((s, p) => s + num(p.amount), 0);
 const invDue = v => Math.max(0, invTotals(v).total - invPaid(v));
-/* the date the money is actually owed by */
+/* ---- when the money is owed ----
+   A gig can be booked months out. The work has a date of its own, and terms can
+   run from it rather than from the day the invoice was written — otherwise a
+   November shoot invoiced in August on Net 30 falls due in September, three
+   months before you have done anything for it, and reads as overdue all autumn. */
+const gigDate = v => (v && v.serviceDate) ? v.serviceDate : "";
 function invDueDate(v) {
   if (!v) return "";
-  if (v.due) return v.due;
   const t = PAY_TERMS[v.terms] || PAY_TERMS.net30;
-  const d = dayOf(v.issued || todayISO());
-  d.setDate(d.getDate() + t.days);
+  if (t.custom) return v.due || isoOf((() => { const d = dayOf(v.issued || todayISO()); d.setDate(d.getDate() + 30); return d; })());
+  /* terms tied to the work need the work to have a date; without one they fall
+     back to counting from the invoice, which is the only thing known */
+  const from = (t.fromGig && gigDate(v)) ? gigDate(v) : (v.issued || todayISO());
+  const d = dayOf(from);
+  d.setDate(d.getDate() + num(t.days));
   return isoOf(d);
 }
-const invDaysLate = v => Math.max(0, Math.round(daysBetween(invDueDate(v), todayISO())));
+/* ---- deposit now, balance later ----
+   The shape of nearly every booked job: something up front to hold the date,
+   the rest when it is done. They are two debts with two dates, not one. */
+const depositAmount = v => {
+  const dp = v && v.deposit; if (!dp) return 0;
+  const total = invTotals(v).total;
+  const a = dp.pct ? total * (num(dp.pct) / 100) : num(dp.amount);
+  return Math.max(0, Math.min(total, a));
+};
+function depositDueDate(v) {
+  const dp = v && v.deposit; if (!dp) return v ? v.issued : "";
+  const t = DEPOSIT_DUE[dp.when] || DEPOSIT_DUE.booking;
+  if (t.custom) return dp.due || v.issued;
+  const d = dayOf(v.issued || todayISO());
+  d.setDate(d.getDate() + num(t.days));
+  return isoOf(d);
+}
+/* The invoice broken into what is owed and when. One entry when it is due in a
+   lump, two when a deposit holds the date. */
+function invInstalments(v) {
+  const total = invTotals(v).total, dep = depositAmount(v);
+  if (dep > 0.005 && dep < total - 0.005) return [
+    { key: "deposit", label: "Deposit", amount: dep, due: depositDueDate(v) },
+    { key: "balance", label: "Balance", amount: total - dep, due: invDueDate(v) }];
+  return [{ key: "full", label: "Total", amount: total, due: invDueDate(v) }];
+}
+/* Payments settle the deposit first, then the balance — money arriving early
+   always goes against the nearest thing owed. */
+function invOutstanding(v) {
+  let left = invPaid(v);
+  return invInstalments(v).map(x => {
+    const p = Math.min(left, x.amount); left -= p;
+    return Object.assign({}, x, { paid: p, remaining: Math.max(0, x.amount - p) });
+  });
+}
+/* Late is measured per instalment: a deposit can be chased while the balance
+   for a job that has not happened yet is not owed at all. */
+const instDaysLate = x => x.remaining > 0.005 ? Math.max(0, Math.round(daysBetween(x.due, todayISO()))) : 0;
+const invDaysLate = v => invOutstanding(v).reduce((m, x) => Math.max(m, instDaysLate(x)), 0);
+/* the date of the next thing actually owed — what a row should show */
+function invNextDue(v) {
+  const open = invOutstanding(v).filter(x => x.remaining > 0.005);
+  return open.length ? open[0].due : invDueDate(v);
+}
 /* Status is derived, never stored, so it cannot drift from the payments. Only
    draft and void are choices; the rest is arithmetic. */
 function invStatus(v) {
@@ -4830,14 +4888,24 @@ function receivables(bizId, year) {
     (!y || String(invDueDate(v)).slice(0, 4) === y || String(v.issued).slice(0, 4) === y));
   const buckets = AGING.map(([lo, hi, label]) => ({ lo, hi, label, amount: 0, count: 0 }));
   let total = 0, late = 0, oldest = 0;
+  const due = [];
   owed.forEach(v => {
-    const d = invDue(v), n = invDaysLate(v);
-    total += d;
-    if (n > 0) { late += d; oldest = Math.max(oldest, n); }
-    const b = buckets.find(x => n >= x.lo && n <= x.hi) || buckets[0];
-    b.amount += d; b.count++;
+    /* Each instalment ages on its own date. A deposit can be a month late while
+       the balance for a shoot in November is not owed by anyone yet — rolling
+       them together would either cry wolf about the balance or hide the
+       deposit behind it. */
+    invOutstanding(v).forEach(x => {
+      if (x.remaining <= 0.005) return;
+      const n = instDaysLate(x);
+      total += x.remaining;
+      if (n > 0) { late += x.remaining; oldest = Math.max(oldest, n); }
+      const b = buckets.find(k => n >= k.lo && n <= k.hi) || buckets[0];
+      b.amount += x.remaining; b.count++;
+      due.push({ inv: v, label: x.label, amount: x.remaining, due: x.due, late: n });
+    });
   });
-  return { total, late, oldest, count: owed.length, buckets, invoices: owed };
+  due.sort((a, b) => String(a.due).localeCompare(String(b.due)));
+  return { total, late, oldest, count: owed.length, buckets, invoices: owed, due };
 }
 const allReceivable = () => bizList().filter(b => b.active !== false)
   .reduce((s, b) => s + receivables(b.id).total, 0);
@@ -6068,15 +6136,19 @@ function renderBizInvoices(b, y) {
          wrapped. The bills list settled this long ago: status is a coloured
          word on the meta line. A chip survives only for the two states the
          numbers cannot show on their own, a draft and a write-off. */
+      /* what is next, not what is last: a booked job shows the deposit's date
+         while it is outstanding and the balance's once it is not */
+      const open = invOutstanding(v).filter(x => x.remaining > 0.005)[0];
       const state = st === "overdue" ? `<span class="bneg">${esc(plural(late, "day"))} late</span>`
         : st === "paid" ? `<span class="bpos">paid in full</span>`
-          : (st === "part" || st === "sent") ? `due ${esc(txDate(invDueDate(v)))}` : "";
+          : open ? `${open.key === "full" ? "due" : esc(open.label.toLowerCase()) + " due"} ${esc(txDate(open.due))}` : "";
+      const gig = gigDate(v) && st !== "paid" ? ` · ${esc(txDate(gigDate(v)))} job` : "";
       return `<div class="brow">
         <button class="bmain" data-invopen="${v.id}" style="width:100%;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer">
           <div class="binfo">
             <div class="bname">${esc(clientName(v.clientId) || v.title || "Untitled")}
               <span class="invno">#${esc(v.number)}</span></div>
-            <div class="bmeta"><span class="tmeta">${esc(txDate(v.issued))}${state ? ` · ${state}` : ""}${v.title && clientName(v.clientId) ? ` · ${esc(v.title)}` : ""}</span></div>
+            <div class="bmeta"><span class="tmeta">${state || esc(txDate(v.issued))}${gig}${v.title && clientName(v.clientId) ? ` · ${esc(v.title)}` : ""}</span></div>
           </div>
           ${st === "draft" || st === "void" ? `<span class="tag ${o.tag}" style="flex:none">${esc(o.label)}</span>` : ""}
           <div style="text-align:right;flex:none">
@@ -6160,10 +6232,46 @@ function invoiceHTML() {
       <div class="field"><label>What it's for <span class="muted" style="font-weight:400">optional</span></label>
         <input id="iv-title" value="${esc(v.title || "")}" placeholder="${sells.cogs ? "Spring order" : "Cordell wedding"}"></div>
       <div class="field"><label>Invoiced on</label><input id="iv-issued" type="date" value="${esc(v.issued)}"></div>
-      <div class="field"><label>Payment terms</label><select id="iv-terms">${Object.entries(PAY_TERMS)
-      .map(([k, x]) => `<option value="${k}" ${v.terms === k ? "selected" : ""}>${esc(x.label)}</option>`).join("")}</select></div>
+      <div class="field"><label>When is the ${sells.cogs ? "delivery" : "job"}? <span class="muted" style="font-weight:400">optional</span></label>
+        <input id="iv-gig" type="date" value="${esc(v.serviceDate || "")}"></div>
+      <div class="field"><label>Balance due</label><select id="iv-terms">${Object.entries(PAY_TERMS)
+      .map(([k, x]) => `<option value="${k}" ${v.terms === k ? "selected" : ""}${x.fromGig && !gigDate(v) ? " disabled" : ""}>${esc(x.label)}</option>`).join("")}</select></div>
+      ${(PAY_TERMS[v.terms] || {}).custom ? `<div class="field"><label>Due date</label>
+        <input id="iv-due" type="date" value="${esc(invDueDate(v))}"></div>` : ""}
     </div>
-    <div class="note" style="margin-top:12px;font-size:13px">Due <b>${esc(txDate(invDueDate(v)))}</b>${st === "overdue" ? ` — <span class="bneg">${esc(plural(invDaysLate(v), "day"))} late</span>` : ""}.</div>
+    ${!gigDate(v) ? `<div class="muted" style="font-size:12px;margin-top:8px">Set a ${sells.cogs ? "delivery" : "job"} date and the balance can fall due when the work is done, rather than counting from today.</div>` : ""}
+
+    <div class="sectiontitle" style="margin:20px 0 8px"><h2 style="font-size:15px">When you get paid</h2>
+      <span class="hint">${v.deposit ? "deposit, then the balance" : "one payment"}</span></div>
+    ${v.deposit ? `<div class="formgrid">
+        <div class="field"><label>Deposit</label>
+          <div class="flex" style="gap:8px">
+            <input id="iv-depval" type="number" step="0.01" value="${esc(v.deposit.pct !== undefined ? v.deposit.pct : v.deposit.amount)}" style="min-width:0">
+            <select id="iv-depkind" style="width:auto;flex:none">
+              <option value="pct" ${v.deposit.pct !== undefined ? "selected" : ""}>%</option>
+              <option value="amount" ${v.deposit.pct === undefined ? "selected" : ""}>$</option></select>
+          </div></div>
+        <div class="field"><label>Deposit due</label><select id="iv-depwhen">${Object.entries(DEPOSIT_DUE)
+        .map(([k, x]) => `<option value="${k}" ${(v.deposit.when || "booking") === k ? "selected" : ""}>${esc(x.label)}</option>`).join("")}</select></div>
+        ${(DEPOSIT_DUE[v.deposit.when] || {}).custom ? `<div class="field"><label>Deposit due date</label>
+          <input id="iv-depdue" type="date" value="${esc(depositDueDate(v))}"></div>` : ""}
+      </div>` : ""}
+    <div class="deflist tight" style="margin-top:${v.deposit ? "12" : "0"}px">
+      ${invOutstanding(v).map(x => {
+      const n = instDaysLate(x), done = x.remaining <= 0.005;
+      return `<div class="defrow"><span class="k">${esc(x.label)}
+          <br><span style="font-size:12px;opacity:.75">${done ? `<span class="bpos">paid</span>`
+          : n > 0 ? `<span class="bneg">was due ${esc(txDate(x.due))} · ${esc(plural(n, "day"))} late</span>`
+            : `due ${esc(txDate(x.due))}`}</span></span>
+          <span class="v ${done ? "muted" : ""}">${fmt2(x.amount)}</span></div>`;
+    }).join("")}
+    </div>
+    <div class="toolbar" style="margin-top:10px">
+      ${v.deposit ? `<button class="btn ghost sm" id="iv-nodep">One payment instead</button>`
+      : `<button class="btn sm" id="iv-adddep">Split it — deposit and balance</button>`}
+      <div class="spacer"></div>
+    </div>
+    ${v.deposit && gigDate(v) ? `<div class="note" style="margin-top:12px;font-size:13px">The ${sells.cogs ? "delivery" : "job"} is <b>${esc(txDate(gigDate(v)))}</b>. The deposit holds the date and only the balance waits on the work — so the balance is not chased, and not counted as late, until then.</div>` : ""}
 
     <div class="sectiontitle" style="margin:20px 0 8px"><h2 style="font-size:15px">Lines</h2><span class="spacer"></span>
       <button class="btn sm" id="iv-additem">+ Line</button></div>
@@ -6199,7 +6307,8 @@ function invoiceHTML() {
     </div>
     <div class="toolbar" style="margin-top:10px">
       <button class="btn sm primary" id="iv-paysome">Log a payment</button>
-      ${paid <= 0.005 ? `<button class="btn sm" id="iv-depo">Deposit — half</button>` : ""}
+      ${(() => { const open = invOutstanding(v).filter(x => x.remaining > 0.005)[0];
+      return (open && open.key !== "full") ? `<button class="btn sm" id="iv-paynext">${esc(open.label)} — ${fmt(open.remaining)}</button>` : ""; })()}
       <button class="btn sm" id="iv-payall">Paid in full</button>
     </div>
     <div class="muted" style="font-size:12px;margin-top:8px">Logging a payment also records the money coming in, so it lands in your books and your tax estimate without typing it twice.</div>` : ""}
@@ -6231,7 +6340,26 @@ function wireInvoice(body) {
   const set = (id, fn, redraw) => { const n = g(id); if (n) n.onchange = () => { fn(n); redraw ? save() : quiet(); }; };
   set("iv-title", n => v.title = n.value.trim());
   set("iv-issued", n => v.issued = normalizeDate(n.value || todayISO()), true);
-  set("iv-terms", n => { v.terms = n.value; v.due = ""; }, true);
+  /* the work's own date: setting it unlocks the terms that count from it */
+  set("iv-gig", n => {
+    v.serviceDate = n.value ? normalizeDate(n.value) : "";
+    if (!v.serviceDate && (PAY_TERMS[v.terms] || {}).fromGig) v.terms = "net30";
+  }, true);
+  set("iv-terms", n => { v.terms = n.value; if (!(PAY_TERMS[v.terms] || {}).custom) v.due = ""; }, true);
+  set("iv-due", n => v.due = normalizeDate(n.value || todayISO()), true);
+  /* the deposit */
+  const depCfg = () => v.deposit || (v.deposit = { pct: 50, when: "booking" });
+  set("iv-depval", n => { const d = depCfg();
+    if (d.pct !== undefined) d.pct = Math.max(0, Math.min(100, num(n.value))); else d.amount = num(n.value); }, true);
+  set("iv-depkind", n => { const d = depCfg(), total = invTotals(v).total;
+    if (n.value === "pct") { const a = d.amount !== undefined ? d.amount : 0;
+      d.pct = total > 0 ? Math.round(a / total * 100) : 50; delete d.amount; }
+    else { const p = d.pct !== undefined ? d.pct : 50; d.amount = +(total * p / 100).toFixed(2); delete d.pct; }
+  }, true);
+  set("iv-depwhen", n => { const d = depCfg(); d.when = n.value; if (n.value !== "custom") d.due = ""; }, true);
+  set("iv-depdue", n => { depCfg().due = normalizeDate(n.value || todayISO()); }, true);
+  const ad = g("iv-adddep"); if (ad) ad.onclick = () => { v.deposit = { pct: 50, when: "booking" }; save(); };
+  const nd = g("iv-nodep"); if (nd) nd.onclick = () => { delete v.deposit; save(); };
   set("iv-disc", n => v.discount = num(n.value), true);
   set("iv-taxrate", n => v.taxRate = num(n.value), true);
   set("iv-note", n => v.note = n.value);
@@ -6276,7 +6404,12 @@ function wireInvoice(body) {
     if (!a) { n.focus(); return; }
     pay(a);
   };
-  const dep = g("iv-depo"); if (dep) dep.onclick = () => pay(invTotals(v).total / 2, "deposit");
+  /* the quick button settles whatever is next on the schedule, by name — the
+     deposit if one is set and unpaid, otherwise everything outstanding */
+  const nx = g("iv-paynext"); if (nx) nx.onclick = () => {
+    const open = invOutstanding(v).filter(x => x.remaining > 0.005)[0];
+    if (open) pay(open.remaining, open.key === "deposit" ? "deposit" : "");
+  };
   const pa = g("iv-payall"); if (pa) pa.onclick = () => pay(invDue(v), "");
   body.querySelectorAll("[data-pdel]").forEach(n => n.onclick = () => {
     const p = v.payments.find(x => x.id === n.dataset.pdel);
@@ -8409,11 +8542,10 @@ function forecastTo(toISO){
     if(x.active===false||x.linkProfit===false)return;
     const share=ownerShare(x)*(num(x.drawPct)/100);
     if(share<=0)return;
-    receivables(x.id).invoices.forEach(v=>{
-      const d=invDueDate(v);
-      const when=d<start?start:d;
+    receivables(x.id).due.forEach(d=>{
+      const when=d.due<start?start:d.due;
       if(when>toISO)return;
-      const amt=invDue(v)*share;
+      const amt=d.amount*share;
       if(amt<=0)return;
       pay[when]=(pay[when]||0)+amt; owedIn+=amt;
     });

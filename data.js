@@ -296,7 +296,21 @@ const PAY_TERMS={
   net15:{label:"Net 15",days:15},
   net30:{label:"Net 30",days:30},
   net45:{label:"Net 45",days:45},
-  net60:{label:"Net 60",days:60}};
+  net60:{label:"Net 60",days:60},
+  /* Counted from the day the work happens, not the day you invoiced. Book a
+     November gig in August on Net 30 and the balance would fall due in
+     September, three months before you have done anything for it. */
+  completion:{label:"On completion",fromGig:true,days:0},
+  gig7:{label:"7 days after the gig",fromGig:true,days:7},
+  gig14:{label:"14 days after the gig",fromGig:true,days:14},
+  gig30:{label:"30 days after the gig",fromGig:true,days:30},
+  custom:{label:"A date I pick",custom:true}};
+/* When a deposit is due. Almost always on booking — that is the point of one. */
+const DEPOSIT_DUE={
+  booking:{label:"On booking",days:0},
+  net7:{label:"Within 7 days",days:7},
+  net14:{label:"Within 14 days",days:14},
+  custom:{label:"A date I pick",custom:true}};
 /* Where an invoice is in its life. `owed` means it is money you are counting on;
    a draft is not, and a written-off one never will be. */
 const INV_STATUS={
