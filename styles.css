@@ -8,12 +8,17 @@
   html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 
   :root{
-    --bg:#f2f5f4; --card:#ffffff; --ink:#16181f; --ink2:#565a66; --muted:#6b7080;
+    --bg:#f2f5f4; --card:#ffffff; --ink:#16181f; --ink2:#565a66; --muted:#656a7a;
     --line:#edeef2; --line2:#e3e5ea; --line2h:#cfd3db; --raise:#fafbfc; --raise2:#f5f6f8;
     --track:#eef0f4; --grid:#edeef2;
     --accent:#059669; --accent-soft:#e6f6ee; --accent-ink:#047857;
     /* --warn/--debt are fills; --warn-ink is the same amber dark enough to read as small text (4.7:1) */
     --pos:#0ca35a; --neg:#e0463e; --debt:#e5900f; --warn:#e5900f; --warn-ink:#9a6206; --goal:#0ea5a0; --invest:#7c5cf0;
+    /* A bar and a number want different greens. The fill above is chosen to
+       read as a colour at 7px tall; as 16px text on white it lands at 3.2:1,
+       under the 4.5 that small text needs. So text gets its own ink, the way
+       --warn already does, and the charts keep the colour they were tuned for. */
+    --pos-ink:#07803f; --neg-ink:#c2261e;
     /* Emerald leads, but a finance app has more than one kind of number, and a
        screen where everything is the brand colour reads as unfinished rather
        than considered. Five supporting hues, matched in saturation and weight
@@ -25,8 +30,11 @@
        things apart (category slices, business cards) rather than mean one
        thing. Even chroma and lightness across the set is what stops a chart
        looking like a bag of highlighters. */
-    --c-cyan:#0891b2; --c-blue:#2563eb; --c-fuchsia:#c026d3;
-    --c-orange:#ea580c; --c-lime:#4d7c0f; --c-slate:#64748b;
+    /* lime and fuchsia used to break the set — one near-olive and darker than
+       everything else, the other the single highlighter in a palette chosen for
+       even chroma. Six envelope bars in a column is where that showed. */
+    --c-cyan:#0891b2; --c-blue:#2563eb; --c-fuchsia:#b13a9e;
+    --c-orange:#ea580c; --c-lime:#65a30d; --c-slate:#64748b;
     --s1:#059669; --s2:#0284c7; --s3:#e11d48; --s4:#d97706; --s5:#7c5cf0;
     --barbg:rgba(255,255,255,.85); --barbg2:rgba(255,255,255,.97); --glass:rgba(255,255,255,.62);
     /* Depth is three layers doing different jobs: a crisp contact line, a close
@@ -51,10 +59,12 @@
     --track:#2a2d36; --grid:#24262e;
     --accent:#10b981; --accent-soft:#0c2f23; --accent-ink:#6ee7b7;
     --pos:#3ecf8e; --neg:#f4736a; --debt:#f0ad3e; --warn:#f0ad3e; --warn-ink:#f0ad3e; --goal:#2dd4bf; --invest:#a78bfa;
+    /* on a near-black ground these already clear AA comfortably */
+    --pos-ink:#3ecf8e; --neg-ink:#f4736a;
     --c-emerald:#34d399; --c-teal:#2dd4bf; --c-sky:#38bdf8;
     --c-violet:#a78bfa; --c-amber:#fbbf24; --c-rose:#fb7185;
-    --c-cyan:#22d3ee; --c-blue:#60a5fa; --c-fuchsia:#e879f9;
-    --c-orange:#fb923c; --c-lime:#a3e635; --c-slate:#94a3b8;
+    --c-cyan:#22d3ee; --c-blue:#60a5fa; --c-fuchsia:#d986d0;
+    --c-orange:#fb923c; --c-lime:#a8d95f; --c-slate:#94a3b8;
     --s1:#34d399; --s2:#38bdf8; --s3:#fb7185; --s4:#fbbf24; --s5:#a78bfa;
     --barbg:rgba(24,26,32,.85); --barbg2:rgba(24,26,32,.97); --glass:rgba(24,26,32,.6);
     --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px -8px rgba(0,0,0,.5),0 24px 60px -20px rgba(0,0,0,.6);
@@ -78,7 +88,10 @@
   h1,h2,h3{margin:0;font-weight:680;letter-spacing:-.015em}
   button{font-family:inherit;cursor:pointer}
   input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
-  a{color:var(--accent);text-decoration:none}
+  /* --accent is tuned to be a button's ground; as 13px text on the page it is
+     3.4:1. --accent-ink is the same colour pitched for reading, and it already
+     flips correctly in every theme. */
+  a{color:var(--accent-ink);text-decoration:none}
 
   /* Border only once you've scrolled — a hairline under a title that's flush with
      the page above it is what made this feel like a toolbar bolted on top. */
@@ -131,7 +144,7 @@
   .kpi .label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:660}
   .kpi .val{font-size:32px;font-weight:720;margin-top:8px;letter-spacing:-.03em;line-height:1.15}
   .kpi .sub{font-size:13px;color:var(--muted);margin-top:4px}
-  .val.pos{color:var(--pos)} .val.neg{color:var(--neg)}
+  .val.pos{color:var(--pos-ink)} .val.neg{color:var(--neg-ink)}
 
   h1.page{font-size:26px;margin-bottom:6px;font-weight:730}
   .titlerow{display:flex;align-items:center;gap:8px;min-width:0}
@@ -214,7 +227,7 @@
   .formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;align-items:end}
 
   .miniedit{width:118px;padding:8px 12px;border:1px solid var(--line2);border-radius:12px;text-align:right;font-variant-numeric:tabular-nums;background:var(--card);transition:border .14s,box-shadow .14s;box-shadow:var(--inset)}
-  .muted{color:var(--muted)} .pos{color:var(--pos)} .neg{color:var(--neg)}
+  .muted{color:var(--muted)} .pos{color:var(--pos-ink)} .neg{color:var(--neg-ink)}
   .flex{display:flex;align-items:center;gap:10px}
   .between{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
   /* a page title and its month picker shouldn't fight over one narrow row */
@@ -228,7 +241,7 @@
   .nolabel>label{display:none}
   .stack{display:flex;flex-direction:column;gap:12px}
   .tag{font-size:12px;font-weight:690;padding:3px 10px;border-radius:16px;letter-spacing:.02em}
-  .tag.ok{background:#e4f6ec;color:#0a9150} .tag.warn{background:#fcf0dd;color:#c07a10} .tag.bad{background:#fbe6e4;color:var(--neg)}
+  .tag.ok{background:#e4f6ec;color:#07713e} .tag.warn{background:#fcf0dd;color:#8f5c07} .tag.bad{background:#fbe6e4;color:#bc231b}
   .tag.notax{background:var(--raise);color:var(--muted);border:1px solid var(--line2)}
   /* An open account in good standing: the absence of a problem, not a warning.
      It has to hold the badge column's width without competing with the two
@@ -350,6 +363,10 @@
     /* density pass: the phone should show more of the page, not bigger type */
     .grid{gap:10px}
     .kpis{grid-template-columns:1fr 1fr;gap:10px}
+    /* Three cards in a two-across grid leaves one stranded at half width with
+       a hole beside it, which reads as a layout that gave up. An odd last card
+       takes the whole row instead — deliberate, not left over. */
+    .kpis>:last-child:nth-child(odd){grid-column:1/-1}
     .kpi{padding:12px 14px}
     .kpi .val{font-size:22px;margin-top:4px}
     .kpi .label{font-size:10px;letter-spacing:.05em}
@@ -517,7 +534,10 @@
   .hright{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:3px}
   .hweight{font-size:11px;font-weight:600;color:var(--muted);text-align:center;
     font-variant-numeric:tabular-nums;letter-spacing:.01em}
-  .qstale{color:var(--warn-ink);font-weight:600;font-size:12px;margin-top:2px}
+  /* Not knowing a price is a state, not a fault. In amber it shouted on every
+     row of a portfolio nobody had refreshed yet; amber is for things that need
+     doing. */
+  .qstale{color:var(--muted);font-weight:560;font-size:12px;margin-top:2px}
   /* marks an entry that lives as a transaction, so it is clear why this one
      opens Spending rather than an editor here */
   .tagline{color:var(--accent-ink);font-weight:620}
@@ -526,10 +546,18 @@
   .dripline{color:var(--invest);font-weight:620}
   .hmain{flex:1;min-width:0}
   .hspark{width:120px;height:38px;flex:none}
-  .hbadge{flex:none;min-width:96px;text-align:center;padding:8px 12px;border-radius:8px;font-size:15px;font-weight:670;font-variant-numeric:tabular-nums}
-  .hbadge.up{background:var(--pos);color:#06210f}
-  .hbadge.down{background:var(--neg);color:#2b0806}
-  .hbadge.flat{background:var(--raise2);color:var(--ink2)}
+  /* A price is a value, not an action. Filled solid in the accent green it read
+     as the primary button on the screen — three of them stacked, louder than
+     anything you could actually press. It keeps its shape and its column, but
+     the colour moves to the number and the ground becomes a wash. */
+  .hbadge{flex:none;min-width:96px;text-align:center;padding:8px 12px;border-radius:9px;
+    font-size:15px;font-weight:670;font-variant-numeric:tabular-nums;
+    border:1px solid transparent;transition:background .14s,border-color .14s}
+  .hbadge.up{background:color-mix(in srgb,var(--pos) 12%,transparent);color:var(--pos-ink);
+    border-color:color-mix(in srgb,var(--pos) 26%,transparent)}
+  .hbadge.down{background:color-mix(in srgb,var(--neg) 12%,transparent);color:var(--neg-ink);
+    border-color:color-mix(in srgb,var(--neg) 26%,transparent)}
+  .hbadge.flat{background:var(--raise2);color:var(--ink2);border-color:var(--line)}
   .hdetail{padding:4px 16px 18px;border-bottom:1px solid var(--line);background:var(--raise)}
   .hstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px;margin:10px 0 16px}
   .hstat .k{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:640}
@@ -654,7 +682,7 @@
     border-radius:8px;padding:4px 6px;margin:-4px -6px;min-height:0;width:100%;max-width:100%}
   .txdate{font-variant-numeric:tabular-nums;max-width:148px}
   .txamt{text-align:right;font-weight:inherit;max-width:120px}
-  .txamt.neg{color:var(--neg)} .txamt.pos{color:var(--pos)}
+  .txamt.neg{color:var(--neg-ink)} .txamt.pos{color:var(--pos-ink)}
   .txdate:hover,.txdesc:hover,.txamt:hover{border-color:var(--line2);background:var(--card)}
   .txdate:focus,.txdesc:focus,.txamt:focus{border-color:var(--accent);background:var(--card);outline:none}
   @media(max-width:820px){ .txdate{font-size:12px;max-width:none} .txdesc{font-size:15px;font-weight:600} }
@@ -972,7 +1000,26 @@
   .bmain:hover{background:var(--raise)}
   .brow.sum .bmain{cursor:default;background:var(--raise)}
   .binfo{flex:1;min-width:0}
-  .bname{font-size:15px;font-weight:620;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* the review queue's category picker, on its own line under the merchant it
+     belongs to — indented to the name so the pairing is obvious */
+  .rvrow .bmain{padding-bottom:2px}
+  .rvpick{padding:0 14px 12px 46px}
+  .rvpick .catsel{width:100%;max-width:340px}
+  .rvrow .bmeta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Two actions and an overflow menu came to 348px in 340px of row, so the
+     menu wrapped onto a line of its own with a hole beside it. The two share
+     what there is and the menu keeps its corner. */
+  @media(max-width:820px){
+    .txtools .spacer{flex-basis:0;min-width:0}
+    .txtools>.btn{flex:1 1 0;min-width:0;padding-left:10px;padding-right:10px;white-space:nowrap}
+  }
+  /* A name is the thing you came to the row to read, so it gets a second line
+     before it gets an ellipsis — "Clear the Milestone c…" is a row that failed
+     at its one job. The meta line below still truncates at one: that is
+     supporting detail, and letting it wrap made rows three lines tall. */
+  .bname{font-size:15px;font-weight:620;letter-spacing:-.01em;
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+    overflow:hidden;overflow-wrap:anywhere}
   .bmeta{font-size:13px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:4px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .bdot{width:7px;height:7px;border-radius:50%;flex:none}
@@ -1218,6 +1265,9 @@
     /* a strict 3-column grid on phones: every label starts on the same line,
        every value lines up — flex basis percentages drifted with content */
     .dh-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 10px}
+    /* Six stats fill two rows of three. Four in a three-across grid strand one
+       on its own with a gap beside it, so a hero with exactly four goes 2×2. */
+    .dh-stats:has(>:nth-child(4):last-child){grid-template-columns:repeat(2,1fr)}
     .dh-stat{min-width:0} .dh-stat .k{font-size:10px;letter-spacing:.05em} .dh-stat .v{font-size:16px} .dh-goal{grid-column:1/-1} }
 
   /* ---------- richer KPI cards ---------- */
@@ -1254,6 +1304,7 @@
     --track:#2a2431; --grid:#231e28;
     --accent:#c1272d; --accent-soft:#2b1418; --accent-ink:#ec6a63;
     --pos:#5fae76; --neg:#d1495b; --debt:#c9a227; --warn:#c9a227; --goal:#c9a227; --invest:#9b7fd4;
+    --pos-ink:#6fbd85; --neg-ink:#e0687a;
     --c-emerald:#5fae76; --c-teal:#5aa9a3; --c-sky:#6f97c4;
     --c-violet:#a98cc4; --c-amber:#c9a227; --c-rose:#d1495b;
     --c-cyan:#5f9fa8; --c-blue:#6f8fc4; --c-fuchsia:#b07ba6;
@@ -1353,6 +1404,15 @@
      a tap on the neighbour; the height does the real work */
   .hdot::before{content:"";position:absolute;left:-4px;right:-4px;top:-19px;bottom:-19px}
   .dlrow{min-height:44px}
+  /* A checkbox's real target is the label around it, which is normally two
+     lines tall. When collapseHelp folds the explanation into an (i) chip the
+     row drops to one line and the target goes with it — so put a floor on it. */
+  label:has(>input[type=checkbox]){min-height:40px;align-items:center}
+  /* An action written as a link inside a sentence is still an action. Text
+     height alone is a 15px target; reach above and below the line, but never
+     sideways, where the words either side are not tappable. */
+  .note a,.linkish{position:relative}
+  .note a::before,.linkish::before{content:"";position:absolute;left:0;right:0;top:-11px;bottom:-11px}
   input[type=checkbox]{width:18px;height:18px;flex:none;accent-color:var(--accent)}
   @media (hover:none) and (pointer:coarse){
     input,select,textarea,.miniedit,.catsel,.txdesc,.txamt,.txdate,.bizpct{font-size:16px !important}

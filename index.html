@@ -186,7 +186,7 @@
         <svg class="searchico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
         <input id="txSearch" placeholder="Search transactions…">
       </div>
-      <div class="toolbar" style="margin:12px 0 0">
+      <div class="toolbar txtools" style="margin:12px 0 0">
         <input type="file" id="csvFile" accept=".csv,text/csv" style="display:none">
         <button class="btn primary" onclick="document.getElementById('csvFile').click()">Import CSV</button>
         <button class="btn" id="addTxBtn">Add manually</button>
@@ -628,6 +628,12 @@ const todayISO = () => isoOf(new Date());
 /* "2026-08-05" is too wide for a stat tile and reads like a serial number. */
 const shortDate = iso => { if(!iso)return "—"; const [y,m,d]=iso.split("-").map(Number);
   return new Date(y,m-1,d).toLocaleDateString(undefined,{month:"short",day:"numeric"}); };
+/* How far off something is, said the way a person would. "in 1 days" is the
+   single loudest tell that nobody read the screen back to themselves. */
+const inDays = n => { const d=Math.round(num(n));
+  return d<0?`${-d} day${-d===1?"":"s"} ago`:d===0?"today":d===1?"tomorrow":`in ${d} days`; };
+/* one, once — for counting anything */
+const plural = (n,one,many) => `${n} ${num(n)===1?one:(many||one+"s")}`;
 /* a per-share dividend is often fractions of a cent — $0.26 hides real precision */
 const fmtPS = n => { const v=num(n);
   return "$"+(Math.abs(v)<1 ? v.toFixed(4).replace(/(\.\d*?)0+$/,"$1").replace(/\.$/,"") : v.toFixed(2)); };
@@ -2460,7 +2466,7 @@ function renderDash(){
   if(!recent.length)recent=sorted.slice(0,10);
   const rHint=document.getElementById("recentHint");
   if(rHint)rHint.textContent=!sorted.length?"":windowed?`last 30 days · ${recent.length}${sorted.filter(t=>t.date>=cut).length>30?"+":""}`:"nothing in 30 days — showing the latest";
-  document.getElementById("recentTx").innerHTML=recent.length?`<div class="${recent.length>5?"scrollrows tx":""}"><table class="stacktbl tx4"><tbody>${recent.map(t=>`<tr><td>${t.date}</td><td>${esc(t.desc)}</td><td><span class="catpill">${esc(t.category)}</span></td><td class="amt ${t.amount<0?'neg':'pos'}">${t.amount<0?'':'+'}${fmt2(t.amount)}</td></tr>`).join("")}</tbody></table></div>`+(recent.length>5?`<div class="scrollhint" style="border-top:0;padding:8px 0 12px">scroll for ${recent.length-5} more · full list in Spending</div>`:""):`<div class="empty">No transactions yet.</div>`;
+  document.getElementById("recentTx").innerHTML=recent.length?`<div class="${recent.length>5?"scrollrows tx":""}"><table class="stacktbl tx4"><tbody>${recent.map(t=>`<tr><td>${esc(txDate(t.date))}</td><td>${esc(t.desc)}</td><td><span class="catpill">${esc(t.category)}</span></td><td class="amt ${t.amount<0?'neg':'pos'}">${t.amount<0?'':'+'}${fmt2(t.amount)}</td></tr>`).join("")}</tbody></table></div>`+(recent.length>5?`<div class="scrollhint" style="border-top:0;padding:8px 0 12px">scroll for ${recent.length-5} more · full list in Spending</div>`:""):`<div class="empty">No transactions yet.</div>`;
 }
 
 /* INCOME */
@@ -2580,7 +2586,7 @@ function renderIncomeEditor(id){
   ${s.model!=="onetime"?(()=>{ const y=todayISO().slice(0,4);
       const paidSoFar=s.firstPay?payDates(s,y+"-01-01",todayISO()):null; const np=nextPayday(s);
       return `<div class="note" style="margin-top:12px">≈ <b>${fmt(netOf(s,perPaycheck(s)))}</b> per paycheck · <b>${fmt(netOf(s,streamMonthly(s)))}</b>/mo estimated${taxNote(s)}
-        ${paidSoFar?`<br><b>${paidSoFar.length}</b> paycheck${paidSoFar.length===1?"":"s"} so far in ${y} ≈ <b>${fmt(netOf(s,paidSoFar.length*perPaycheck(s)))}</b>${np?` · next payday <b>${esc(shortDate(np))}</b> (${daysUntil(np)} days)`:""}`
+        ${paidSoFar?`<br><b>${paidSoFar.length}</b> paycheck${paidSoFar.length===1?"":"s"} so far in ${y} ≈ <b>${fmt(netOf(s,paidSoFar.length*perPaycheck(s)))}</b>${np?` · next payday <b>${esc(shortDate(np))}</b> (${esc(inDays(daysUntil(np)))})`:""}`
           :`<br><span class="muted">Set a <b>first paycheck date</b> above and it'll count your paychecks and predict paydays.</span>`}</div>`;})():""}
   ${gig?`<div class="note" style="margin-top:10px;border-color:#bfe3d9;background:#f0faf7">📅 <b>Gig estimate:</b> ~${gig.weeks.toFixed(1)} weeks × ${gig.dpw} days/wk ≈ <b>${gig.gigDays} work days</b> → <b>${fmt(netOf(s,gig.total))}</b> total for this gig${taxNote(s)} (base + extras, ${s.start} → ${s.end})</div>`:""}
   <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
@@ -2785,7 +2791,7 @@ function applyStub(text){
   set("pc-date",r.date); set("pc-gross",r.gross); set("pc-net",r.net);
   if(res){
     const miss=[]; if(r.date==null)miss.push("pay date"); if(r.net==null)miss.push("net"); if(r.gross==null)miss.push("gross");
-    const line=[r.date?`date <b>${esc(r.date)}</b>`:null,
+    const line=[r.date?`date <b>${esc(txDate(r.date))}</b>`:null,
       r.net!=null?`net <b>${fmt2(r.net)}</b>${r.how.net?` <span class="muted">(${esc(r.how.net)})</span>`:""}`:null,
       r.gross!=null?`gross <b>${fmt2(r.gross)}</b>${r.how.gross?` <span class="muted">(${esc(r.how.gross)})</span>`:""}`:null
     ].filter(Boolean).join(" · ");
@@ -3578,7 +3584,7 @@ function renderBudget(){
           :`Pay part if that's all you can cover — it ticks off once the ${fmt(num(b.amount))} is met. Pay over and the extra becomes credit toward next month.`}</div>
         ${paidAmt>0.005?`<div style="border-top:1px solid var(--line);margin-top:12px;padding-top:4px">
           <table><tbody>${billTxs(b,mk).slice().sort((x,y)=>y.date.localeCompare(x.date)).map(t=>`<tr>
-            <td style="width:112px;white-space:nowrap">${esc(t.date)}</td>
+            <td style="width:112px;white-space:nowrap">${esc(txDate(t.date))}</td>
             <td class="amt pos">${fmt2(Math.abs(num(t.amount)))}</td>
             <td class="amt" style="width:42px"><button class="btn ghost sm" data-billpaydel="${t.id}" title="Remove this payment">✕</button></td></tr>`).join("")}</tbody></table>
         </div>`:""}
@@ -3719,7 +3725,11 @@ function renderBudget(){
           const overPct=Math.max(0,Math.min(100,(-avail)/sp*100));
           return `<div class="bar split"><span style="width:${(100-overPct).toFixed(1)}%;background:${catColor[c]||'var(--pos)'}"></span><span style="width:${overPct.toFixed(1)}%;background:var(--neg)"></span></div>`;})()
         :`<div class="bar"><span style="width:${pct.toFixed(1)}%;background:${col}"></span></div>`}
-        <span class="tag ${state}" style="flex:none">${avail<0?'OVER':state==='warn'?'CLOSE':'OK'}</span>
+        <!-- A column of envelopes each stamped OK is six chips saying nothing,
+             and it makes the one that says OVER harder to find rather than
+             easier. An envelope in good shape is the default; the badge appears
+             only when the answer is not "fine". -->
+        ${state==='ok'?'':`<span class="tag ${state}" style="flex:none">${avail<0?'OVER':'CLOSE'}</span>`}
       </div>
       <!-- the editor opens in its own sheet now (see openBudgetEditor) instead
            of unfolding here and shoving the rest of the list off screen -->
@@ -3813,7 +3823,7 @@ function renderCredit(){
   document.getElementById("creditKpis").innerHTML=`
     <div class="card kpi"><div class="label">Total debt left</div><div class="val neg">${fmt(total)}</div><div class="sub">${start>total?`${fmt(lifetime)} of ${fmt(start)} already cleared`:"across "+db.debts.length+" debt"+(db.debts.length===1?"":"s")}</div></div>
     <div class="card kpi"><div class="label">Payments logged</div><div class="val pos">${fmt(paid)}</div><div class="sub">${payN?`${payN} payment${payN===1?"":"s"} recorded here`:"hit Log a payment on any debt"}</div></div>
-    <div class="card kpi"><div class="label">Credit score</div><div class="val">${sc?sc.score:"—"}</div><div class="sub">${sc?"as of "+sc.date:"log one to start"}</div></div>
+    <div class="card kpi"><div class="label">Credit score</div><div class="val">${sc?sc.score:"—"}</div><div class="sub">${sc?"as of "+esc(txDate(sc.date)):"log one to start"}</div></div>
     <div class="card kpi"><div class="label">Card utilization</div><div class="val ${u.pct!=null&&u.pct>30?'neg':u.pct!=null?'pos':''}">${u.pct!=null?u.pct.toFixed(0)+"%":"—"}</div><div class="sub">${u.pct!=null?"lower is better":"add card limits"}</div></div>`;
   const pts=[...db.creditLog].sort((a,b)=>a.date.localeCompare(b.date));
   const cc=document.getElementById("creditChart");
@@ -3915,7 +3925,7 @@ function renderCredit(){
         </div>
         ${histOpen===d.id&&pays.length?`
         <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:6px">
-          <div class="${pays.length>5?"scrollrows tx":""}"><table><tbody>${pays.map(p=>`<tr><td style="width:118px;white-space:nowrap">${esc(p.date)}</td><td class="muted" style="font-size:13px">${esc(p.note||"payment")}</td><td class="amt pos">${fmt2(num(p.amount))}</td><td class="amt" style="width:44px"><button class="btn ghost sm" data-dpaydel="${d.id}|${p.id}" title="Undo this payment">✕</button></td></tr>`).join("")}</tbody></table></div>
+          <div class="${pays.length>5?"scrollrows tx":""}"><table><tbody>${pays.map(p=>`<tr><td style="width:118px;white-space:nowrap">${esc(txDate(p.date))}</td><td class="muted" style="font-size:13px">${esc(p.note||"payment")}</td><td class="amt pos">${fmt2(num(p.amount))}</td><td class="amt" style="width:44px"><button class="btn ghost sm" data-dpaydel="${d.id}|${p.id}" title="Undo this payment">✕</button></td></tr>`).join("")}</tbody></table></div>
           <div class="muted" style="font-size:13px;margin:8px 0 2px">${fmt(pays.reduce((s,p)=>s+num(p.amount),0))} logged. Removing one puts it back on the balance.</div>
         </div>`:""}
       </div>`:""}
@@ -4374,7 +4384,7 @@ function renderInvest(){
         <span class="updot" style="background:${c}1f;color:${c}">${x.drip
           ?`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5A8 8 0 006.3 6.3L4 8.5"/><path d="M4 4.5v4h4"/><path d="M4 12.5a8 8 0 0013.7 5.2L20 15.5"/><path d="M20 19.5v-4h-4"/></svg>`
           :`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`}</span>
-        <div class="upmain"><div class="upname">${esc(x.name)}</div><div class="upwhen">${esc(shortDate(x.date))} · in ${Math.max(0,Math.ceil(daysBetween(todayISO(),x.date)))} days${x.drip?" · reinvested":""}</div></div>
+        <div class="upmain"><div class="upname">${esc(x.name)}</div><div class="upwhen">${esc(shortDate(x.date))} · ${esc(inDays(Math.max(0,Math.ceil(daysBetween(todayISO(),x.date)))))}${x.drip?" · reinvested":""}</div></div>
         <div class="upamt${x.drip?"":" pos"}"${x.drip?` style="color:var(--invest)"`:""}>${x.drip?"":"+"}${fmt2(x.amount)}</div></div>`;}).join("")}</div>
       <div class="upitem" style="background:var(--raise);border-bottom:0"><span class="updot" style="background:transparent"></span>
         <div class="upmain"><div class="upname">${upDrip>0?"Arriving over 4 months":"Expected over 4 months"}</div><div class="upwhen">${up.length} payment${up.length===1?"":"s"}${upDrip>0?` · ${fmt2(upDrip)} reinvested`:""}</div></div>
@@ -4382,10 +4392,10 @@ function renderInvest(){
       :`<div class="empty" style="padding:22px">Set how often each holding pays and when it last paid — the schedule shows up here.</div>`; }
   document.getElementById("divKpis").innerHTML=`
     <div class="card kpi"><div class="label">Received (12 mo)</div><div class="val pos">${fmt(divTrailing12())}</div><div class="sub">trailing 12 months</div></div>
-    <div class="card kpi"><div class="label">All-time dividends</div><div class="val">${fmt(divTotal())}</div><div class="sub">${db.dividends.length} payments</div></div>
+    <div class="card kpi"><div class="label">All-time dividends</div><div class="val">${fmt(divTotal())}</div><div class="sub">${esc(plural(db.dividends.length,"payment"))}</div></div>
     <div class="card kpi"><div class="label">Est. monthly</div><div class="val">${fmt(divTrailing12()?divTrailing12()/12:estAnnualDiv()/12)}</div><div class="sub">${divTrailing12()?"average of what you logged":"projected from your holdings"}</div></div>`;
   const divs=[...db.dividends].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
-  document.getElementById("divTable").innerHTML=divs.length?`<table><thead><tr><th>Date</th><th>Holding</th><th class="amt">Amount</th><th></th></tr></thead><tbody>${divs.map(d=>`<tr><td>${d.date}</td><td>${esc(d.name)}</td><td class="amt pos">${fmt2(num(d.amount))}</td><td><button class="btn ghost sm" data-divdel="${d.id}">✕</button></td></tr>`).join("")}</tbody></table>`:`<div class="empty">Nothing logged yet — hit <b>+ Dividend</b> when one lands.</div>`;
+  document.getElementById("divTable").innerHTML=divs.length?`<table><thead><tr><th>Date</th><th>Holding</th><th class="amt">Amount</th><th></th></tr></thead><tbody>${divs.map(d=>`<tr><td>${esc(txDate(d.date))}</td><td>${esc(d.name)}</td><td class="amt pos">${fmt2(num(d.amount))}</td><td><button class="btn ghost sm" data-divdel="${d.id}">✕</button></td></tr>`).join("")}</tbody></table>`:`<div class="empty">Nothing logged yet — hit <b>+ Dividend</b> when one lands.</div>`;
   document.querySelectorAll("[data-divdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{db.dividends=db.dividends.filter(x=>x.id!==b.dataset.divdel);saveAll();}));
   renderMarketSettings();
 }
@@ -4431,9 +4441,9 @@ function renderForecast(){
   const goal=num(db.goal.target), gap=f.end-goal;
   box.innerHTML=`
     <div class="grid kpis" style="margin-bottom:16px">
-      <div class="card kpi"><div class="label">Projected on ${target}</div><div class="val ${f.end>=goal?"pos":""}">${fmt(f.end)}</div><div class="sub">starting from ${fmt(spendableCash())} today</div></div>
+      <div class="card kpi"><div class="label">Projected on ${esc(txDate(target))}</div><div class="val ${f.end>=goal?"pos":""}">${fmt(f.end)}</div><div class="sub">starting from ${fmt(spendableCash())} today</div></div>
       <div class="card kpi"><div class="label">vs your ${fmt(goal)} goal</div><div class="val ${gap>=0?"pos":"neg"}">${gap>=0?"+":""}${fmt(gap)}</div><div class="sub">${gap>=0?"on track to clear it":"short at this pace"}</div></div>
-      <div class="card kpi"><div class="label">Lowest point</div><div class="val ${f.lowest.v<0?"neg":""}">${fmt(f.lowest.v)}</div><div class="sub">around ${f.lowest.d}</div></div>
+      <div class="card kpi"><div class="label">Lowest point</div><div class="val ${f.lowest.v<0?"neg":""}">${fmt(f.lowest.v)}</div><div class="sub">around ${esc(txDate(f.lowest.d))}</div></div>
     </div>
     ${chartLine([{name:"Projected cash",color:cssVar("--s1","#059669"),points:f.points,area:true}],
       {labels:f.labels,h:230,ref:goal,refColor:cssVar("--goal","#0ea5a0"),refLabel:`goal ${fmt(goal)}`})}
@@ -5266,14 +5276,19 @@ function renderReview(){
       <svg class="filtchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div class="filtbody" ${rvOpen?"":"hidden"} style="padding:0">
-      <div class="${q.length>5?"scrollrows bills":""}">${q.map(t=>`<div class="brow">
+      <!-- A tick, a merchant, a category picker and an amount will not fit
+           across a phone: the name wrapped and still truncated, the select read
+           "Uncategoriz▾" and the date ran to three lines. The line you read
+           gets the row; the thing you change gets its own, full width. -->
+      <div class="${q.length>5?"scrollrows bills":""}">${q.map(t=>`<div class="brow rvrow">
         <div class="bmain" style="cursor:default">
           <button class="chk" data-rvok="${t.id}" title="Category is right — accept">✓</button>
           <div class="binfo"><div class="bname">${esc(t.desc||"—")}</div>
-            <div class="bmeta">${esc(shortDate(t.date))}${acctName(t.acctId)?` · ${esc(acctName(t.acctId))}`:""}</div></div>
-          <select class="catsel" data-rvcat="${t.id}" style="flex:none;max-width:38%">${catOpts(t.category)}</select>
+            <div class="bmeta">${esc(txDate(t.date))}${acctName(t.acctId)?` · ${esc(shortAcctName(acctName(t.acctId)))}`:""}</div></div>
           <div class="bamt ${t.amount<0?"neg":"pos"}" style="min-width:74px">${t.amount<0?"":"+"}${fmt2(t.amount)}</div>
-        </div></div>`).join("")}</div>
+        </div>
+        <div class="rvpick"><select class="catsel" data-rvcat="${t.id}">${catOpts(t.category)}</select></div>
+      </div>`).join("")}</div>
       <div class="toolbar" style="padding:10px 14px;border-top:1px solid var(--line)">
         <span class="muted" style="font-size:13px">Changing a category teaches a rule for next time.</span>
         <span class="spacer"></span>
