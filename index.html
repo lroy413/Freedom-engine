@@ -381,6 +381,9 @@
       <div class="card pad" id="bizPL"></div>
       <div id="bizChart" style="margin-top:14px"></div>
 
+      <div class="sectiontitle"><h2>Invoices</h2><span class="hint" id="bizInvHint"></span></div>
+      <div class="card" id="bizInv"></div>
+
       <div class="sectiontitle"><h2>What this costs you in tax</h2><span class="hint">feeds the Tax screen</span></div>
       <div class="card pad" id="bizTax"></div>
 
@@ -793,6 +796,36 @@ function normalize(){
     if(!b.office)b.office={on:false,method:"simplified",sqft:0,totalSqft:0,annualCosts:0};
     if(!b.mileage)b.mileage={on:false,rate:MILEAGE_RATE_DEFAULT,log:[]};
     if(!Array.isArray(b.mileage.log))b.mileage.log=[];
+    /* what it sells decides what an invoice line asks for and whether cost of
+       goods sold exists at all; anything set up before the question existed is
+       a service business, which is what a freelancer almost always is */
+    if(!BIZ_SELLS[b.sells])b.sells="service";
+    if(b.terms===undefined)b.terms="net30";
+    if(b.taxRate===undefined)b.taxRate=0;
+    if(b.invNote===undefined)b.invNote="";
+  });
+  /* ---- invoices and the people they go to ---- */
+  if(!Array.isArray(db.clients)) db.clients=[];
+  db.clients.forEach(c=>{ if(!c.id)c.id=uid(); if(!c.name)c.name="Client";
+    if(c.email===undefined)c.email=""; if(c.phone===undefined)c.phone="";
+    if(c.note===undefined)c.note=""; if(!c.created)c.created=todayISO(); });
+  if(!Array.isArray(db.invoices)) db.invoices=[];
+  db.invoices.forEach(v=>{ if(!v.id)v.id=uid();
+    if(!Array.isArray(v.items))v.items=[];
+    v.items.forEach(it=>{ if(!it.id)it.id=uid(); if(!ITEM_UNITS[it.unit])it.unit="hour";
+      if(it.qty===undefined)it.qty=1; if(it.rate===undefined)it.rate=0;
+      if(it.cost===undefined)it.cost=0; if(it.taxable===undefined)it.taxable=false; });
+    if(!Array.isArray(v.payments))v.payments=[];
+    v.payments.forEach(p=>{ if(!p.id)p.id=uid(); if(!p.date)p.date=todayISO(); });
+    if(!PAY_TERMS[v.terms])v.terms="net30";
+    if(!v.issued)v.issued=todayISO();
+    if(v.discount===undefined)v.discount=0;
+    if(v.taxRate===undefined)v.taxRate=0;
+    if(v.note===undefined)v.note="";
+    /* only draft and void are stored — every other state is worked out from
+       the payments, so a status can never drift from what has been paid */
+    if(v.status!=="draft"&&v.status!=="void")v.status="sent";
+    if(!v.number)v.number=nextInvNumber(v.bizId);
   });
   const T=db.tax=db.tax||{};
   if(T.enabled===undefined)T.enabled=true;
@@ -4447,7 +4480,7 @@ function renderForecast(){
     </div>
     ${chartLine([{name:"Projected cash",color:cssVar("--s1","#059669"),points:f.points,area:true}],
       {labels:f.labels,h:230,ref:goal,refColor:cssVar("--goal","#0ea5a0"),refLabel:`goal ${fmt(goal)}`})}
-    <div class="note" style="margin-top:14px">Over the next ${f.days} days this assumes <b>${fmt(f.payTotal)}</b> of income from your pay schedule${db.settings.taxEnabled?" (after tax)":""}, <b>${fmt(f.bills)}</b>/mo of bills, and <b>${fmt(f.other)}</b>/mo of everything else${f.fromBurn?` — taken from what you actually spend beyond your bills, which is more than your envelopes plan for`:` from your envelopes`}. Change any of those and this updates.${f.fromBurn&&f.burnMonths<2?` <span class="bwarn">Only ${f.burnMonths} month of spending logged, so that figure is thin.</span>`:""}</div>`;
+    <div class="note" style="margin-top:14px">Over the next ${f.days} days this assumes <b>${fmt(f.payTotal)}</b> of income from your pay schedule${db.settings.taxEnabled?" (after tax)":""}${f.owedIn>0.5?` — <b>${fmt(f.owedIn)}</b> of that is invoices already raised and not yet paid`:""}, <b>${fmt(f.bills)}</b>/mo of bills, and <b>${fmt(f.other)}</b>/mo of everything else${f.fromBurn?` — taken from what you actually spend beyond your bills, which is more than your envelopes plan for`:` from your envelopes`}. Change any of those and this updates.${f.fromBurn&&f.burnMonths<2?` <span class="bwarn">Only ${f.burnMonths} month of spending logged, so that figure is thin.</span>`:""}</div>`;
 }
 function renderHistoryList(){
   const el=document.getElementById("hsList"); if(!el)return;
@@ -4715,6 +4748,147 @@ const bizAmt=t=>num(t.amount)*bizShare(t);
 function bizTx(id,year){
   return db.transactions.filter(t=>t.bizId===id&&!isNeutral(t)&&(!year||String(t.date).slice(0,4)===String(year)));
 }
+/* ---------- INVOICES & WHAT YOU ARE OWED ----------
+   The gap between doing the work and being paid for it is where freelance
+   money actually lives. A gig is booked, a deposit lands, the balance comes
+   sixty days after the shoot — and until now none of that existed here: the
+   books only knew what had already hit a bank account.
+
+   An invoice is the record of the promise. Payments against it are the record
+   of the promise being kept, one instalment at a time. */
+const invList = id => (db.invoices || []).filter(v => !id || v.bizId === id);
+const invOf = id => (db.invoices || []).find(v => v.id === id) || null;
+const clientList = id => (db.clients || []).filter(c => !id || c.bizId === id);
+const clientOf = id => (db.clients || []).find(c => c.id === id) || null;
+const clientName = id => { const c = clientOf(id); return c ? c.name : ""; };
+
+/* ---- one invoice ---- */
+/* A line is quantity × rate, except a flat fee, which is just the rate. */
+const lineTotal = it => {
+  const u = ITEM_UNITS[it && it.unit] || ITEM_UNITS.hour;
+  return u.flat ? num(it.rate) : num(it.qty) * num(it.rate);
+};
+/* What the line cost YOU — goods only. Time has no cost of goods. */
+const lineCost = it => {
+  const u = ITEM_UNITS[it && it.unit] || ITEM_UNITS.hour;
+  return u.goods ? num(it.qty) * num(it.cost) : 0;
+};
+/* Sales tax is charged on the taxable lines only, and it is never revenue: it
+   is the state's money passing through your account. Counting it as income is
+   the single most common way a product business overstates a year. */
+function invTotals(v) {
+  const items = Array.isArray(v && v.items) ? v.items : [];
+  const sub = items.reduce((s, it) => s + lineTotal(it), 0);
+  const cogs = items.reduce((s, it) => s + lineCost(it), 0);
+  const disc = Math.min(sub, Math.max(0, num(v && v.discount)));
+  const net = Math.max(0, sub - disc);
+  const taxableBase = items.filter(it => it.taxable).reduce((s, it) => s + lineTotal(it), 0);
+  const taxed = sub > 0 ? Math.max(0, taxableBase - disc * (taxableBase / sub)) : 0;
+  const tax = taxed * (num(v && v.taxRate) / 100);
+  return { sub, disc, net, cogs, tax, total: net + tax, taxableBase: taxed };
+}
+const invPaid = v => (Array.isArray(v && v.payments) ? v.payments : []).reduce((s, p) => s + num(p.amount), 0);
+const invDue = v => Math.max(0, invTotals(v).total - invPaid(v));
+/* the date the money is actually owed by */
+function invDueDate(v) {
+  if (!v) return "";
+  if (v.due) return v.due;
+  const t = PAY_TERMS[v.terms] || PAY_TERMS.net30;
+  const d = dayOf(v.issued || todayISO());
+  d.setDate(d.getDate() + t.days);
+  return isoOf(d);
+}
+const invDaysLate = v => Math.max(0, Math.round(daysBetween(invDueDate(v), todayISO())));
+/* Status is derived, never stored, so it cannot drift from the payments. Only
+   draft and void are choices; the rest is arithmetic. */
+function invStatus(v) {
+  if (!v) return "draft";
+  if (v.status === "draft" || v.status === "void") return v.status;
+  const due = invDue(v);
+  if (due <= 0.005) return "paid";
+  if (invDaysLate(v) > 0) return "overdue";
+  return invPaid(v) > 0.005 ? "part" : "sent";
+}
+const invIsOwed = v => !!(INV_STATUS[invStatus(v)] || {}).owed;
+/* Next number for a business, so two invoices can never share one. */
+function nextInvNumber(bizId) {
+  const nums = invList(bizId).map(v => {
+    const m = String(v.number || "").match(/(\d+)\s*$/);
+    return m ? +m[1] : 0;
+  });
+  const n = (nums.length ? Math.max.apply(null, nums) : 0) + 1;
+  return String(n).padStart(4, "0");
+}
+
+/* ---- what the whole business is owed ---- */
+/* Aging is the question every business asks about its receivables: not "how
+   much", but "how old". Sixty days past due is a different problem from six. */
+const AGING = [[0, 0, "Not due yet"], [1, 30, "1–30 days late"], [31, 60, "31–60"], [61, 1e9, "Over 60"]];
+function receivables(bizId, year) {
+  const y = year ? String(year) : null;
+  const owed = invList(bizId).filter(v => invIsOwed(v) &&
+    (!y || String(invDueDate(v)).slice(0, 4) === y || String(v.issued).slice(0, 4) === y));
+  const buckets = AGING.map(([lo, hi, label]) => ({ lo, hi, label, amount: 0, count: 0 }));
+  let total = 0, late = 0, oldest = 0;
+  owed.forEach(v => {
+    const d = invDue(v), n = invDaysLate(v);
+    total += d;
+    if (n > 0) { late += d; oldest = Math.max(oldest, n); }
+    const b = buckets.find(x => n >= x.lo && n <= x.hi) || buckets[0];
+    b.amount += d; b.count++;
+  });
+  return { total, late, oldest, count: owed.length, buckets, invoices: owed };
+}
+const allReceivable = () => bizList().filter(b => b.active !== false)
+  .reduce((s, b) => s + receivables(b.id).total, 0);
+
+/* ---- what an invoice contributes to the books ----
+   This is where the accounting method finally does something. On cash basis a
+   job is revenue when the money lands, so a $6,000 shoot invoiced in December
+   and paid in January belongs to January. On accrual it is revenue when you
+   invoice, whatever the client does next. The business already carries that
+   choice; now it changes an answer. */
+function invRevenue(bizId, year) {
+  const y = String(year || todayISO().slice(0, 4));
+  const b = bizOf(bizId), accrual = b && b.method === "accrual";
+  let rev = 0, cogs = 0, tax = 0, billed = 0, collected = 0;
+  invList(bizId).forEach(v => {
+    if (v.status === "draft") return;                 // not sent is not income
+    const t = invTotals(v);
+    const paid = invPaid(v);
+    const inYear = String(v.issued).slice(0, 4) === y;
+    if (inYear) billed += t.total;
+    const paidThisYear = (Array.isArray(v.payments) ? v.payments : [])
+      .filter(p => String(p.date).slice(0, 4) === y).reduce((s, p) => s + num(p.amount), 0);
+    collected += paidThisYear;
+    if (v.status === "void") return;                  // written off is never revenue
+    if (accrual) {
+      if (!inYear) return;
+      rev += t.net; cogs += t.cogs; tax += t.tax;
+    } else {
+      if (paidThisYear <= 0) return;
+      /* a partly paid invoice recognises its share of everything, so a deposit
+         brings in its slice of the sale and its slice of the sales tax */
+      const share = t.total > 0 ? paidThisYear / t.total : 0;
+      rev += t.net * share; cogs += t.cogs * share; tax += t.tax * share;
+    }
+  });
+  return { rev, cogs, tax, billed, collected, accrual };
+}
+/* Sales tax collected and not yet handed over. It sits in your account looking
+   exactly like money, which is why it catches people out. */
+const salesTaxHeld = bizId => bizList().filter(b => !bizId || b.id === bizId)
+  .reduce((s, b) => s + invRevenue(b.id, todayISO().slice(0, 4)).tax, 0);
+
+/* A payment can point at the bank transaction it arrived as. When it does, that
+   transaction must not also count as revenue on its own — one deposit, one
+   entry in the books. */
+const invPaidTxIds = () => {
+  const set = new Set();
+  (db.invoices || []).forEach(v => (v.payments || []).forEach(p => { if (p.txId) set.add(p.txId); }));
+  return set;
+};
+
 /* ---------- the deductions that never appear on a card statement ---------- */
 /* Simplified home office: $5 a square foot, 300 sq ft ceiling, so $1,500 is the
    most it can ever be. The actual-cost method wants a share of rent, utilities
@@ -4764,10 +4938,18 @@ function bizPL(id,year){
   const tx=bizTx(id,y);
   let rev=0,exp=0; const byCat={},bySched={};
   const add=(v,cat,sc)=>{ exp+=v; byCat[cat]=(byCat[cat]||0)+v; bySched[sc]=(bySched[sc]||0)+v; };
+  /* An invoice payment that was matched to its bank deposit is already counted
+     as invoice revenue below. Counting the deposit again here would book the
+     same job twice — the one bug that would make every figure downstream wrong. */
+  const viaInvoice=invPaidTxIds();
   tx.forEach(t=>{ const a=bizAmt(t);
-    if(a>0) rev+=a;
+    if(a>0){ if(!viaInvoice.has(t.id)) rev+=a; }
     else { const c=t.category||"Uncategorized";
       add(-a,c,t.sched||CAT_TO_SCHED[c]||"other"); } });
+  /* invoices, recognised on whichever basis this business keeps */
+  const inv=invRevenue(id,y);
+  rev+=inv.rev;
+  if(inv.cogs>0) add(inv.cogs,"Cost of goods sold","cogs");
   const bills=db.recurring.filter(x=>x.bizId===id);
   const months=(y===todayISO().slice(0,4))?(new Date().getMonth()+1):12;
   bills.forEach(x=>{ const v=billMonthly(x)*months*((x.bizPct===undefined?100:num(x.bizPct))/100);
@@ -4779,7 +4961,9 @@ function bizPL(id,year){
   const fee=(b&&b.feeBooked!==false)?stateFeeFor(b):0;
   if(fee>0) add(fee,"State fees","taxeslic");
   return {rev,exp,profit:rev-exp,byCat,bySched,count:tx.length,billCount:bills.length,year:y,
-    office,miles,milesDriven:mileageMiles(b,y),fee};
+    office,miles,milesDriven:mileageMiles(b,y),fee,
+    inv,billed:inv.billed,collected:inv.collected,salesTax:inv.tax,cogs:inv.cogs,
+    owed:receivables(id).total};
 }
 /* Your share of a business. A sole proprietor owns all of it; a partner owns a
    slice, and only that slice is theirs to be taxed on. */
@@ -5502,6 +5686,8 @@ function renderBizIndex(){
   live.forEach(x=>{const pl=bizPL(x.id,y); rev+=pl.rev; exp+=pl.exp; profit+=pl.profit;});
   const margin=rev>0?profit/rev*100:null;
   const draw=allBizDraw(y);
+  const owedAll=live.reduce((s2,x)=>s2+receivables(x.id).total,0);
+  const lateAll=live.reduce((s2,x)=>s2+receivables(x.id).late,0);
   const hero=document.getElementById("bizHero");
   /* the combined hero is not one business's, so it keeps the app's own green
      rather than borrowing whichever colour happened to be first */
@@ -5517,7 +5703,8 @@ function renderBizIndex(){
     <div class="dh-stats">
       <div class="dh-stat"><div class="k">Revenue</div><div class="v">${fmt(rev)}</div></div>
       <div class="dh-stat"><div class="k">Expenses</div><div class="v">${fmt(exp)}</div></div>
-      <div class="dh-stat"><div class="k">Reaches you</div><div class="v">${fmt(draw)}</div></div>
+      ${owedAll>0?`<div class="dh-stat"><div class="k">Owed to you</div><div class="v">${fmt(owedAll)}</div>${lateAll>0?`<div class="dh-sub">${fmt(lateAll)} past due</div>`:""}</div>`
+        :`<div class="dh-stat"><div class="k">Reaches you</div><div class="v">${fmt(draw)}</div></div>`}
     </div></div>`:"";
 
   const list=document.getElementById("bizList");
@@ -5531,7 +5718,8 @@ function renderBizIndex(){
           <div class="bmeta"><span class="tmeta">${esc(k.label)} · ${esc(st?st.name:"—")}${b.linkProfit?"":` · <span class="bwarn">kept separate</span>`}</span></div></div>
         <div style="text-align:right;flex:none">
           <div class="bamt ${pl.profit>=0?"pos":"neg"}">${fmtK(pl.profit)}</div>
-          <div class="bmeta" style="justify-content:flex-end">${fmtK(pl.rev)} in</div></div>
+          <div class="bmeta" style="justify-content:flex-end">${(()=>{const ar=receivables(b.id);
+            return ar.total>0?`<span class="${ar.late>0?"bneg":""}">${fmtK(ar.total)} owed</span>`:`${fmtK(pl.rev)} in`;})()}</div></div>
         <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex:none;opacity:.45"><path d="M9 6l6 6-6 6"/></svg>
       </button></div>`;}).join("")
     :`<div class="empty" style="padding:26px 16px">No businesses yet. Add one and a <b>Business</b> picker appears on every transaction and bill, the books build themselves from what you tag, and the profit lands on your tax estimate.</div>`;
@@ -5615,6 +5803,10 @@ function renderBizOne(b){
     ${chartLine([{name:"Revenue",color:cssVar("--pos","#059669"),points:mo.rev,area:true},
       {name:"Profit",color:b.color,points:mo.profit}],{labels:mo.labels,h:180})}</div>`:"";
 
+  renderBizInvoices(b,y);
+  {const h=document.getElementById("bizInvHint");
+   if(h){const ar=receivables(b.id);
+     h.textContent=ar.total>0?`${fmt(ar.total)} owed to you`:(invList(b.id).length?"all settled":"");}}
   renderBizTax(b,y);
   renderBizDeduct(b,y);
 
@@ -5830,6 +6022,351 @@ function renderBizDeduct(b,y){
     b.mileage.log=b.mileage.log.filter(x=>x.id!==n.dataset.midel); save();}));
 }
 
+/* ---------- INVOICES ON THE BUSINESS SCREEN ---------- */
+let invFilter = "owed";
+function renderBizInvoices(b, y) {
+  const el = document.getElementById("bizInv"); if (!el) return;
+  const ar = receivables(b.id), pl = bizPL(b.id, y), sells = bizSells(b);
+  const all = invList(b.id).slice().sort((a, c) => String(c.issued).localeCompare(String(a.issued)));
+  const shown = invFilter === "all" ? all
+    : invFilter === "owed" ? all.filter(invIsOwed)
+      : all.filter(v => invStatus(v) === invFilter);
+  const paidYear = all.filter(v => invStatus(v) === "paid" && String(v.issued).slice(0, 4) === String(y));
+
+  const chip = (k, label, n) => `<button class="tchip${invFilter === k ? " on" : ""}" data-invfilt="${k}">${label}${n ? ` <span class="tchipn">${n}</span>` : ""}</button>`;
+  el.innerHTML = `
+    <div class="pad" style="padding-bottom:2px">
+      <div class="deflist tight">
+        <div class="defrow"><span class="k">Owed to you right now</span>
+          <span class="v ${ar.total > 0 ? "" : "muted"}">${fmt(ar.total)}</span></div>
+        ${ar.late > 0 ? `<div class="defrow"><span class="k">Of that, past due<br><span style="font-size:12px;opacity:.7">oldest is ${esc(plural(ar.oldest, "day"))} late</span></span>
+          <span class="v neg">${fmt(ar.late)}</span></div>` : ""}
+        <div class="defrow"><span class="k">Invoiced in ${esc(y)}</span><span class="v">${fmt(pl.billed)}</span></div>
+        <div class="defrow"><span class="k">Collected in ${esc(y)}</span><span class="v pos">${fmt(pl.collected)}</span></div>
+        ${pl.salesTax > 0 ? `<div class="defrow"><span class="k">Sales tax you are holding<br><span style="font-size:12px;opacity:.7">the state's money, not yours — keep it aside</span></span>
+          <span class="v" style="color:var(--debt)">${fmt(pl.salesTax)}</span></div>` : ""}
+      </div>
+      ${ar.total > 0 ? `<div class="agerow">${ar.buckets.filter(x => x.amount > 0.005).map(x => `
+        <div class="agecell${x.lo > 60 ? " bad" : x.lo > 0 ? " warn" : ""}">
+          <div class="agek">${esc(x.label)}</div><div class="agev">${fmt(x.amount)}</div></div>`).join("")}</div>` : ""}
+      <div class="toolbar" style="margin-top:14px">
+        <button class="btn sm primary" id="invNew">+ Invoice</button>
+        <button class="btn sm" id="invClients">Clients${clientList(b.id).length ? ` · ${clientList(b.id).length}` : ""}</button>
+        <div class="spacer"></div>
+      </div>
+      ${all.length ? `<div class="tabrow wrap" style="margin-top:12px">
+        ${chip("owed", "Owed", ar.count)}${chip("overdue", "Overdue", all.filter(v => invStatus(v) === "overdue").length)}
+        ${chip("paid", "Paid", paidYear.length)}${chip("draft", "Drafts", all.filter(v => invStatus(v) === "draft").length)}
+        ${chip("all", "All", all.length)}</div>` : ""}
+    </div>
+    ${shown.length ? `<div class="${shown.length > 6 ? "scrollrows bills" : ""}">${shown.map(v => {
+      const st = invStatus(v), o = INV_STATUS[st], t = invTotals(v), due = invDue(v), paid = invPaid(v);
+      const late = invDaysLate(v);
+      const pct = t.total > 0 ? Math.min(100, paid / t.total * 100) : 0;
+      /* Name, amount and a status chip is three columns in 402px, and the name
+         — the thing you are looking for — got about a hundred of them and
+         wrapped. The bills list settled this long ago: status is a coloured
+         word on the meta line. A chip survives only for the two states the
+         numbers cannot show on their own, a draft and a write-off. */
+      const state = st === "overdue" ? `<span class="bneg">${esc(plural(late, "day"))} late</span>`
+        : st === "paid" ? `<span class="bpos">paid in full</span>`
+          : (st === "part" || st === "sent") ? `due ${esc(txDate(invDueDate(v)))}` : "";
+      return `<div class="brow">
+        <button class="bmain" data-invopen="${v.id}" style="width:100%;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer">
+          <div class="binfo">
+            <div class="bname">${esc(clientName(v.clientId) || v.title || "Untitled")}
+              <span class="invno">#${esc(v.number)}</span></div>
+            <div class="bmeta"><span class="tmeta">${esc(txDate(v.issued))}${state ? ` · ${state}` : ""}${v.title && clientName(v.clientId) ? ` · ${esc(v.title)}` : ""}</span></div>
+          </div>
+          ${st === "draft" || st === "void" ? `<span class="tag ${o.tag}" style="flex:none">${esc(o.label)}</span>` : ""}
+          <div style="text-align:right;flex:none">
+            <div class="bamt">${fmt(st === "paid" ? t.total : due)}</div>
+            <div class="bmeta" style="justify-content:flex-end">${st === "paid" ? "received" : paid > 0.005 ? `${fmt(paid)} of ${fmt(t.total)}` : `of ${fmt(t.total)}`}</div>
+          </div>
+        </button>
+        ${paid > 0.005 && st !== "paid" ? `<div class="dbarrow" style="padding-bottom:10px">
+          <div class="bar"><span style="width:${pct.toFixed(1)}%;background:var(--pos)"></span></div></div>` : ""}
+      </div>`; }).join("")}</div>`
+      : `<div class="empty" style="padding:22px 16px">${all.length
+        ? `Nothing in this view.`
+        : `No invoices yet. ${sells.cogs ? "Bill a client for goods or work" : "Book a job, take a deposit"} and the balance shows up here until it lands.`}</div>`}`;
+
+  el.querySelectorAll("[data-invfilt]").forEach(n => n.onclick = () => { invFilter = n.dataset.invfilt; renderBizInvoices(b, y); });
+  el.querySelectorAll("[data-invopen]").forEach(n => n.onclick = () => openInvoice(n.dataset.invopen));
+  const nb = el.querySelector("#invNew"); if (nb) nb.onclick = () => newInvoice(b.id);
+  const cb = el.querySelector("#invClients"); if (cb) cb.onclick = () => openClients(b.id);
+}
+
+/* ---------- one invoice, in the sheet ---------- */
+let _inv = null;
+function newInvoice(bizId) {
+  const b = bizOf(bizId); if (!b) return;
+  const u = bizSells(b).units[0];
+  const v = {
+    id: uid(), bizId, number: nextInvNumber(bizId), clientId: "", title: "",
+    issued: todayISO(), terms: b.terms || "net30", due: "",
+    items: [{ id: uid(), desc: "", unit: u, qty: 1, rate: 0, cost: 0, taxable: !!bizSells(b).tax }],
+    payments: [], discount: 0, taxRate: num(b.taxRate), note: b.invNote || "", status: "draft"
+  };
+  db.invoices.push(v);
+  openInvoice(v.id, true);
+  saveAll();
+}
+function openInvoice(id, isNew) {
+  _inv = id; const v = invOf(id); if (!v) return;
+  openEditor({
+    kicker: "Invoice #" + v.number, title: clientName(v.clientId) || v.title || "New invoice",
+    closeLabel: isNew ? "Save" : "Done", html: invoiceHTML, wire: wireInvoice,
+    onClose: () => { _inv = null; renderBusiness(); }
+  });
+}
+function invoiceHTML() {
+  const v = invOf(_inv); if (!v) return "";
+  const b = bizOf(v.bizId), sells = bizSells(b), t = invTotals(v);
+  const st = invStatus(v), o = INV_STATUS[st], due = invDue(v), paid = invPaid(v);
+  const clients = clientList(v.bizId);
+  const units = sells.units;
+  const money = n => fmt2(n);
+
+  const item = (it, i) => {
+    const u = ITEM_UNITS[it.unit] || ITEM_UNITS.hour;
+    return `<div class="invitem">
+      <div class="invitop">
+        <input class="invdesc" data-idesc="${it.id}" value="${esc(it.desc || "")}" placeholder="${u.goods ? "What you sold" : "What you did"}">
+        <button class="btn ghost sm danger" data-idel="${it.id}" aria-label="Remove line">✕</button>
+      </div>
+      <div class="invigrid">
+        <div class="field"><label>Kind</label><select data-iunit="${it.id}">${units
+        .map(k => `<option value="${k}" ${it.unit === k ? "selected" : ""}>${esc(ITEM_UNITS[k].label)}</option>`).join("")}</select></div>
+        ${u.flat ? "" : `<div class="field"><label>${u.goods ? "Quantity" : ITEM_UNITS[it.unit].label}</label>
+          <input type="number" step="0.01" data-iqty="${it.id}" value="${esc(it.qty)}"></div>`}
+        <div class="field"><label>${u.flat ? "Fee" : "Rate " + u.rate}</label>
+          <input type="number" step="0.01" data-irate="${it.id}" value="${esc(it.rate)}"></div>
+        ${u.goods && sells.cogs ? `<div class="field"><label>What it cost you <span class="muted" style="font-weight:400">each</span></label>
+          <input type="number" step="0.01" data-icost="${it.id}" value="${esc(it.cost)}"></div>` : ""}
+      </div>
+      <div class="invifoot">
+        ${sells.tax && num(v.taxRate) > 0 ? `<label class="flex" style="gap:6px;font-size:13px"><input type="checkbox" data-itax="${it.id}" ${it.taxable ? "checked" : ""}><span class="muted">sales tax</span></label>` : "<span></span>"}
+        <b>${money(lineTotal(it))}</b>
+      </div>
+    </div>`;
+  };
+
+  return `<div class="formgrid">
+      <div class="field"><label>Client</label><select id="iv-client">
+        <option value="">— pick a client —</option>
+        ${clients.map(c => `<option value="${c.id}" ${v.clientId === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
+        <option value="__new">+ New client…</option></select></div>
+      <div class="field"><label>What it's for <span class="muted" style="font-weight:400">optional</span></label>
+        <input id="iv-title" value="${esc(v.title || "")}" placeholder="${sells.cogs ? "Spring order" : "Cordell wedding"}"></div>
+      <div class="field"><label>Invoiced on</label><input id="iv-issued" type="date" value="${esc(v.issued)}"></div>
+      <div class="field"><label>Payment terms</label><select id="iv-terms">${Object.entries(PAY_TERMS)
+      .map(([k, x]) => `<option value="${k}" ${v.terms === k ? "selected" : ""}>${esc(x.label)}</option>`).join("")}</select></div>
+    </div>
+    <div class="note" style="margin-top:12px;font-size:13px">Due <b>${esc(txDate(invDueDate(v)))}</b>${st === "overdue" ? ` — <span class="bneg">${esc(plural(invDaysLate(v), "day"))} late</span>` : ""}.</div>
+
+    <div class="sectiontitle" style="margin:20px 0 8px"><h2 style="font-size:15px">Lines</h2><span class="spacer"></span>
+      <button class="btn sm" id="iv-additem">+ Line</button></div>
+    ${v.items.length ? v.items.map(item).join("") : `<div class="empty" style="padding:16px 0">Nothing on it yet.</div>`}
+
+    <div class="deflist tight" style="margin-top:14px">
+      <div class="defrow"><span class="k">Subtotal</span><span class="v">${money(t.sub)}</span></div>
+      ${t.disc > 0 ? `<div class="defrow"><span class="k">Discount</span><span class="v pos">−${money(t.disc)}</span></div>` : ""}
+      ${sells.cogs && t.cogs > 0 ? `<div class="defrow"><span class="k">What the goods cost you</span><span class="v muted">${money(t.cogs)}</span></div>` : ""}
+      ${num(v.taxRate) > 0 ? `<div class="defrow"><span class="k">Sales tax at ${num(v.taxRate)}%</span><span class="v">${money(t.tax)}</span></div>` : ""}
+      <div class="defrow"><span class="k"><b>Total</b></span><span class="v"><b>${money(t.total)}</b></span></div>
+      ${paid > 0.005 ? `<div class="defrow"><span class="k">Paid</span><span class="v pos">−${money(paid)}</span></div>
+      <div class="defrow"><span class="k"><b>${due > 0.005 ? "Still owed" : "Settled"}</b></span><span class="v ${due > 0.005 ? "neg" : "pos"}"><b>${money(due)}</b></span></div>` : ""}
+    </div>
+    <div class="formgrid" style="margin-top:12px">
+      <div class="field"><label>Discount <span class="muted" style="font-weight:400">optional</span></label>
+        <input id="iv-disc" type="number" step="0.01" value="${v.discount ? esc(v.discount) : ""}" placeholder="0"></div>
+      ${sells.tax ? `<div class="field"><label>Sales tax rate (%)</label>
+        <input id="iv-taxrate" type="number" step="0.001" value="${v.taxRate ? esc(v.taxRate) : ""}" placeholder="0"></div>` : ""}
+    </div>
+    ${sells.tax && num(v.taxRate) > 0 ? `<div class="note" style="margin-top:10px;font-size:13px">Sales tax is never your income — it passes through you to the state. It is kept out of revenue and shown separately on the business screen so you don't spend it.</div>` : ""}
+
+    <div class="sectiontitle" style="margin:20px 0 8px"><h2 style="font-size:15px">Payments</h2>
+      <span class="hint">${due > 0.005 ? fmt(due) + " outstanding" : "settled"}</span></div>
+    ${v.payments.length ? `<div class="deflist tight">${v.payments.slice().sort((a, c) => a.date.localeCompare(c.date)).map(p => `
+      <div class="defrow"><span class="k">${esc(txDate(p.date))}${p.note ? ` · ${esc(p.note)}` : ""}${p.txId ? ` · <span class="muted" style="font-weight:500">matched to your bank</span>` : ""}</span>
+        <span class="v pos">${money(p.amount)} <button class="btn ghost sm danger" data-pdel="${p.id}" style="margin-left:8px">✕</button></span></div>`).join("")}</div>`
+      : `<div class="empty" style="padding:12px 0">Nothing paid yet.</div>`}
+    ${due > 0.005 ? `<div class="formgrid" style="margin-top:12px">
+      <div class="field"><label>Amount</label><input id="iv-pamt" type="number" step="0.01" placeholder="${due.toFixed(2)}"></div>
+      <div class="field"><label>Received on</label><input id="iv-pdate" type="date" value="${todayISO()}"></div>
+      <div class="field"><label>Note <span class="muted" style="font-weight:400">optional</span></label><input id="iv-pnote" placeholder="deposit"></div>
+    </div>
+    <div class="toolbar" style="margin-top:10px">
+      <button class="btn sm primary" id="iv-paysome">Log a payment</button>
+      ${paid <= 0.005 ? `<button class="btn sm" id="iv-depo">Deposit — half</button>` : ""}
+      <button class="btn sm" id="iv-payall">Paid in full</button>
+    </div>
+    <div class="muted" style="font-size:12px;margin-top:8px">Logging a payment also records the money coming in, so it lands in your books and your tax estimate without typing it twice.</div>` : ""}
+
+    <div class="field" style="margin-top:16px"><label>Note on the invoice <span class="muted" style="font-weight:400">optional</span></label>
+      <input id="iv-note" value="${esc(v.note || "")}" placeholder="Balance due on delivery of the final cut"></div>
+
+    <div class="toolbar" style="margin-top:20px">
+      <button class="btn ghost sm danger" id="iv-del">Delete</button>
+      <div class="spacer"></div>
+      ${st === "draft" ? `<button class="btn sm primary" id="iv-send">Mark as sent</button>`
+      : st === "void" ? `<button class="btn sm" id="iv-unvoid">Reopen</button>`
+        : `<button class="btn ghost sm" id="iv-void">Write off</button>`}
+    </div>
+    ${st === "draft" ? `<div class="note" style="margin-top:12px;font-size:13px">A draft counts for nothing — not revenue, not money owed. Mark it sent when it goes out and it starts showing up as owed.</div>` : ""}
+    ${st === "void" ? `<div class="note warn" style="margin-top:12px;font-size:13px">Written off: work you have decided you will not be paid for. It stays on the record but earns nothing.</div>` : ""}`;
+}
+function wireInvoice(body) {
+  const v = invOf(_inv); if (!v) return;
+  const g = id => body.querySelector("#" + id);
+  const save = () => { saveAll(); renderEditor(); };
+  const quiet = () => { saveAll(); };
+
+  const cl = g("iv-client");
+  if (cl) cl.onchange = () => {
+    if (cl.value === "__new") { openNewClient(v.bizId, id => { v.clientId = id; saveAll(); openInvoice(v.id); }); return; }
+    v.clientId = cl.value; save();
+  };
+  const set = (id, fn, redraw) => { const n = g(id); if (n) n.onchange = () => { fn(n); redraw ? save() : quiet(); }; };
+  set("iv-title", n => v.title = n.value.trim());
+  set("iv-issued", n => v.issued = normalizeDate(n.value || todayISO()), true);
+  set("iv-terms", n => { v.terms = n.value; v.due = ""; }, true);
+  set("iv-disc", n => v.discount = num(n.value), true);
+  set("iv-taxrate", n => v.taxRate = num(n.value), true);
+  set("iv-note", n => v.note = n.value);
+
+  /* line items — typing updates the running total without tearing out the
+     field being typed in, so only the structural changes redraw */
+  const line = id => v.items.find(x => x.id === id);
+  const foot = () => { const n = body.querySelector(".invitotal"); if (n) n.textContent = fmt2(invTotals(v).total); };
+  body.querySelectorAll("[data-idesc]").forEach(n => n.oninput = () => { line(n.dataset.idesc).desc = n.value; quiet(); });
+  ["iqty", "irate", "icost"].forEach(k => body.querySelectorAll(`[data-${k}]`).forEach(n => {
+    n.onchange = () => { const it = line(n.dataset[k]); it[k.slice(1)] = num(n.value); save(); };
+  }));
+  body.querySelectorAll("[data-iunit]").forEach(n => n.onchange = () => { line(n.dataset.iunit).unit = n.value; save(); });
+  body.querySelectorAll("[data-itax]").forEach(n => n.onchange = () => { line(n.dataset.itax).taxable = n.checked; save(); });
+  body.querySelectorAll("[data-idel]").forEach(n => n.onclick = () => { v.items = v.items.filter(x => x.id !== n.dataset.idel); save(); });
+  const ai = g("iv-additem"); if (ai) ai.onclick = () => {
+    const sells = bizSells(bizOf(v.bizId));
+    const last = v.items[v.items.length - 1];
+    v.items.push({ id: uid(), desc: "", unit: last ? last.unit : sells.units[0], qty: 1, rate: 0, cost: 0, taxable: !!sells.tax });
+    save();
+  };
+
+  /* payments */
+  const pay = (amt, note) => {
+    const a = Math.min(num(amt), invDue(v) + 0.005);
+    if (a <= 0) return;
+    const date = normalizeDate((g("iv-pdate") || {}).value || todayISO());
+    /* the money is real, so it goes in the books as well — one action, both
+       records, and the transaction is tagged so it is never counted twice */
+    const t = {
+      id: uid(), date, desc: (clientName(v.clientId) || v.title || "Invoice") + " #" + v.number,
+      category: "Income", amount: +a.toFixed(2), bizId: v.bizId
+    };
+    db.transactions.push(t);
+    db.transactions.sort((x, z) => z.date.localeCompare(x.date));
+    v.payments.push({ id: uid(), date, amount: +a.toFixed(2), note: note || (g("iv-pnote") || {}).value || "", txId: t.id });
+    if (v.status === "draft") v.status = "sent";
+    save();
+  };
+  const ps = g("iv-paysome"); if (ps) ps.onclick = () => {
+    const n = g("iv-pamt"); const a = num(n.value);
+    if (!a) { n.focus(); return; }
+    pay(a);
+  };
+  const dep = g("iv-depo"); if (dep) dep.onclick = () => pay(invTotals(v).total / 2, "deposit");
+  const pa = g("iv-payall"); if (pa) pa.onclick = () => pay(invDue(v), "");
+  body.querySelectorAll("[data-pdel]").forEach(n => n.onclick = () => {
+    const p = v.payments.find(x => x.id === n.dataset.pdel);
+    if (p && p.txId) db.transactions = db.transactions.filter(t => t.id !== p.txId);
+    v.payments = v.payments.filter(x => x.id !== n.dataset.pdel); save();
+  });
+
+  const sd = g("iv-send"); if (sd) sd.onclick = () => { v.status = "sent"; save(); };
+  const vd = g("iv-void"); if (vd) vd.onclick = () => armConfirm(vd, () => { v.status = "void"; save(); });
+  const uv = g("iv-unvoid"); if (uv) uv.onclick = () => { v.status = "sent"; save(); };
+  const dl = g("iv-del"); if (dl) dl.onclick = () => armConfirm(dl, () => {
+    (v.payments || []).forEach(p => { if (p.txId) db.transactions = db.transactions.filter(t => t.id !== p.txId); });
+    db.invoices = db.invoices.filter(x => x.id !== v.id);
+    closeEditor(); saveAll();
+  });
+}
+
+/* ---------- clients ---------- */
+let _clientBiz = null;
+function openClients(bizId) {
+  _clientBiz = bizId;
+  openEditor({
+    kicker: "Clients", title: bizName(bizId), closeLabel: "Done",
+    html: clientsHTML, wire: wireClients, onClose: () => { _clientBiz = null; renderBusiness(); }
+  });
+}
+function clientsHTML() {
+  const list = clientList(_clientBiz);
+  const y = todayISO().slice(0, 4);
+  const rows = list.map(c => {
+    const inv = invList(_clientBiz).filter(v => v.clientId === c.id && v.status !== "draft");
+    const owed = inv.filter(invIsOwed).reduce((s, v) => s + invDue(v), 0);
+    const billed = inv.filter(v => String(v.issued).slice(0, 4) === y).reduce((s, v) => s + invTotals(v).total, 0);
+    return { c, owed, billed, n: inv.length };
+  }).sort((a, b) => b.owed - a.owed || b.billed - a.billed);
+  return `${rows.length ? `<div class="deflist tight">${rows.map(r => `
+      <div class="defrow"><span class="k">${esc(r.c.name)}
+        <br><span style="font-size:12px;opacity:.7">${esc(plural(r.n, "invoice"))}${r.billed > 0 ? ` · ${fmt(r.billed)} in ${esc(y)}` : ""}${r.c.email ? ` · ${esc(r.c.email)}` : ""}</span></span>
+        <span class="v ${r.owed > 0 ? "neg" : "muted"}">${r.owed > 0 ? fmt(r.owed) + " owed" : "settled"}
+          <button class="btn ghost sm danger" data-cdel="${r.c.id}" style="margin-left:8px">✕</button></span></div>`).join("")}</div>`
+      : `<div class="empty" style="padding:18px 0">No clients yet. Add one and it becomes pickable on every invoice.</div>`}
+    <div class="sectiontitle" style="margin:20px 0 8px"><h2 style="font-size:15px">Add a client</h2></div>
+    <div class="formgrid">
+      <div class="field"><label>Name</label><input id="cl-name" placeholder="Terminus Studios"></div>
+      <div class="field"><label>Email <span class="muted" style="font-weight:400">optional</span></label><input id="cl-email" type="email" placeholder="pay@terminus.co"></div>
+      <div class="field"><label>Note <span class="muted" style="font-weight:400">optional</span></label><input id="cl-note" placeholder="always pays late, chase at 30 days"></div>
+    </div>
+    <button class="btn primary" id="cl-add" style="width:100%;margin-top:14px">Add client</button>`;
+}
+function wireClients(body) {
+  const g = id => body.querySelector("#" + id);
+  const add = g("cl-add"); if (add) add.onclick = () => {
+    const n = g("cl-name"), name = n.value.trim();
+    if (!name) { n.focus(); return; }
+    db.clients.push({
+      id: uid(), bizId: _clientBiz, name, email: g("cl-email").value.trim(),
+      phone: "", note: g("cl-note").value.trim(), created: todayISO()
+    });
+    saveAll(); renderEditor();
+  };
+  body.querySelectorAll("[data-cdel]").forEach(n => n.onclick = () => armConfirm(n, () => {
+    const id = n.dataset.cdel;
+    /* untag rather than orphan — the invoices themselves stay */
+    (db.invoices || []).forEach(v => { if (v.clientId === id) v.clientId = ""; });
+    db.clients = db.clients.filter(c => c.id !== id);
+    saveAll(); renderEditor();
+  }));
+}
+/* adding a client from inside an invoice, then coming straight back to it */
+function openNewClient(bizId, then) {
+  const name = "";
+  openEditor({
+    kicker: "New client", title: "Add a client", closeLabel: "Cancel",
+    html: () => `<div class="formgrid">
+        <div class="field"><label>Name</label><input id="nc-name" placeholder="Terminus Studios"></div>
+        <div class="field"><label>Email <span class="muted" style="font-weight:400">optional</span></label><input id="nc-email" type="email"></div>
+      </div>
+      <button class="btn primary" id="nc-add" style="width:100%;margin-top:16px">Add and use</button>`,
+    wire: b2 => {
+      const a = b2.querySelector("#nc-add");
+      a.onclick = () => {
+        const n = b2.querySelector("#nc-name"), nm = n.value.trim();
+        if (!nm) { n.focus(); return; }
+        const c = { id: uid(), bizId, name: nm, email: b2.querySelector("#nc-email").value.trim(), phone: "", note: "", created: todayISO() };
+        db.clients.push(c); saveAll(); then(c.id);
+      };
+    }
+  });
+}
+
 /* ---------- editing a business ---------- */
 /* Behind the Edit button, in the sheet, like every other editor in the app. */
 let _bizEdit=null;
@@ -5852,10 +6389,23 @@ function bizEditorHTML(){
       <div class="field"><label>Started</label><input id="be-started" type="date" value="${esc(String(b.started||b.created||"").slice(0,10))}"></div>
       <div class="field"><label>EIN <span class="muted" style="font-weight:400">optional</span></label><input id="be-ein" value="${esc(b.ein||"")}" placeholder="12-3456789"></div>
       <div class="field"><label>What it does</label><input id="be-industry" value="${esc(b.industry||"")}" placeholder="Photography &amp; video production"></div>
+      <div class="field"><label>What it sells</label><select id="be-sells">${Object.entries(BIZ_SELLS)
+        .map(([v,o])=>`<option value="${v}" ${(b.sells||"service")===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
       <div class="field"><label>Accounting method</label><select id="be-method">${Object.entries(ACCT_METHODS)
         .map(([v,o])=>`<option value="${v}" ${b.method===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
     </div>
     <div class="note" style="margin-top:14px;font-size:13px">${k.note}</div>
+    <div class="note" style="margin-top:10px;font-size:13px">${bizSells(b).note}</div>
+    <div class="sectiontitle" style="margin:20px 0 8px"><h2 style="font-size:15px">Invoice defaults</h2>
+      <span class="hint">what a new one starts with</span></div>
+    <div class="formgrid">
+      <div class="field"><label>Payment terms</label><select id="be-terms">${Object.entries(PAY_TERMS)
+        .map(([v2,o])=>`<option value="${v2}" ${(b.terms||"net30")===v2?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
+      ${bizSells(b).tax?`<div class="field"><label>Sales tax rate (%)</label>
+        <input id="be-taxrate" type="number" step="0.001" value="${b.taxRate?esc(b.taxRate):""}" placeholder="0"></div>`:""}
+    </div>
+    <div class="field" style="margin-top:10px"><label>Standing note on invoices <span class="muted" style="font-weight:400">optional</span></label>
+      <input id="be-invnote" value="${esc(b.invNote||"")}" placeholder="Balance due within 30 days of delivery"></div>
     ${stateNoteHTML(st,k,10)}
 
     ${k.k1?`<div class="field" style="margin-top:16px"><label>Your ownership share</label>
@@ -5908,6 +6458,10 @@ function wireBizEditor(body){
   set("be-ein",n=>b.ein=n.value.trim());
   set("be-industry",n=>b.industry=n.value.trim());
   set("be-method",n=>b.method=n.value);
+  set("be-terms",n=>b.terms=n.value);
+  set("be-taxrate",n=>b.taxRate=num(n.value));
+  set("be-invnote",n=>b.invNote=n.value);
+  const sl=g("be-sells"); if(sl)sl.onchange=redraw(()=>b.sells=sl.value);
   set("be-salary",n=>b.salary=num(n.value));
   set("be-salbooked",n=>b.salaryBooked=n.checked);
   set("be-fee",n=>b.stateFee=n.value===""?undefined:num(n.value));
@@ -5927,6 +6481,9 @@ function wireBizEditor(body){
     /* untag rather than orphan — the transactions themselves stay */
     db.transactions.forEach(t=>{ if(t.bizId===id){delete t.bizId;delete t.bizPct;} });
     db.recurring.forEach(x=>{ if(x.bizId===id){delete x.bizId;x.biz=false;} });
+    /* its invoices and clients go with it — they mean nothing without it */
+    db.invoices=(db.invoices||[]).filter(v=>v.bizId!==id);
+    db.clients=(db.clients||[]).filter(c=>c.bizId!==id);
     db.businesses=db.businesses.filter(x=>x.id!==id);
     bizOpen=null; closeEditor(); saveAll();});
 }
@@ -5941,7 +6498,7 @@ let _newBiz=null;
 const BIZ_STEPS=["What it is","How it's taxed","How it pays you","Deductions"];
 function openAddBiz(){
   _newBiz={step:0,name:"",legalName:"",kind:"sole",state:homeState(),started:todayISO(),
-    ein:"",industry:"",method:"cash",ownerPct:100,salary:"",linkProfit:true,drawPct:100,
+    ein:"",industry:"",sells:"service",method:"cash",ownerPct:100,salary:"",linkProfit:true,drawPct:100,
     office:false,officeSqft:"",mileage:false};
   openEditor({kicker:"New business",title:"Set one up",closeLabel:"Cancel",
     html:addBizHTML, wire:wireAddBiz, onClose:()=>{_newBiz=null;}});
@@ -5956,9 +6513,12 @@ function addBizHTML(){
       <div class="field"><label>Legal name <span class="muted" style="font-weight:400">if it differs</span></label>
         <input id="nb-legal" value="${esc(d.legalName)}" placeholder="leave blank if it's the same"></div>
       <div class="field"><label>What does it do?</label><input id="nb-industry" value="${esc(d.industry)}" placeholder="Photography &amp; video production"></div>
+      <div class="field"><label>What does it sell?</label><select id="nb-sells">${Object.entries(BIZ_SELLS)
+        .map(([v,o])=>`<option value="${v}" ${d.sells===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
       <div class="field"><label>When did it start?</label><input id="nb-started" type="date" value="${esc(d.started)}"></div>
     </div>
-    <div class="note" style="margin-top:14px;font-size:13px">You don't need a separate bank account or an LLC to start. Tag transactions to it and the books build themselves.</div>`;
+    <div class="note" style="margin-top:12px;font-size:13px">${esc(BIZ_SELLS[d.sells]?BIZ_SELLS[d.sells].note:"")}</div>
+    <div class="note" style="margin-top:10px;font-size:13px">You don't need a separate bank account or an LLC to start. Tag transactions to it, invoice from it, and the books build themselves.</div>`;
   else if(d.step===1) body=`<div class="formgrid">
       <div class="field"><label>How is it set up?</label><select id="nb-kind">${Object.entries(BIZ_KINDS)
         .map(([v,o])=>`<option value="${v}" ${d.kind===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
@@ -6011,6 +6571,7 @@ function wireAddBiz(body){
   ["nb-name","nb-legal","nb-industry","nb-started","nb-ein","nb-owner","nb-salary"].forEach(id=>{
     const n=g(id); if(n)n.oninput=keep;});
   const m=g("nb-method"); if(m)m.onchange=()=>{keep();renderEditor();};
+  const sl=g("nb-sells"); if(sl)sl.onchange=()=>{keep();d.sells=sl.value;renderEditor();};
   const kk=g("nb-kind"); if(kk)kk.onchange=()=>{keep();d.kind=kk.value;renderEditor();};
   const ss=g("nb-state"); if(ss)ss.onchange=()=>{keep();d.state=ss.value;renderEditor();};
   const ln=g("nb-link"); if(ln)ln.onchange=()=>{keep();renderEditor();};
@@ -6029,6 +6590,7 @@ function wireAddBiz(body){
     const b={id:uid(),name,legalName:String(d.legalName||"").trim(),kind:d.kind,state:d.state,
       started:normalizeDate(d.started||todayISO()),created:todayISO(),
       ein:String(d.ein||"").trim(),industry:String(d.industry||"").trim(),method:d.method||"cash",
+      sells:d.sells||"service",terms:"net30",taxRate:0,invNote:"",
       ownerPct:Math.max(1,Math.min(100,num(d.ownerPct)||100)),
       salary:num(d.salary),salaryBooked:false,feeBooked:true,
       linkProfit:d.linkProfit!==false,drawPct:num(d.drawPct),active:true,note:"",
@@ -7838,6 +8400,24 @@ function forecastTo(toISO){
   db.income.forEach(s=>{ const ds=payDates(s,start,toISO); if(ds)ds.forEach(d=>{pay[d]=(pay[d]||0)+netOf(s,perPaycheck(s));});
     else { const amt=scheduledPay(s,start,toISO); if(amt>0){ const days=Math.max(1,Math.round(daysBetween(start,toISO)));
       for(let k=1;k<=days;k++){ const d=new Date(start+"T12:00:00"); d.setDate(d.getDate()+k); pay[isoOf(d)]=(pay[isoOf(d)]||0)+netOf(s,amt)/days; } } } });
+  /* An unpaid invoice with a due date is money with a date on it — the whole
+     point of tracking it. It lands on its due date, or today if it is already
+     late, because a forecast that keeps promising last month is no use. Only
+     what a business actually passes to you, and only if it passes anything. */
+  let owedIn=0;
+  bizList().forEach(x=>{
+    if(x.active===false||x.linkProfit===false)return;
+    const share=ownerShare(x)*(num(x.drawPct)/100);
+    if(share<=0)return;
+    receivables(x.id).invoices.forEach(v=>{
+      const d=invDueDate(v);
+      const when=d<start?start:d;
+      if(when>toISO)return;
+      const amt=invDue(v)*share;
+      if(amt<=0)return;
+      pay[when]=(pay[when]||0)+amt; owedIn+=amt;
+    });
+  });
   let bal=spendableCash(); const pts=[],labels=[],events=[];
   const cur=new Date(start+"T12:00:00"), end=new Date(toISO+"T12:00:00");
   let guard=0,lowest={v:bal,d:start};
@@ -7854,7 +8434,7 @@ function forecastTo(toISO){
     if(bal<lowest.v)lowest={v:bal,d:iso};
     if(guard%every===0||iso===toISO){ pts.push(bal); labels.push(shortMonth(monthKey(iso))+" "+cur.getDate()); }
   }
-  return {end:bal,points:pts,labels,events,bills,flex,lowest,other,fromBurn,
+  return {end:bal,points:pts,labels,events,bills,flex,lowest,other,fromBurn,owedIn,
     burnMonths:burnMonths(),
     payTotal:Object.keys(pay).reduce((s,k)=>s+pay[k],0),days:total};
 }

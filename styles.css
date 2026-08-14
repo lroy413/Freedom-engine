@@ -946,6 +946,32 @@
   .frtier.cleared .frpct{color:var(--pos)}
   /* four dots and a name: enough to say how far in you are without a wizard's
      worth of chrome above a form that is four fields long */
+  /* ---------- invoices ---------- */
+  /* The invoice number rides beside the client's name, quiet enough that the
+     name still reads first — you look for who owes you, not for #0007. */
+  .invno{font-size:12px;font-weight:600;color:var(--muted);margin-left:6px;font-variant-numeric:tabular-nums}
+  /* Aging: how old the money is, not just how much. Reading left to right is
+     reading from "fine" to "chase this today". */
+  .agerow{display:flex;gap:8px;margin-top:14px;overflow-x:auto;padding-bottom:2px}
+  .agecell{flex:1 1 0;min-width:96px;padding:10px 12px;border-radius:11px;
+    background:var(--raise);border:1px solid var(--line)}
+  .agecell.warn{background:color-mix(in srgb,var(--warn) 10%,var(--raise));
+    border-color:color-mix(in srgb,var(--warn) 32%,var(--line))}
+  .agecell.bad{background:color-mix(in srgb,var(--neg) 10%,var(--raise));
+    border-color:color-mix(in srgb,var(--neg) 34%,var(--line))}
+  .agek{font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:660;color:var(--muted);white-space:nowrap}
+  .agev{font-size:17px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .agecell.bad .agev{color:var(--neg-ink)}
+  /* A line item is a small form, so it gets a card of its own rather than
+     dissolving into the one below it. */
+  .invitem{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;background:var(--raise)}
+  .invitop{display:flex;gap:8px;align-items:center}
+  .invdesc{flex:1;min-width:0}
+  .invigrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin-top:10px}
+  .invifoot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;
+    padding-top:9px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+  .tchipn{font-size:11px;font-weight:700;opacity:.65;margin-left:3px;font-variant-numeric:tabular-nums}
+  @media(max-width:820px){ .invigrid{grid-template-columns:1fr 1fr} .agecell{min-width:104px} }
   .bizsteps{display:flex;align-items:center;gap:6px;margin:0 0 18px}
   .bizdot{width:7px;height:7px;border-radius:50%;background:var(--line2);flex:none;transition:background .2s}
   .bizdot.done{background:color-mix(in srgb, var(--accent) 55%, transparent)}
@@ -1024,6 +1050,7 @@
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .bdot{width:7px;height:7px;border-radius:50%;flex:none}
   .bmeta .bneg{color:var(--neg);font-weight:620}
+  .bmeta .bpos{color:var(--pos-ink);font-weight:620}
   /* amber for "this number knows less than it looks like it does", wherever it
      is said — bill rows, account rows, a forecast note, a burn hint */
   .bwarn{color:var(--warn-ink);font-weight:620}

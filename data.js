@@ -170,6 +170,10 @@ const SCHED_C={
   utilities:{line:"25",label:"Utilities"},
   wages:{line:"26",label:"Wages"},
   other:{line:"27a",label:"Other expenses"},
+  /* Part III of Schedule C works out cost of goods sold and carries the answer
+     to line 4, above the expense list — it comes off revenue, not out of it.
+     Only a business that sells goods ever has one. */
+  cogs:{line:"4",label:"Cost of goods sold",derived:true},
   /* the two biggest deductions a freelancer never logs as a transaction,
      because neither one is ever a card swipe */
   mileage:{line:"9",label:"Business miles",derived:true},
@@ -262,6 +266,46 @@ const BIZ_KINDS={
 
 const ACCT_METHODS={cash:{label:"Cash",note:"Income counts when the money lands, expenses when they leave. Nearly every freelancer uses this."},
   accrual:{label:"Accrual",note:"Income counts when you invoice, expenses when you're billed. Required over $30M of receipts; rare at this size."}};
+
+/* ---------- WHAT A BUSINESS SELLS ----------
+   A service business bills time; a product business bills things it had to buy
+   or make first. That difference decides what a line on an invoice asks for,
+   whether cost of goods sold exists at all, and whether the business is holding
+   sales tax that was never its money. */
+const BIZ_SELLS={
+  service:{label:"Services — time and skill",units:["hour","day","project"],
+    note:"Invoice lines are hours, days or a flat project fee. No cost of goods sold, no inventory, and in most states no sales tax on the work itself."},
+  product:{label:"Products — physical goods",units:["item"],cogs:true,tax:true,
+    note:"What you paid for stock is cost of goods sold, and it comes off revenue before profit. Sales tax you collect was never yours — it is held for the state."},
+  both:{label:"Both",units:["hour","day","project","item"],cogs:true,tax:true,
+    note:"Time and goods on the same invoice. Cost of goods sold applies to the goods only."}};
+const bizSells=b=>BIZ_SELLS[b&&b.sells]||BIZ_SELLS.service;
+/* what a line item is measured in */
+const ITEM_UNITS={hour:{label:"Hours",one:"hour",rate:"an hour"},
+  day:{label:"Days",one:"day",rate:"a day"},
+  project:{label:"Flat fee",one:"project",rate:"flat",flat:true},
+  item:{label:"Quantity",one:"item",rate:"each",goods:true}};
+
+/* ---------- INVOICE TERMS ----------
+   When the money is actually due. Freelancers get paid late; the terms are what
+   turn "they haven't paid" into "they are eleven days overdue". */
+const PAY_TERMS={
+  receipt:{label:"Due on receipt",days:0},
+  net7:{label:"Net 7",days:7},
+  net14:{label:"Net 14",days:14},
+  net15:{label:"Net 15",days:15},
+  net30:{label:"Net 30",days:30},
+  net45:{label:"Net 45",days:45},
+  net60:{label:"Net 60",days:60}};
+/* Where an invoice is in its life. `owed` means it is money you are counting on;
+   a draft is not, and a written-off one never will be. */
+const INV_STATUS={
+  draft:{label:"Draft",tag:"neutral",note:"not sent yet — it counts for nothing until it is"},
+  sent:{label:"Sent",tag:"neutral",owed:true},
+  part:{label:"Part paid",tag:"warn",owed:true},
+  paid:{label:"Paid",tag:"ok"},
+  overdue:{label:"Overdue",tag:"bad",owed:true},
+  void:{label:"Written off",tag:"neutral",note:"work you will not be paid for"}};
 
 const BIZ_COLORS=["#0284c7","#7c5cf0","#0891b2","#ea580c","#059669","#c026d3"];
 

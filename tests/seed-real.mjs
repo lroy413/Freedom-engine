@@ -98,6 +98,30 @@ export const SEED = (page) => page.evaluate(() => {
       { id: "m1", date: day(Math.max(1, thisM - 3), 14), miles: 186, note: "Cordell wedding — Savannah" },
       { id: "m2", date: day(Math.max(1, thisM - 2), 3), miles: 64, note: "Terminus shoot" },
       { id: "m3", date: day(thisM, 6), miles: 42, note: "Scout — Westside" }] } }];
+  db.clients = [
+    { id: "cl1", bizId: "b1", name: "Terminus Studios", email: "pay@terminus.co", phone: "", note: "always pays at 45 days", created: Y + "-01-08" },
+    { id: "cl2", bizId: "b1", name: "The Cordells", email: "", phone: "", note: "", created: Y + "-02-02" },
+    { id: "cl3", bizId: "b1", name: "Westside Collective", email: "ap@westside.org", phone: "", note: "", created: Y + "-04-01" }];
+  const back = n => { const d = dayOf(todayISO()); d.setDate(d.getDate() - n); return isoOf(d); };
+  db.invoices = [
+    { id: "iv1", bizId: "b1", number: "0001", clientId: "cl2", title: "Cordell wedding", issued: back(96), terms: "net30",
+      items: [{ id: "a1", desc: "Full day coverage", unit: "day", qty: 2, rate: 1500, cost: 0, taxable: false },
+              { id: "a2", desc: "Album", unit: "project", qty: 1, rate: 1200, cost: 0, taxable: false }],
+      payments: [{ id: "p1", date: back(96), amount: 2100, note: "deposit" },
+                 { id: "p2", date: back(58), amount: 2100, note: "" }], status: "sent", discount: 0, taxRate: 0, note: "" },
+    { id: "iv2", bizId: "b1", number: "0002", clientId: "cl1", title: "Brand film", issued: back(41), terms: "net45",
+      items: [{ id: "b1i", desc: "Two-day shoot", unit: "day", qty: 2, rate: 2400, cost: 0, taxable: false },
+              { id: "b2i", desc: "Edit and colour", unit: "hour", qty: 18, rate: 120, cost: 0, taxable: false }],
+      payments: [{ id: "p3", date: back(41), amount: 3480, note: "deposit" }], status: "sent", discount: 0, taxRate: 0, note: "Balance on delivery of the final cut" },
+    { id: "iv3", bizId: "b1", number: "0003", clientId: "cl3", title: "Doc short — Westside", issued: back(74), terms: "net30",
+      items: [{ id: "c1i", desc: "Production", unit: "project", qty: 1, rate: 5400, cost: 0, taxable: false }],
+      payments: [], status: "sent", discount: 0, taxRate: 0, note: "" },
+    { id: "iv4", bizId: "b1", number: "0004", clientId: "cl1", title: "Q3 retainer", issued: back(4), terms: "net30",
+      items: [{ id: "d1i", desc: "Monthly retainer", unit: "project", qty: 1, rate: 1800, cost: 0, taxable: false }],
+      payments: [], status: "sent", discount: 0, taxRate: 0, note: "" },
+    { id: "iv5", bizId: "b1", number: "0005", clientId: "cl2", title: "Engagement session", issued: todayISO(), terms: "net15",
+      items: [{ id: "e1i", desc: "Half day", unit: "day", qty: 0.5, rate: 1500, cost: 0, taxable: false }],
+      payments: [], status: "draft", discount: 0, taxRate: 0, note: "" }];
   db.snapshots = [];
   for (let m = Math.max(1, thisM - 5); m <= thisM; m++)
     db.snapshots.push({ m: `${Y}-${String(m).padStart(2, "0")}`, net: 28000 + m * 2100 });
