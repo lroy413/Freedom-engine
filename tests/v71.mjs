@@ -24,9 +24,14 @@ console.log('— BEFORE tagging: personal spending —');
 console.log(await p.evaluate(m=>({month:monthTotals(m),food:spentFor("Food",m),shopping:spentFor("Shopping",m)}),M));
 
 console.log('\n— ADD A BUSINESS —');
-await p.click('#showAddBiz'); await p.waitForTimeout(300);
-await p.fill('#nbName','L Roy Media'); await p.selectOption('#nbKind','sole');
-await p.click('#nbAdd'); await p.waitForTimeout(600);
+/* onboarding is four steps in the sheet now: name, then how it's taxed, then
+   how it pays you, then the deductions */
+await p.click('#showAddBiz'); await p.waitForTimeout(400);
+await p.fill('#nb-name','L Roy Media'); await p.click('#nb-next'); await p.waitForTimeout(350);
+await p.selectOption('#nb-kind','sole'); await p.waitForTimeout(350);
+await p.click('#nb-next'); await p.waitForTimeout(350);
+await p.click('#nb-next'); await p.waitForTimeout(350);
+await p.click('#nb-done'); await p.waitForTimeout(700);
 console.log('created:', await p.evaluate(()=>db.businesses.map(b=>({n:b.name,k:b.kind,draw:b.drawPct,link:b.linkProfit}))));
 
 console.log('\n— TAG TRANSACTIONS —');
@@ -55,9 +60,14 @@ console.log('  unlinked      -> counts as income:', await p.evaluate(y=>bizDraw(
 await p.evaluate(()=>{db.businesses[0].linkProfit=true;db.businesses[0].drawPct=60;saveAll();}); await p.waitForTimeout(400);
 
 console.log('\n— SECOND BUSINESS —');
-await p.click('#showAddBiz'); await p.waitForTimeout(300);
-await p.fill('#nbName','Stock Footage LLC'); await p.selectOption('#nbKind','llc');
-await p.click('#nbAdd'); await p.waitForTimeout(600);
+/* creating one lands you inside it, so get back to the list to add another */
+await p.evaluate(()=>{bizOpen=null;renderBusiness();}); await p.waitForTimeout(400);
+await p.click('#showAddBiz'); await p.waitForTimeout(400);
+await p.fill('#nb-name','Stock Footage LLC'); await p.click('#nb-next'); await p.waitForTimeout(350);
+await p.selectOption('#nb-kind','llc'); await p.waitForTimeout(350);
+await p.click('#nb-next'); await p.waitForTimeout(350);
+await p.click('#nb-next'); await p.waitForTimeout(350);
+await p.click('#nb-done'); await p.waitForTimeout(700);
 await p.evaluate(m=>{const id=db.businesses[1].id;
   db.transactions.push({id:"t7",date:m+"-10",desc:"Pond5 payout",category:"Income",amount:820,bizId:id});
   db.transactions.push({id:"t8",date:m+"-11",desc:"Drone repair",category:"Misc",amount:-240,bizId:id});

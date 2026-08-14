@@ -786,7 +786,11 @@
   .hdot{width:7px;height:7px;border-radius:50%;border:0;padding:0;cursor:pointer;
     background:var(--line2h);opacity:.55;transition:all .2s ease}
   .hdot.on{opacity:1;width:20px;border-radius:16px;background:var(--accent)}
-  .dashhero.biz{background:linear-gradient(135deg,var(--bh) 0%,color-mix(in srgb,var(--bh) 55%,#0f172a) 100%);
+  /* --bh comes from the business's own colour; the fallback matters because an
+     undefined var makes the whole gradient invalid, which paints the hero
+     transparent and leaves white text on a white page */
+  .dashhero.biz{--bh:var(--accent);
+    background:linear-gradient(135deg,var(--bh) 0%,color-mix(in srgb,var(--bh) 55%,#0f172a) 100%);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 16px 38px -20px color-mix(in srgb,var(--bh) 70%,transparent)}
   @media(prefers-reduced-motion:reduce){ .herotrack{scroll-behavior:auto} }
   /* ---------- donut ---------- */
@@ -919,6 +923,13 @@
   .frtick{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--pos)}
   .frpct{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted)}
   .frtier.cleared .frpct{color:var(--pos)}
+  /* four dots and a name: enough to say how far in you are without a wizard's
+     worth of chrome above a form that is four fields long */
+  .bizsteps{display:flex;align-items:center;gap:6px;margin:0 0 18px}
+  .bizdot{width:7px;height:7px;border-radius:50%;background:var(--line2);flex:none;transition:background .2s}
+  .bizdot.done{background:color-mix(in srgb, var(--accent) 55%, transparent)}
+  .bizdot.on{background:var(--accent);width:20px;border-radius:6px}
+  .bizstepname{font-size:11px;text-transform:uppercase;letter-spacing:.09em;font-weight:680;color:var(--muted);margin-left:6px}
   .frsame{font-size:13px;color:var(--muted);margin-top:10px;padding-left:12px;
     border-left:2px solid var(--line2)}
   .frsame b{color:var(--ink2);font-weight:640}
@@ -1759,20 +1770,39 @@
 
   <!-- BUSINESS -->
   <section class="view" id="view-business">
-    <h1 class="page">Business</h1>
-    <p class="lead">Tag a transaction or a bill to a business and it leaves your personal spending and lands in that business's books instead. What the business pays you comes back as income.</p>
+    <!-- The landing page: every business at a glance, and the door into each
+         one. Opening a business swaps this out rather than unfolding a panel,
+         so a business gets a whole screen instead of a drawer. -->
+    <div id="bizIndex">
+      <h1 class="page">Businesses</h1>
+      <p class="lead">Tag a transaction or a bill to a business and it leaves your personal spending and lands in that business's books instead. What each one earns, owes and hands you is worked out here and shows up on Tax.</p>
+      <div id="bizHero" style="margin:18px 0 22px"></div>
+      <div class="sectiontitle"><h2>Your businesses</h2><span class="hint">tap one to open its books</span><span class="spacer"></span>
+        <button class="btn sm primary" id="showAddBiz">+ Business</button></div>
+      <div class="card" id="bizList"></div>
+      <div id="bizIndexTax"></div>
+    </div>
 
-    <div class="sectiontitle"><h2>Your businesses</h2><span class="spacer"></span>
-      <button class="btn sm primary" id="showAddBiz">+ Business</button></div>
-    <div class="card" id="addBizPanel" hidden></div>
-    <div class="card" id="bizList"></div>
-
-    <div id="bizDetailWrap" hidden>
-      <div class="sectiontitle"><h2 id="bizDetailTitle">Profit &amp; loss</h2><span class="spacer"></span>
+    <!-- One business, in full. -->
+    <div id="bizOne" hidden>
+      <button class="btn sm ghost" id="bizBack" style="margin-bottom:12px">‹ All businesses</button>
+      <div id="bizOneHero" style="margin-bottom:20px"></div>
+      <div class="sectiontitle"><h2>Profit &amp; loss</h2><span class="spacer"></span>
         <span class="flex" style="gap:8px">
           <select id="bizYear" class="miniedit" style="width:auto;text-align:left"></select>
+          <button class="btn sm" id="bizEdit">Edit</button>
           <button class="btn sm" id="bizExport">Export CSV</button></span></div>
       <div class="card pad" id="bizPL"></div>
+      <div id="bizChart" style="margin-top:14px"></div>
+
+      <div class="sectiontitle"><h2>What this costs you in tax</h2><span class="hint">feeds the Tax screen</span></div>
+      <div class="card pad" id="bizTax"></div>
+
+      <!-- keep the hint under HELP_MIN or collapseHelp folds it into an (i)
+           chip that lands inside the heading and reads as "Deductionsi" -->
+      <div class="sectiontitle"><h2>Deductions</h2><span class="hint">no statement shows these</span></div>
+      <div class="card" id="bizDeduct"></div>
+
       <div class="sectiontitle"><h2>Schedule C</h2><span class="hint">line items for your accountant</span></div>
       <div class="card" id="bizSched"></div>
       <div class="sectiontitle"><h2>Tagged transactions</h2><span class="hint" id="bizTxHint"></span></div>
@@ -2187,7 +2217,23 @@ function normalize(){
     if(b.drawPct===undefined)b.drawPct=100;
     if(b.linkProfit===undefined)b.linkProfit=true;
     if(b.active===undefined)b.active=true;
-    if(!b.created)b.created=todayISO(); });
+    if(!b.created)b.created=todayISO();
+    /* everything the onboarding now asks for, defaulted so a business added
+       before it existed still answers every question the screens ask */
+    if(b.ownerPct===undefined)b.ownerPct=100;
+    if(!b.state)b.state=stateCodeFor(db.tax&&db.tax.stateName)||"GA";
+    if(!b.method)b.method="cash";
+    if(b.started===undefined)b.started=b.created;
+    if(b.ein===undefined)b.ein="";
+    if(b.legalName===undefined)b.legalName="";
+    if(b.industry===undefined)b.industry="";
+    if(b.salary===undefined)b.salary=0;
+    if(b.salaryBooked===undefined)b.salaryBooked=false;
+    if(b.feeBooked===undefined)b.feeBooked=true;
+    if(!b.office)b.office={on:false,method:"simplified",sqft:0,totalSqft:0,annualCosts:0};
+    if(!b.mileage)b.mileage={on:false,rate:MILEAGE_RATE_DEFAULT,log:[]};
+    if(!Array.isArray(b.mileage.log))b.mileage.log=[];
+  });
   const T=db.tax=db.tax||{};
   if(T.enabled===undefined)T.enabled=true;
   if(!T.mode)T.mode="guided";
@@ -3690,8 +3736,8 @@ function renderDashHero(){
     return `<div class="dashhero biz" style="--bh:${b.color}">
       ${db.settings.trees===false?"":HERO_LEAVES}
       <div class="dh-top">
-        <button class="dh-tap" data-go="business" aria-label="Open ${esc(b.name)}">
-          <div class="dh-greet">${esc(BIZ_KINDS[b.kind].label)} · ${esc(y)}</div>
+        <button class="dh-tap" data-go="business" data-gobiz="${b.id}" aria-label="Open ${esc(b.name)}">
+          <div class="dh-greet">${esc(bizKindOf(b).label)} · ${esc(y)}</div>
           <div class="dh-label">${esc(b.name)}</div>
           <div class="dh-val">${fmt(pl.profit)}</div>
           <div class="dh-delta">net profit${margin!=null?` · ${Math.round(margin)}% margin`:""}</div>
@@ -6149,18 +6195,138 @@ const SCHED_C={
   meals:{line:"24b",label:"Meals (50%)"},
   utilities:{line:"25",label:"Utilities"},
   wages:{line:"26",label:"Wages"},
-  other:{line:"27a",label:"Other expenses"}
+  other:{line:"27a",label:"Other expenses"},
+  /* the two biggest deductions a freelancer never logs as a transaction,
+     because neither one is ever a card swipe */
+  mileage:{line:"9",label:"Business miles",derived:true},
+  homeoffice:{line:"30",label:"Home office",derived:true}
 };
 /* first guess only — every one of these is editable per transaction */
 const CAT_TO_SCHED={"Auto & Gas":"car","Car Payment":"car",Insurance:"bizinsurance",Subscriptions:"office",
   Internet:"utilities",Phone:"utilities",Electric:"utilities","Gas (Utility)":"utilities",Water:"utilities",
   Shopping:"supplies",Household:"supplies",Entertainment:"meals",Food:"meals",Fees:"legal",
   "Rent/Mortgage":"rentprop",Misc:"other",Uncategorized:"other"};
-const BIZ_KINDS={sole:{label:"Sole proprietor / 1099",note:"Schedule C on your personal return. Most freelancers start here."},
-  llc:{label:"Single-member LLC",note:"Still Schedule C for tax unless you've elected otherwise."},
-  scorp:{label:"S corporation",note:"Files its own return and pays you a salary — the estimate here won't fit. Talk to a CPA."},
-  partnership:{label:"Partnership / multi-member LLC",note:"Files its own return. This tool tracks the books, not the filing."},
-  other:{label:"Other",note:""}};
+/* ---------- STATES ----------
+   Where a business operates changes what it owes, so the state is part of the
+   business rather than a single setting buried in Tax.
+
+   `rate` is a STARTING POINT, not a lookup: for the fourteen flat-tax states it
+   is the flat rate; for graduated states it is roughly the marginal rate a
+   single filer hits around $80k, because that is the band a working freelancer
+   lands in and the top marginal rate would over-reserve them by half. Every one
+   is editable and the screen says which kind it is. Rates move every year —
+   this table is a 2026 starting point and says so on screen.
+
+   `fee` is the recurring state cost of *having* the entity — the thing that
+   catches people out when they form an LLC in a state they don't live in. Only
+   the ones worth naming carry a figure. */
+const US_STATES={
+  AL:{name:"Alabama",rate:5.0,note:"Some cities add an occupational tax."},
+  AK:{name:"Alaska",rate:0,none:true},
+  AZ:{name:"Arizona",rate:2.5,flat:true},
+  AR:{name:"Arkansas",rate:3.9},
+  CA:{name:"California",rate:9.3,fee:800,
+    feeNote:"$800 minimum franchise tax every year, plus a gross-receipts fee over $250k — owed even in a year you make nothing."},
+  CO:{name:"Colorado",rate:4.4,flat:true},
+  CT:{name:"Connecticut",rate:5.5},
+  DE:{name:"Delaware",rate:6.6,fee:300,
+    feeNote:"$300 LLC annual tax. Forming here while working elsewhere usually means registering in both states, and paying both."},
+  DC:{name:"District of Columbia",rate:8.5,
+    note:"DC taxes unincorporated businesses directly (D-30) above $12k of gross receipts."},
+  FL:{name:"Florida",rate:0,none:true},
+  GA:{name:"Georgia",rate:5.39,flat:true,fee:50,feeNote:"$50 annual registration."},
+  HI:{name:"Hawaii",rate:8.25,note:"General excise tax applies to gross receipts, on top of income tax."},
+  ID:{name:"Idaho",rate:5.695,flat:true},
+  IL:{name:"Illinois",rate:4.95,flat:true,fee:75,note:"A 1.5% personal property replacement tax applies to pass-throughs.",
+    feeNote:"$75 annual report."},
+  IN:{name:"Indiana",rate:3.0,flat:true,note:"Counties add their own rate on top."},
+  IA:{name:"Iowa",rate:3.8,flat:true},
+  KS:{name:"Kansas",rate:5.7},
+  KY:{name:"Kentucky",rate:4.0,flat:true,note:"Many cities and counties add an occupational licence fee."},
+  LA:{name:"Louisiana",rate:3.0,flat:true},
+  ME:{name:"Maine",rate:7.15},
+  MD:{name:"Maryland",rate:4.75,note:"Every county adds its own income tax — typically another 2.25–3.2%."},
+  MA:{name:"Massachusetts",rate:5.0,fee:500,feeNote:"$500 LLC annual report — the steepest in the country."},
+  MI:{name:"Michigan",rate:4.25,flat:true,note:"Some cities add a local income tax."},
+  MN:{name:"Minnesota",rate:7.85},
+  MS:{name:"Mississippi",rate:4.4,flat:true},
+  MO:{name:"Missouri",rate:4.7,note:"Kansas City and St. Louis add a 1% earnings tax."},
+  MT:{name:"Montana",rate:5.9},
+  NE:{name:"Nebraska",rate:5.2},
+  NV:{name:"Nevada",rate:0,none:true,fee:350,note:"Commerce tax applies over $4M of revenue.",
+    feeNote:"$350 a year for the annual list and state business licence."},
+  NH:{name:"New Hampshire",rate:0,none:true,
+    note:"No tax on earned income, but business profits tax applies over the filing threshold."},
+  NJ:{name:"New Jersey",rate:6.37},
+  NM:{name:"New Mexico",rate:4.9,note:"Gross receipts tax applies to services."},
+  NY:{name:"New York",rate:6.0,fee:25,note:"New York City adds its own resident income tax on top.",
+    feeNote:"An annual LLC filing fee, and at formation a newspaper publication requirement that can run into hundreds."},
+  NC:{name:"North Carolina",rate:4.25,flat:true,fee:200,feeNote:"$200 annual report."},
+  ND:{name:"North Dakota",rate:2.5},
+  OH:{name:"Ohio",rate:3.5,note:"Municipal income tax is separate and near-universal — commonly 2–2.5%."},
+  OK:{name:"Oklahoma",rate:4.75},
+  OR:{name:"Oregon",rate:8.75,note:"No sales tax, but Portland-metro business taxes are significant."},
+  PA:{name:"Pennsylvania",rate:3.07,flat:true,note:"Local earned income tax adds roughly another 1%."},
+  RI:{name:"Rhode Island",rate:4.75,fee:400,feeNote:"$400 minimum annual charge."},
+  SC:{name:"South Carolina",rate:6.2},
+  SD:{name:"South Dakota",rate:0,none:true},
+  TN:{name:"Tennessee",rate:0,none:true,
+    note:"No income tax on individuals, but a registered entity owes franchise and excise tax on net earnings."},
+  TX:{name:"Texas",rate:0,none:true,
+    note:"No income tax. Franchise tax applies only above the revenue threshold — most freelancers file a no-tax-due report."},
+  UT:{name:"Utah",rate:4.55,flat:true},
+  VT:{name:"Vermont",rate:7.6},
+  VA:{name:"Virginia",rate:5.75},
+  WA:{name:"Washington",rate:0,none:true,
+    note:"No income tax, but B&O tax runs on gross receipts — revenue, not profit."},
+  WV:{name:"West Virginia",rate:4.82},
+  WI:{name:"Wisconsin",rate:5.3},
+  WY:{name:"Wyoming",rate:0,none:true}
+};
+const stateOf=code=>US_STATES[code]||null;
+/* What a state has to say to THIS business. The fee sentence only applies to an
+   entity that actually registered with the state — a sole proprietorship never
+   filed, so telling it about an LLC's annual report is noise. */
+function stateNoteHTML(st,kind,top){
+  if(!st)return "";
+  const bits=[st.note||"",(kind&&kind.registered&&st.feeNote)?st.feeNote:""].filter(Boolean);
+  if(!bits.length)return "";
+  return `<div class="note" style="margin-top:${top||14}px;font-size:13px"><b>${esc(st.name)}:</b> ${bits.join(" ")}</div>`;
+}
+const stateName=code=>{const s=stateOf(code);return s?s.name:"";};
+/* the state code for a name, so the personal setting and a business can agree */
+const stateCodeFor=name=>{const n=String(name||"").toLowerCase();
+  return Object.keys(US_STATES).find(k=>US_STATES[k].name.toLowerCase()===n)||"";};
+const homeState=()=>stateCodeFor(db.tax&&db.tax.stateName)||"GA";
+const bizState=b=>(b&&b.state&&US_STATES[b.state])?b.state:homeState();
+
+/* ---------- ENTITY TYPES ----------
+   The type is not a label — it decides which taxes the profit meets.
+
+   `se:true`  the profit is self-employment income: Social Security and Medicare
+              on top of income tax. Sole props, LLCs taxed as such, partners.
+   `salary`   an S corp splits into a reasonable wage (payroll tax, withheld by
+              the business) and a distribution (income tax only). That split is
+              the largest lever a profitable freelancer has, so it is modelled
+              rather than waved at.
+   `entity`   a C corp pays its own tax before anything reaches you.
+   `k1`       files its own return and issues a K-1. */
+const BIZ_KINDS={
+  sole:{label:"Sole proprietor / 1099",se:true,form:"Schedule C",
+    note:"Files on Schedule C with your personal return. Profit is self-employment income — income tax plus 15.3% SE tax. Where most freelancers start."},
+  llc:{label:"Single-member LLC",se:true,registered:true,form:"Schedule C",
+    note:"Liability protection, same tax treatment: Schedule C, profit subject to SE tax, unless you elect S-corp status."},
+  partnership:{label:"Partnership / multi-member LLC",se:true,k1:true,registered:true,form:"Form 1065 → K-1",
+    note:"Files its own return and issues you a K-1. Your share of the profit is self-employment income."},
+  scorp:{label:"S corporation",se:false,salary:true,k1:true,registered:true,form:"Form 1120-S → K-1",
+    note:"Pays you a reasonable salary through payroll — that part meets payroll tax — and the rest reaches you as a distribution with no SE tax on it. The saving is real and so is the scrutiny: the salary has to be defensible."},
+  ccorp:{label:"C corporation",se:false,entity:true,entityRate:21,registered:true,form:"Form 1120",
+    note:"Pays 21% federal tax on its own profit. What it then pays you is a dividend, taxed again. Rarely right for a one-person shop."},
+  other:{label:"Other / not sure yet",se:true,form:"Schedule C",
+    note:"Treated as a sole proprietorship until you say otherwise — the conservative assumption, since it reserves the most."}};
+const bizKindOf=b=>BIZ_KINDS[b&&b.kind]||BIZ_KINDS.sole;
+const ACCT_METHODS={cash:{label:"Cash",note:"Income counts when the money lands, expenses when they leave. Nearly every freelancer uses this."},
+  accrual:{label:"Accrual",note:"Income counts when you invoice, expenses when you're billed. Required over $30M of receipts; rare at this size."}};
 const BIZ_COLORS=["#0284c7","#7c5cf0","#0891b2","#ea580c","#059669","#c026d3"];
 
 const bizList=()=>db.businesses||[];
@@ -6178,29 +6344,151 @@ const bizAmt=t=>num(t.amount)*bizShare(t);
 function bizTx(id,year){
   return db.transactions.filter(t=>t.bizId===id&&!isNeutral(t)&&(!year||String(t.date).slice(0,4)===String(year)));
 }
+/* ---------- the deductions that never appear on a card statement ---------- */
+/* Simplified home office: $5 a square foot, 300 sq ft ceiling, so $1,500 is the
+   most it can ever be. The actual-cost method wants a share of rent, utilities
+   and insurance instead — more paperwork, usually more money. */
+const HOME_OFFICE_RATE=5, HOME_OFFICE_MAXFT=300;
+function homeOfficeDeduction(b){
+  const h=b&&b.office; if(!h||!h.on)return 0;
+  if(h.method==="actual"){
+    const tot=num(h.totalSqft), ft=num(h.sqft);
+    const share=tot>0?Math.min(1,ft/tot):0;
+    return Math.max(0,num(h.annualCosts)*share);
+  }
+  return Math.min(HOME_OFFICE_MAXFT,Math.max(0,num(h.sqft)))*HOME_OFFICE_RATE;
+}
+/* The standard mileage rate replaces every actual car cost — you take one or
+   the other, never both. The rate changes every year, so it is a field. */
+const MILEAGE_RATE_DEFAULT=0.70;
+const mileageRate=b=>{const r=num(b&&b.mileage&&b.mileage.rate); return r>0?r:MILEAGE_RATE_DEFAULT;};
+function mileageDeduction(b,year){
+  const m=b&&b.mileage; if(!m||!m.on)return 0;
+  const y=String(year||todayISO().slice(0,4));
+  const logged=(Array.isArray(m.log)?m.log:[]).filter(e=>String(e.date).slice(0,4)===y)
+    .reduce((s,e)=>s+num(e.miles),0);
+  return Math.max(0,logged)*mileageRate(b);
+}
+const mileageMiles=(b,year)=>{const m=b&&b.mileage; if(!m||!m.on)return 0;
+  const y=String(year||todayISO().slice(0,4));
+  return (Array.isArray(m.log)?m.log:[]).filter(e=>String(e.date).slice(0,4)===y)
+    .reduce((s,e)=>s+num(e.miles),0);};
+/* The recurring cost of having the entity at all — the one people forget when
+   they form an LLC in a state they don't live in. A sole proprietorship has
+   nothing registered and so owes nothing: the suggested figure only applies to
+   a business that actually filed with a state. Typed in by hand it stands
+   whatever the type, because a licence or a permit is not always an entity. */
+function stateFeeFor(b){
+  if(!b)return 0;
+  if(b.stateFee!==undefined&&b.stateFee!=="")return Math.max(0,num(b.stateFee));
+  if(!bizKindOf(b).registered)return 0;
+  const s=stateOf(bizState(b)); return s&&s.fee?s.fee:0;
+}
 /* Revenue, expenses and profit for one business over a year. Bills tagged to the
-   business count as expenses too, amortised the same way they are everywhere. */
+   business count as expenses too, amortised the same way they are everywhere,
+   and so do the three deductions that never arrive as a transaction. */
 function bizPL(id,year){
   const y=year||todayISO().slice(0,4);
+  const b=bizOf(id);
   const tx=bizTx(id,y);
   let rev=0,exp=0; const byCat={},bySched={};
+  const add=(v,cat,sc)=>{ exp+=v; byCat[cat]=(byCat[cat]||0)+v; bySched[sc]=(bySched[sc]||0)+v; };
   tx.forEach(t=>{ const a=bizAmt(t);
     if(a>0) rev+=a;
-    else { const v=-a; exp+=v; const c=t.category||"Uncategorized";
-      byCat[c]=(byCat[c]||0)+v;
-      const sc=t.sched||CAT_TO_SCHED[c]||"other"; bySched[sc]=(bySched[sc]||0)+v; } });
-  const bills=db.recurring.filter(b=>b.bizId===id);
+    else { const c=t.category||"Uncategorized";
+      add(-a,c,t.sched||CAT_TO_SCHED[c]||"other"); } });
+  const bills=db.recurring.filter(x=>x.bizId===id);
   const months=(y===todayISO().slice(0,4))?(new Date().getMonth()+1):12;
-  bills.forEach(b=>{ const v=billMonthly(b)*months*((b.bizPct===undefined?100:num(b.bizPct))/100);
-    exp+=v; const c=b.category||"Other"; byCat[c]=(byCat[c]||0)+v;
-    const sc=b.sched||CAT_TO_SCHED[c]||"other"; bySched[sc]=(bySched[sc]||0)+v; });
-  return {rev,exp,profit:rev-exp,byCat,bySched,count:tx.length,billCount:bills.length,year:y};
+  bills.forEach(x=>{ const v=billMonthly(x)*months*((x.bizPct===undefined?100:num(x.bizPct))/100);
+    const c=x.category||"Other"; add(v,c,x.sched||CAT_TO_SCHED[c]||"other"); });
+  /* derived — each one is real money off the tax bill that no import will
+     ever find, so the books have to carry them or the profit is overstated */
+  const office=homeOfficeDeduction(b); if(office>0) add(office,"Home office","homeoffice");
+  const miles=mileageDeduction(b,y);   if(miles>0)  add(miles,"Mileage","mileage");
+  const fee=(b&&b.feeBooked!==false)?stateFeeFor(b):0;
+  if(fee>0) add(fee,"State fees","taxeslic");
+  return {rev,exp,profit:rev-exp,byCat,bySched,count:tx.length,billCount:bills.length,year:y,
+    office,miles,milesDriven:mileageMiles(b,y),fee};
 }
+/* Your share of a business. A sole proprietor owns all of it; a partner owns a
+   slice, and only that slice is theirs to be taxed on. */
+const ownerShare=b=>Math.max(0,Math.min(100,b&&b.ownerPct===undefined?100:num(b.ownerPct)))/100;
+/* An S corp's salary is a business expense. If it is already logged as one, the
+   profit shown is after it; if not, the model has to take it out itself or the
+   distribution would be counted twice. */
+function bizSalary(b,year){
+  const k=bizKindOf(b); if(!k.salary)return 0;
+  const y=String(year||todayISO().slice(0,4));
+  const full=Math.max(0,num(b.salary));
+  /* a salary set this year but started mid-year is still whatever was paid —
+     the field is annual, so a part-year business gets what it says it took */
+  return String(b.created||"").slice(0,4)===y&&b.salaryPartial?Math.max(0,num(b.salaryPaid)):full;
+}
+const bizNetProfit=(id,year)=>{ const b=bizOf(id), k=bizKindOf(b);
+  const p=bizPL(id,year).profit;
+  return k.salary&&b&&b.salaryBooked===false?p-bizSalary(b,year):p; };
 /* What a business actually hands you. Reinvested profit stays in the business. */
 function bizDraw(id,year){ const b=bizOf(id); if(!b||!b.linkProfit) return 0;
-  const p=bizPL(id,year).profit; return p>0?p*(num(b.drawPct)/100):p; }
+  const k=bizKindOf(b);
+  const p=bizNetProfit(id,year)*ownerShare(b);
+  /* a C corp pays its own tax before a cent reaches you */
+  const after=k.entity?p-Math.max(0,p)*(num(k.entityRate)/100):p;
+  const dist=after>0?after*(num(b.drawPct)/100):after;
+  return dist+(k.salary?bizSalary(b,year):0); }
 const allBizDraw=year=>bizList().reduce((s,b)=>s+bizDraw(b.id,year),0);
 const allBizProfit=year=>bizList().reduce((s,b)=>s+bizPL(b.id,year).profit,0);
+/* ---------- where the business screen and the tax screen meet ----------
+   One business's profit is not another's. A sole proprietor's meets SE tax; an
+   S corp's distribution does not; a C corp's never reaches your return at all.
+   And each one is taxed by the state it operates in, which need not be yours.
+
+   Multi-state, honestly: work in another state and you generally file there and
+   your home state credits you for it, so what you actually part with is the
+   higher of the two rates — not both. That is what this charges, and the screen
+   says so rather than pretending the arithmetic is the filing. */
+function bizStateRate(b){
+  const code=bizState(b), mine=num(db.tax.stateRate);
+  /* your own state's rate is the one on the Tax screen, because you may have
+     corrected it; the table only speaks for states you don't live in */
+  if(code===homeState()) return mine;
+  const here=stateOf(code);
+  return Math.max(mine,here?num(here.rate):0);
+}
+const bizIsAway=b=>bizState(b)!==homeState();
+function bizTaxSplit(year){
+  const y=String(year||todayISO().slice(0,4));
+  const seRate=num(taxCfg().seRate), seOn=taxCfg().seOn!==false;
+  let seNet=0,        // meets self-employment tax as well as income tax
+      passNet=0,      // income tax only — S-corp distributions
+      wages=0,        // paid to you through payroll; withheld there, not here
+      entityTax=0,    // paid by the business before anything reaches you
+      stateTax=0,     // charged at each business's own rate
+      base=0;         // what that state tax was charged on
+  const rows=[];
+  bizList().forEach(b=>{
+    if(b.active===false||b.linkProfit===false)return;
+    const k=bizKindOf(b), share=ownerShare(b);
+    const gross=bizPL(b.id,y).profit;
+    const sal=bizSalary(b,y);
+    const profit=(k.salary&&b.salaryBooked===false?gross-sal:gross)*share;
+    const rate=bizStateRate(b);
+    let se=0,pass=0,ent=0,w=0;
+    if(k.entity){ ent=Math.max(0,profit)*(num(k.entityRate)/100); }
+    else if(k.salary){ w=sal; pass=profit; }
+    else { se=profit; }
+    /* half the SE tax comes off income before income tax is worked out, state
+       included — charging the state on the full profit would over-reserve by
+       about 7% of it, and the estimate should be conservative, not wrong */
+    const seTax=seOn?Math.max(0,se)*0.9235*(seRate/100):0;
+    const rowBase=Math.max(0,se+pass-seTax/2);
+    seNet+=se; passNet+=pass; wages+=w; entityTax+=ent;
+    stateTax+=rowBase*(rate/100); base+=rowBase;
+    rows.push({id:b.id,name:b.name,kind:b.kind,form:k.form,state:bizState(b),rate,
+      gross,profit,salary:w,se,pass,seTax,base:rowBase,entityTax:ent,
+      stateTax:rowBase*(rate/100)});
+  });
+  return {seNet,passNet,wages,entityTax,stateTax,base,rows,year:y};
+}
 
 /* ---------- tax ----------
    An estimate built from rates you can see and change, not a filing. Self-
@@ -6225,8 +6513,15 @@ function seIncome(year){
   const fromPay=db.paychecks.filter(p=>String(p.date).slice(0,4)===y).reduce((s,p)=>{
     const st=db.income.find(x=>x.name&&p.source&&x.name.toLowerCase()===String(p.source).toLowerCase());
     return s+(streamTaxClass(st)==="se"?num(p.gross)||num(p.net):0);},0);
-  const fromBiz=Math.max(0,allBizProfit(y));
-  return {fromPay,fromBiz,total:fromPay+fromBiz};
+  /* Only the profit that actually meets self-employment tax belongs here. An S
+     corp's distribution and a C corp's retained profit are income, but not this
+     kind of income — counting them would reserve 15.3% against money that never
+     owes it, which is the whole point of the election. */
+  const sp=bizTaxSplit(y);
+  const fromBiz=Math.max(0,sp.seNet);
+  const fromPass=Math.max(0,sp.passNet);
+  return {fromPay,fromBiz,fromPass,total:fromPay+fromBiz,
+    withPass:fromPay+fromBiz+fromPass,split:sp};
 }
 function w2Withheld(year){
   const y=year||todayISO().slice(0,4);
@@ -6249,27 +6544,47 @@ function preTaxRetire(year){
 function taxEstimate(year){
   const c=taxCfg(), y=year||todayISO().slice(0,4);
   const inc=seIncome(y);
-  const net=Math.max(0,inc.total);
+  const net=Math.max(0,inc.total);                     // meets SE tax
+  const pass=Math.max(0,inc.fromPass||0);              // income tax only
   /* SE tax applies to 92.35% of net earnings — the other 7.65% is the employer
      half you'd never have been taxed on as an employee */
   const seBase=net*0.9235;
   const se=c.seOn===false?0:seBase*(num(c.seRate)/100);
   const halfSE=se/2;                                   // deductible above the line
-  const qbi=c.qbi?Math.max(0,(net-halfSE))*0.20:0;     // 20% pass-through deduction
+  /* An S-corp distribution is income the moment it exists, whether or not you
+     move it, so it joins the income-tax base — it simply never meets SE tax. */
+  const incomeBase=Math.max(0,net-halfSE)+pass;
+  const qbi=c.qbi?incomeBase*0.20:0;                   // 20% pass-through deduction
   /* A pre-tax contribution comes off income tax but NOT self-employment tax:
      Social Security and Medicare are owed on what you earned whatever you then
      put away. Getting that wrong would under-reserve by roughly 15% of every
      dollar contributed, which is the expensive direction to be wrong in. */
-  const pre=Math.min(preTaxRetire(y),Math.max(0,net-halfSE));
-  const fedBase=Math.max(0,net-halfSE-qbi-pre);
+  const pre=Math.min(preTaxRetire(y),incomeBase);
+  const fedBase=Math.max(0,incomeBase-qbi-pre);
   const fed=fedBase*(num(c.fedRate)/100);
-  const state=Math.max(0,net-halfSE-pre)*(num(c.stateRate)/100);
-  const gross=se+fed+state;
+  /* State is charged where each business actually operates, not where you sit.
+     Everything that isn't a business — 1099 gigs, a salary — is charged at your
+     own state's rate, and the two are blended rather than added twice: work out
+     one effective rate across the whole income base, then charge it once. That
+     way a deduction like a pre-tax contribution reduces the state bill even for
+     someone whose income is all business, which adding two separate figures
+     would quietly fail to do. Most states don't recognise the federal QBI
+     deduction, so it isn't taken off here. */
+  const sp=inc.split||bizTaxSplit(y);
+  const bizBase=Math.min(num(sp.base),incomeBase);
+  const shareBiz=incomeBase>0?Math.max(0,Math.min(1,bizBase/incomeBase)):0;
+  const bizRate=num(sp.base)>0?sp.stateTax/sp.base*100:num(c.stateRate);
+  const effState=shareBiz*bizRate+(1-shareBiz)*num(c.stateRate);
+  const stateBase=Math.max(0,incomeBase-pre);
+  const state=stateBase*(effState/100);
+  const stateBiz=stateBase*shareBiz*(bizRate/100);
+  const entity=sp.entityTax||0;                        // a C corp's own bill
+  const gross=se+fed+state+entity;
   const credit=c.creditW2===false?0:w2Withheld(y);
   const owed=Math.max(0,gross-credit-num(c.otherCredits));
-  const rate=net>0?owed/net*100:0;
-  return {year:y,inc,net,se,halfSE,qbi,pre,fed,state,gross,credit,owed,rate,
-    fedBase,seBase,paid:taxPaid(y),reserved:taxReserved(y)};
+  const rate=(net+pass)>0?owed/(net+pass)*100:0;
+  return {year:y,inc,net,pass,se,halfSE,qbi,pre,fed,state,stateBiz,entity,gross,credit,owed,rate,
+    fedBase,seBase,incomeBase,split:sp,paid:taxPaid(y),reserved:taxReserved(y)};
 }
 const taxReserveLedger=y=>(db.tax.reserve||[]).filter(r=>!y||String(r.date).slice(0,4)===String(y));
 const taxPayments=y=>(db.tax.paid||[]).filter(r=>!y||String(r.date).slice(0,4)===String(y));
@@ -6814,133 +7129,153 @@ function renderNWSheet(){
 }
 
 /* ---------- BUSINESS SCREEN ---------- */
-let openBiz=null, addBizOpen=false, bizYear=null, bizDetail=null, bizAutoOpened=false;
+/* Two screens in one view: the list of businesses you own, and one business in
+   full. `bizOpen` is which one you're inside — null means the landing page.
+   Editing lives behind an Edit button in the sheet, the way it does everywhere
+   else in the app; a row you tap opens the business, it doesn't unfold a form. */
+let bizOpen=null, bizYear=null;
 function renderBusiness(){
-  const list=document.getElementById("bizList"); if(!list)return;
-  const y=bizYear||todayISO().slice(0,4);
-  /* The P&L, the Schedule C mapping and the tagged transactions all live inside
-     a business's panel, so with one business and nothing expanded this screen
-     opened as a single row above a blank page. With only one there is nothing
-     to choose between — open it. Once only: doing it on every render would
-     make the close button spring straight back open. */
-  const bl=bizList().filter(b=>b.active!==false);
-  if(!bizAutoOpened&&openBiz===null&&bl.length===1){ openBiz=bl[0].id; bizAutoOpened=true; }
-  /* add panel */
-  const ap=document.getElementById("addBizPanel");
-  ap.hidden=!addBizOpen;
-  if(addBizOpen){
-    ap.innerHTML=`<div class="pad">
-      <div style="font-size:15px;font-weight:620;margin-bottom:2px">New business</div>
-      <div class="muted" style="font-size:13px;margin-bottom:12px">You don't need a separate bank account. Tag transactions to it and the books build themselves.</div>
-      <div class="formgrid">
-        <div class="field"><label>Name</label><input id="nbName" placeholder="L Roy Media"></div>
-        <div class="field"><label>Type</label><select id="nbKind">${Object.entries(BIZ_KINDS).map(([v,o])=>`<option value="${v}">${o.label}</option>`).join("")}</select></div>
-        <button class="btn primary" id="nbAdd">Add business</button>
-        <button class="btn ghost" id="nbCancel">Cancel</button>
-      </div>
-      <div class="muted" id="nbNote" style="font-size:13px;margin-top:10px"></div>
-    </div>`;
-    const ks=document.getElementById("nbKind"), nn=document.getElementById("nbNote");
-    const sync=()=>nn.textContent=BIZ_KINDS[ks.value].note; ks.onchange=sync; sync();
-    document.getElementById("nbCancel").onclick=()=>{addBizOpen=false;renderBusiness();};
-    document.getElementById("nbAdd").onclick=()=>{
-      const n=document.getElementById("nbName");
-      const name=n.value.trim(); if(!name){n.focus();return;}
-      const b={id:uid(),name,kind:ks.value,drawPct:100,linkProfit:true,active:true,
-        color:BIZ_COLORS[db.businesses.length%BIZ_COLORS.length],created:todayISO(),note:""};
-      db.businesses.push(b); addBizOpen=false; openBiz=b.id; bizDetail=b.id; saveAll();};
-  } else ap.innerHTML="";
-
-  /* the list */
-  list.innerHTML=bizList().length?bizList().map(b=>{
-    const pl=bizPL(b.id,y), open=openBiz===b.id, draw=bizDraw(b.id,y);
-    return `<div class="brow${open?" editing":""}">
-      <div class="bmain" data-bizopen="${b.id}">
-        <span class="tdot" style="background:${b.color};width:10px;height:10px;flex:none"></span>
-        <div class="binfo"><div class="bname">${esc(b.name)}</div>
-          <div class="bmeta">${esc(BIZ_KINDS[b.kind].label)} · ${fmtK(pl.rev)} in · ${fmtK(pl.exp)} out${b.linkProfit?` · ${num(b.drawPct)}% to you`:` · <span class="bwarn">kept separate</span>`}</div></div>
-        <div class="bamt ${pl.profit>=0?"pos":"neg"}">${fmtK(pl.profit)}</div>
-      </div>
-      ${open?`<div class="bpanel">
-        <div class="deflist tight">
-          <div class="defrow"><span class="k">Revenue ${esc(y)}</span><span class="v pos">${fmt(pl.rev)}</span></div>
-          <div class="defrow"><span class="k">Expenses</span><span class="v neg">−${fmt(pl.exp)}</span></div>
-          <div class="defrow"><span class="k"><b>Net profit</b></span><span class="v ${pl.profit>=0?"pos":"neg"}"><b>${fmt(pl.profit)}</b></span></div>
-          <div class="defrow"><span class="k">Counts as your income</span><span class="v">${fmt(draw)}</span></div>
-        </div>
-        <div class="formgrid" style="margin-top:12px">
-          <div class="field"><label>Name</label><input data-bizname="${b.id}" value="${esc(b.name)}"></div>
-          <div class="field"><label>Type</label><select data-bizkind="${b.id}">${Object.entries(BIZ_KINDS).map(([v,o])=>`<option value="${v}" ${b.kind===v?"selected":""}>${o.label}</option>`).join("")}</select></div>
-        </div>
-        <label class="flex" style="gap:8px;font-size:15px;margin-top:12px"><input type="checkbox" data-bizlink="${b.id}" ${b.linkProfit?"checked":""}>
-          <span>Profit counts toward my personal income and net worth<br><span class="muted" style="font-size:13px">Turn this off to keep the business completely separate — useful once it has its own bank account.</span></span></label>
-        ${b.linkProfit?`<div class="field" style="margin-top:12px;max-width:320px"><label>How much of the profit you actually take</label>
-          <div class="flex" style="gap:10px;align-items:center">
-            <input type="range" min="0" max="100" step="5" data-bizdraw="${b.id}" value="${num(b.drawPct)}" style="flex:1">
-            <b style="width:52px;text-align:right;font-variant-numeric:tabular-nums">${num(b.drawPct)}%</b></div>
-          <span class="muted" style="font-size:12px">The rest stays in the business. ${fmt(draw)} of ${fmt(Math.max(0,pl.profit))} comes to you.</span></div>`:""}
-        <div class="field" style="margin-top:12px"><label>Note <span class="muted">(optional)</span></label><input data-biznote="${b.id}" value="${esc(b.note||"")}" placeholder="EIN, accountant, anything you'll forget"></div>
-        <div class="toolbar" style="margin-top:12px">
-          <button class="btn sm" data-bizview="${b.id}">Open the books</button>
-          <div class="spacer"></div>
-          <button class="btn ghost sm danger" data-bizdel="${b.id}">Delete</button>
-          <button class="btn sm" data-bizclose="1">Done</button>
-        </div>
-      </div>`:""}
-    </div>`;}).join("")
-    :`<div class="empty" style="padding:24px 16px">No businesses yet. Add one and a <b>Business</b> picker appears on every transaction and bill.</div>`;
-
-  list.querySelectorAll("[data-bizopen]").forEach(n=>n.onclick=e=>{
-    if(e.target.closest("button")||e.target.closest("select")||e.target.closest("input"))return;
-    const id=n.dataset.bizopen; openBiz=openBiz===id?null:id; renderBusiness();});
-  list.querySelectorAll("[data-bizclose]").forEach(n=>n.onclick=()=>{openBiz=null;renderBusiness();});
-  list.querySelectorAll("[data-bizview]").forEach(n=>n.onclick=()=>{bizDetail=n.dataset.bizview;renderBizDetail();
-    document.getElementById("bizDetailWrap").scrollIntoView({behavior:"smooth",block:"start"});});
-  list.querySelectorAll("[data-bizdel]").forEach(n=>n.onclick=()=>armConfirm(n,()=>{
-    const id=n.dataset.bizdel;
-    /* untag rather than orphan — the transactions themselves stay */
-    db.transactions.forEach(t=>{ if(t.bizId===id){delete t.bizId;delete t.bizPct;} });
-    db.recurring.forEach(b=>{ if(b.bizId===id){delete b.bizId;b.biz=false;} });
-    db.businesses=db.businesses.filter(x=>x.id!==id);
-    if(bizDetail===id)bizDetail=null; openBiz=null; saveAll();}));
-  const bind=(attr,fn)=>list.querySelectorAll("["+attr+"]").forEach(n=>{
-    const h=()=>{const b=bizOf(n.getAttribute(attr)); if(b){fn(b,n);saveAll();}};
-    n.oninput=n.type==="range"?h:null; n.onchange=h;});
-  bind("data-bizname",(b,n)=>b.name=n.value.trim()||b.name);
-  bind("data-bizkind",(b,n)=>b.kind=n.value);
-  bind("data-bizlink",(b,n)=>b.linkProfit=n.checked);
-  bind("data-bizdraw",(b,n)=>b.drawPct=num(n.value));
-  bind("data-biznote",(b,n)=>b.note=n.value);
-  renderBizDetail();
+  const idx=document.getElementById("bizIndex"), one=document.getElementById("bizOne");
+  if(!idx||!one)return;
+  const b=bizOf(bizOpen);
+  if(bizOpen&&!b)bizOpen=null;
+  idx.hidden=!!b; one.hidden=!b;
+  if(b) renderBizOne(b); else renderBizIndex();
 }
-function renderBizDetail(){
-  const wrap=document.getElementById("bizDetailWrap"); if(!wrap)return;
-  const b=bizOf(bizDetail);
-  wrap.hidden=!b; if(!b)return;
-  const years=[...new Set([todayISO().slice(0,4),...db.transactions.filter(t=>t.bizId===b.id).map(t=>String(t.date).slice(0,4))])].sort().reverse();
+/* ---------- the landing page ---------- */
+function renderBizIndex(){
+  const y=bizYear||todayISO().slice(0,4);
+  const all=bizList(), live=all.filter(x=>x.active!==false);
+  let rev=0,exp=0,profit=0;
+  live.forEach(x=>{const pl=bizPL(x.id,y); rev+=pl.rev; exp+=pl.exp; profit+=pl.profit;});
+  const margin=rev>0?profit/rev*100:null;
+  const draw=allBizDraw(y);
+  const hero=document.getElementById("bizHero");
+  /* the combined hero is not one business's, so it keeps the app's own green
+     rather than borrowing whichever colour happened to be first */
+  if(hero) hero.innerHTML=all.length?`<div class="dashhero">
+    ${db.settings.trees===false?"":HERO_LEAVES}
+    <div class="dh-top"><div class="dh-col">
+      <div class="dh-greet">${live.length} business${live.length===1?"":"es"} · ${esc(y)}</div>
+      <div class="dh-label">Combined profit</div>
+      <div class="dh-val">${fmt(profit)}</div>
+      <div class="dh-delta">${margin==null?"nothing tagged yet":`${Math.round(margin)}% margin on ${fmt(rev)} of work`}</div>
+    </div></div>
+    <div class="dh-rule"></div>
+    <div class="dh-stats">
+      <div class="dh-stat"><div class="k">Revenue</div><div class="v">${fmt(rev)}</div></div>
+      <div class="dh-stat"><div class="k">Expenses</div><div class="v">${fmt(exp)}</div></div>
+      <div class="dh-stat"><div class="k">Reaches you</div><div class="v">${fmt(draw)}</div></div>
+    </div></div>`:"";
+
+  const list=document.getElementById("bizList");
+  list.innerHTML=all.length?all.map(b=>{
+    const pl=bizPL(b.id,y), k=bizKindOf(b), st=stateOf(bizState(b));
+    const off=b.active===false;
+    return `<div class="brow${off?" muted":""}">
+      <button class="bmain" data-bizgo="${b.id}" style="width:100%;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer">
+        <span class="tdot" style="background:${b.color};width:10px;height:10px;flex:none"></span>
+        <div class="binfo"><div class="bname">${esc(b.name)}${off?` <span class="tag neutral">paused</span>`:""}</div>
+          <div class="bmeta"><span class="tmeta">${esc(k.label)} · ${esc(st?st.name:"—")}${b.linkProfit?"":` · <span class="bwarn">kept separate</span>`}</span></div></div>
+        <div style="text-align:right;flex:none">
+          <div class="bamt ${pl.profit>=0?"pos":"neg"}">${fmtK(pl.profit)}</div>
+          <div class="bmeta" style="justify-content:flex-end">${fmtK(pl.rev)} in</div></div>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex:none;opacity:.45"><path d="M9 6l6 6-6 6"/></svg>
+      </button></div>`;}).join("")
+    :`<div class="empty" style="padding:26px 16px">No businesses yet. Add one and a <b>Business</b> picker appears on every transaction and bill, the books build themselves from what you tag, and the profit lands on your tax estimate.</div>`;
+  list.querySelectorAll("[data-bizgo]").forEach(n=>n.onclick=()=>{
+    bizOpen=n.dataset.bizgo; renderBusiness();
+    const v=document.getElementById("view-business"); if(v)v.scrollIntoView({block:"start"});
+    window.scrollTo({top:0,behavior:"auto"});});
+
+  /* what all of it does to the tax bill, said once on the way past */
+  const tw=document.getElementById("bizIndexTax");
+  if(!tw)return;
+  if(!live.length){ tw.innerHTML=""; return; }
+  const sp=bizTaxSplit(y), e=taxEstimate(y);
+  const seTax=Math.max(0,sp.seNet)*0.9235*(num(taxCfg().seRate)/100);
+  tw.innerHTML=`<div class="sectiontitle"><h2>On your tax bill</h2><span class="hint">from these books</span></div>
+    <div class="card pad">
+      <div class="deflist tight">
+        ${sp.seNet>0?`<div class="defrow"><span class="k">Self-employment income</span><span class="v">${fmt(sp.seNet)}</span></div>`:""}
+        ${sp.passNet>0?`<div class="defrow"><span class="k">Distributions <span class="muted" style="font-weight:500">no SE tax</span></span><span class="v">${fmt(sp.passNet)}</span></div>`:""}
+        ${sp.wages>0?`<div class="defrow"><span class="k">Salary through payroll</span><span class="v">${fmt(sp.wages)}</span></div>`:""}
+        ${seTax>0?`<div class="defrow"><span class="k">Self-employment tax on it</span><span class="v neg">${fmt(seTax)}</span></div>`:""}
+        ${sp.stateTax>0?`<div class="defrow"><span class="k">State tax${sp.rows.some(r=>r.state!==homeState())?" <span class='muted' style='font-weight:500'>across "+new Set(sp.rows.map(r=>r.state)).size+" states</span>":""}</span><span class="v neg">${fmt(sp.stateTax)}</span></div>`:""}
+        ${sp.entityTax>0?`<div class="defrow"><span class="k">Corporate tax the business owes</span><span class="v neg">${fmt(sp.entityTax)}</span></div>`:""}
+        <div class="defrow"><span class="k"><b>Your whole estimated bill</b></span><span class="v neg"><b>${fmt(e.owed)}</b></span></div>
+      </div>
+      <div class="note" style="margin-top:14px;font-size:13px">Held so far: <b>${fmt(taxHeld())}</b>.
+        ${e.owed>e.reserved?`Still to set aside: <b class="neg">${fmt(e.owed-e.reserved)}</b>.`:`Fully covered.`}
+        <a href="#" data-go="tax">Open Tax</a> to change the rates or log a payment.</div>
+    </div>`;
+  tw.querySelectorAll("[data-go]").forEach(a=>a.onclick=ev=>{ev.preventDefault();setView(a.dataset.go);});
+}
+/* ---------- one business ---------- */
+function renderBizOne(b){
+  const years=[...new Set([todayISO().slice(0,4),String(b.started||b.created||todayISO()).slice(0,4),
+    ...db.transactions.filter(t=>t.bizId===b.id).map(t=>String(t.date).slice(0,4))])].sort().reverse();
   const y=(years.includes(bizYear)?bizYear:years[0])||todayISO().slice(0,4);
+  const pl=bizPL(b.id,y), k=bizKindOf(b), st=stateOf(bizState(b));
+  const margin=pl.rev>0?pl.profit/pl.rev*100:null;
+  const draw=bizDraw(b.id,y);
+
+  const hero=document.getElementById("bizOneHero");
+  hero.innerHTML=`<div class="dashhero biz" style="--bh:${b.color}">
+    ${db.settings.trees===false?"":HERO_LEAVES}
+    <div class="dh-top"><div class="dh-col">
+      <div class="dh-greet">${esc(k.label)} · ${esc(st?st.name:"—")} · ${esc(y)}</div>
+      <div class="dh-label">${esc(b.name)}</div>
+      <div class="dh-val">${fmt(pl.profit)}</div>
+      <div class="dh-delta">net profit${margin!=null?` · ${Math.round(margin)}% margin`:""}${b.legalName?` · ${esc(b.legalName)}`:""}</div>
+    </div></div>
+    <div class="dh-rule"></div>
+    <div class="dh-stats">
+      <div class="dh-stat"><div class="k">Revenue</div><div class="v">${fmt(pl.rev)}</div></div>
+      <div class="dh-stat"><div class="k">Expenses</div><div class="v">${fmt(pl.exp)}</div></div>
+      <div class="dh-stat"><div class="k">Tagged</div><div class="v">${pl.count}</div></div>
+      <div class="dh-stat"><div class="k">Reaches you</div><div class="v">${b.linkProfit?fmt(draw):"—"}</div>${b.linkProfit&&num(b.drawPct)<100?`<div class="dh-sub">${num(b.drawPct)}% of profit</div>`:""}</div>
+    </div></div>`;
+
   const ysel=document.getElementById("bizYear");
   ysel.innerHTML=years.map(x=>`<option ${x===y?"selected":""}>${x}</option>`).join("");
   ysel.onchange=()=>{bizYear=ysel.value;renderBusiness();};
-  document.getElementById("bizDetailTitle").textContent=b.name+" — profit & loss";
-  const pl=bizPL(b.id,y);
+  document.getElementById("bizEdit").onclick=()=>openBizEditor(b.id);
+  document.getElementById("bizExport").onclick=()=>exportBizCSV(b,y);
+
+  /* P&L */
   const cats=Object.entries(pl.byCat).sort((a,c)=>c[1]-a[1]);
   document.getElementById("bizPL").innerHTML=`
-    <div class="grid kpis" style="margin-bottom:14px">
-      <div class="card kpi"><div class="label">Revenue</div><div class="val pos">${fmt(pl.rev)}</div><div class="sub">${pl.count} tagged transaction${pl.count===1?"":"s"}</div></div>
-      <div class="card kpi"><div class="label">Expenses</div><div class="val neg">${fmt(pl.exp)}</div><div class="sub">${cats.length} categor${cats.length===1?"y":"ies"}${pl.billCount?` · ${pl.billCount} bill${pl.billCount===1?"":"s"}`:""}</div></div>
-      <div class="card kpi"><div class="label">Net profit</div><div class="val ${pl.profit>=0?"pos":""}">${fmt(pl.profit)}</div><div class="sub">${b.linkProfit?`${fmt(bizDraw(b.id,y))} counts as your income`:"kept separate from personal"}</div></div>
+    <div class="deflist tight">
+      <div class="defrow"><span class="k">Revenue</span><span class="v pos">${fmt(pl.rev)}</span></div>
+      ${cats.map(([c,v])=>`<div class="defrow"><span class="k" style="padding-left:12px">${esc(c)}</span><span class="v neg">−${fmt(v)}</span></div>`).join("")}
+      <div class="defrow"><span class="k">Total expenses</span><span class="v neg">−${fmt(pl.exp)}</span></div>
+      <div class="defrow"><span class="k"><b>Net profit</b></span><span class="v ${pl.profit>=0?"pos":"neg"}"><b>${fmt(pl.profit)}</b></span></div>
     </div>
-    ${cats.length?`<div class="deflist tight">${cats.map(([c,v])=>
-      `<div class="defrow"><span class="k">${esc(c)}</span><span class="v neg">−${fmt(v)}</span></div>`).join("")}</div>`
-      :`<div class="empty" style="padding:14px 0">No expenses tagged to this business yet.</div>`}`;
+    <div class="note" style="margin-top:14px;font-size:13px">${pl.count} tagged transaction${pl.count===1?"":"s"}${pl.billCount?` and ${pl.billCount} recurring bill${pl.billCount===1?"":"s"}`:""} in ${esc(y)}${b.method==="accrual"?" · accrual basis":""}. ${pl.office||pl.miles||pl.fee?`Includes ${[pl.office?fmt(pl.office)+" home office":null,pl.miles?fmt(pl.miles)+" of mileage":null,pl.fee?fmt(pl.fee)+" of state fees":null].filter(Boolean).join(", ")}.`:""}</div>`;
+
+  /* month by month — a year of books is a shape, not a number */
+  const cw=document.getElementById("bizChart");
+  const mo=bizByMonth(b.id,y);
+  cw.innerHTML=mo.any?`<div class="card pad">
+    <div class="between" style="margin-bottom:6px"><h2 style="font-size:16px">Month by month</h2>
+      <span class="muted" style="font-size:13px">revenue against profit</span></div>
+    ${chartLine([{name:"Revenue",color:cssVar("--pos","#059669"),points:mo.rev,area:true},
+      {name:"Profit",color:b.color,points:mo.profit}],{labels:mo.labels,h:180})}</div>`:"";
+
+  renderBizTax(b,y);
+  renderBizDeduct(b,y);
+
   /* Schedule C */
   const sc=Object.entries(pl.bySched).sort((a,c)=>c[1]-a[1]);
   document.getElementById("bizSched").innerHTML=sc.length?`<div class="deflist tight" style="padding:4px 16px 10px">
-      ${sc.map(([k,v])=>`<div class="defrow"><span class="k">Line ${esc(SCHED_C[k]?SCHED_C[k].line:"27a")} · ${esc(SCHED_C[k]?SCHED_C[k].label:k)}</span><span class="v">${fmt(v)}</span></div>`).join("")}
+      ${sc.map(([kk,v])=>{const o=SCHED_C[kk]||SCHED_C.other;
+        return `<div class="defrow"><span class="k">Line ${esc(o.line)} · ${esc(o.label)}${o.derived?` <span class="muted" style="font-weight:500">worked out here</span>`:""}</span><span class="v">${fmt(v)}</span></div>`;}).join("")}
       <div class="defrow"><span class="k"><b>Total expenses</b></span><span class="v"><b>${fmt(pl.exp)}</b></span></div>
-    </div>`
+    </div>
+    <div class="note" style="margin:0 16px 14px;font-size:13px">Filed on <b>${esc(k.form)}</b>${k.k1?" — the business files, then hands you a K-1":""}. Export the CSV and every row carries its line number.</div>`
     :`<div class="empty" style="padding:20px 16px">Tag expenses to this business and they map to Schedule C lines here.</div>`;
+
   /* tagged transactions */
   const tx=bizTx(b.id,y).slice().sort((a,c)=>c.date.localeCompare(a.date));
   const hint=document.getElementById("bizTxHint"); if(hint)hint.textContent=tx.length?`${tx.length} in ${y}`:"";
@@ -6951,7 +7286,405 @@ function renderBizDetail(){
         <div class="bmeta">${esc(shortDate(t.date))} · ${esc(t.category||"Uncategorized")}${share<100?` · ${share}% business`:""}</div></div>
       <div class="bamt ${bizAmt(t)>=0?"pos":""}">${fmt2(bizAmt(t))}</div></div></div>`;}).join("")}</div>`
     :`<div class="empty" style="padding:22px 16px">Nothing tagged yet. On any transaction in Spending, pick this business.</div>`;
-  document.getElementById("bizExport").onclick=()=>exportBizCSV(b,y);
+}
+/* Revenue and profit by month — the derived deductions are annual, so they're
+   spread evenly rather than dropped on whichever month you happen to be in. */
+function bizByMonth(id,year){
+  const y=String(year), rev=[],profit=[],labels=[];
+  const pl=bizPL(id,y);
+  const annual=(pl.office+pl.miles+pl.fee)/12;
+  const bills=db.recurring.filter(x=>x.bizId===id)
+    .reduce((s,x)=>s+billMonthly(x)*((x.bizPct===undefined?100:num(x.bizPct))/100),0);
+  const thisYear=y===todayISO().slice(0,4);
+  const last=thisYear?new Date().getMonth():11;
+  let any=false;
+  for(let m=0;m<=last;m++){
+    const mk=y+"-"+String(m+1).padStart(2,"0");
+    let r=0,e=0;
+    db.transactions.forEach(t=>{ if(t.bizId!==id||isNeutral(t))return;
+      if(monthKey(t.date)!==mk)return;
+      const a=bizAmt(t); if(a>0)r+=a; else e+=-a; });
+    if(r||e)any=true;
+    rev.push(r); profit.push(r-e-bills-annual); labels.push(shortMonth(mk));
+  }
+  return {rev,profit,labels,any};
+}
+/* ---------- what one business does to the tax bill ---------- */
+function renderBizTax(b,y){
+  const el=document.getElementById("bizTax"); if(!el)return;
+  const k=bizKindOf(b), st=stateOf(bizState(b)), c=taxCfg();
+  const sp=bizTaxSplit(y), row=sp.rows.find(r=>r.id===b.id);
+  const rate=bizStateRate(b);
+  if(b.linkProfit===false||b.active===false){
+    el.innerHTML=`<div class="empty" style="padding:6px 0">${b.active===false?"Paused":"Kept separate from your personal finances"}, so nothing from here reaches your tax estimate. ${b.linkProfit===false?"Turn <b>counts toward my income</b> back on in Edit if that changes.":""}</div>`;
+    return;
+  }
+  const profit=row?row.profit:0;
+  const seTax=row?row.seTax:0;
+  /* the same base the whole estimate uses: profit less half the SE tax. QBI and
+     a pre-tax contribution are worked out across everything you earn, so they
+     can't be attributed to one business — the Tax screen applies them. */
+  const taxBase=row?row.base:0;
+  const fedTax=taxBase*(num(c.fedRate)/100);
+  const sal=bizSalary(b,y);
+  /* The one comparison an S-corp election is actually made on: the same profit
+     taken as a sole proprietor, against a salary plus a distribution.
+     The 92.35% adjustment belongs to self-employment income only — a W-2 salary
+     meets the full 15.3% across the two halves, and the business pays one of
+     them. Applying the adjustment to the salary would flatter the election by
+     about 7% of it. */
+  const asSole=Math.max(0,row?row.se+row.pass+row.salary:0)*0.9235*(num(c.seRate)/100);
+  const payroll=Math.max(0,sal)*(num(c.seRate)/100);
+  const scorpSaving=k.salary?asSole-payroll:0;
+  const rows=[
+    ["Profit for the year",fmt(row?row.gross:0),""],
+    ownerShare(b)<1?["Your share",`${Math.round(ownerShare(b)*100)}% · ${fmt(profit+ (k.salary?sal:0))}`,""]:null,
+    k.salary?["Reasonable salary","−"+fmt(sal),"pos"]:null,
+    k.salary?["Distribution to you",fmt(Math.max(0,profit)),""]:null,
+    k.entity?[`Corporate tax at ${num(k.entityRate)}%`,"−"+fmt(row?row.entityTax:0),"neg"]:null,
+    row&&row.se>0?[`Self-employment tax at ${num(c.seRate)}%`,fmt(seTax),"neg"]:null,
+    row&&row.se>0?["Less half of it, off your income","−"+fmt(seTax/2),"pos"]:null,
+    ["Federal income tax at "+num(c.fedRate)+"%",fmt(fedTax),"neg"],
+    rate>0?[`${esc(st?st.name:"State")} tax at ${rate}%`,fmt(row?row.stateTax:0),"neg"]:null
+  ].filter(Boolean);
+  el.innerHTML=`<div class="deflist tight">
+      ${rows.map(([kk,v,cl])=>`<div class="defrow"><span class="k">${kk}</span><span class="v ${cl||""}">${v}</span></div>`).join("")}
+    </div>
+    ${k.salary?`<div class="note ${scorpSaving>0?"ok":""}" style="margin-top:14px;font-size:13px">
+      ${scorpSaving>0?`The election is saving you about <b>${fmt(scorpSaving)}</b> this year: the ${fmt(Math.max(0,profit))} distribution meets income tax but not the ${num(c.seRate)}% self-employment tax. That is after the ${fmt(payroll)} of payroll tax the ${fmt(sal)} salary does meet, both halves — the business pays one of them. It only holds if the salary is defensible for the work; an unreasonably low one is the first thing an audit looks at.`
+      :`Set a reasonable salary in Edit and this will show what the election saves against the same profit taken as a sole proprietor.`}
+      ${b.salaryBooked===false?` The salary isn't in the books as an expense, so it's taken off the profit here.`:` The salary is already logged as a wages expense, so the profit above is after it.`}</div>`:""}
+    ${bizIsAway(b)?`<div class="note warn" style="margin-top:14px;font-size:13px">This one operates in <b>${esc(st?st.name:"another state")}</b> and you live in <b>${esc(stateName(homeState())||"another state")}</b>. You will likely file in both; your home state normally credits what you pay away, so this charges the higher of the two rates (<b>${rate}%</b>) once rather than both. Two returns, one bill — but two sets of paperwork.</div>`:""}
+    ${stateNoteHTML(st,k,14)}
+    ${st&&st.none?`<div class="note ok" style="margin-top:14px;font-size:13px">${esc(st.name)} takes no state income tax, so only federal${k.se?" and self-employment":""} tax applies to this profit.</div>`:""}
+    ${!k.se&&!k.entity?"":""}
+    <div class="note" style="margin-top:14px;font-size:13px">${esc(st?(st.flat?"A flat rate, so this is the rate":"A graduated rate — this is roughly the marginal rate at a freelancer's income; set yours on the Tax screen if you know it"):"")}. Rates are a 2026 starting point, not a lookup. <a href="#" data-go="tax">Tax</a> holds the ones you can change.</div>`;
+  el.querySelectorAll("[data-go]").forEach(a=>a.onclick=ev=>{ev.preventDefault();setView(a.dataset.go);});
+}
+/* ---------- deductions ---------- */
+/* Claimed and open are different things: a deduction you switched on months ago
+   should show its figure and stay shut until you tap it, the same as a bill or
+   an envelope. */
+let _dedOpen=null;
+function renderBizDeduct(b,y){
+  const el=document.getElementById("bizDeduct"); if(!el)return;
+  const off=b.office||{}, mi=b.mileage||{};
+  const openOffice=off.on&&_dedOpen==="office", openMiles=mi.on&&_dedOpen==="mileage";
+  const officeAmt=homeOfficeDeduction(b), mileAmt=mileageDeduction(b,y), miles=mileageMiles(b,y);
+  const fee=stateFeeFor(b), st=stateOf(bizState(b));
+  const rowsInYear=(Array.isArray(mi.log)?mi.log:[]).filter(e=>String(e.date).slice(0,4)===String(y))
+    .slice().sort((a,c)=>c.date.localeCompare(a.date));
+  el.innerHTML=`
+    <div class="brow${openOffice?" editing":""}">
+      <div class="bmain" data-dedopen="office"${off.on?"":' style="cursor:default"'}>
+        <span class="tdot" style="background:var(--invest);flex:none"></span>
+        <div class="binfo"><div class="bname">Home office</div>
+          <div class="bmeta">${off.on?`${off.method==="actual"?"actual costs":`${num(off.sqft)} sq ft at $${HOME_OFFICE_RATE}`} · Schedule C line 30`:"not claimed"}</div></div>
+        <div class="bamt ${officeAmt>0?"pos":""}">${officeAmt>0?fmt(officeAmt):"—"}</div></div>
+      ${openOffice?`<div class="bpanel">
+        <div class="segoptions" style="margin-bottom:12px">
+          <button class="seg${off.method!=="actual"?" active":""}" data-offmethod="simplified">Simplified</button>
+          <button class="seg${off.method==="actual"?" active":""}" data-offmethod="actual">Actual costs</button>
+        </div>
+        <div class="formgrid">
+          <div class="field"><label>Office square feet</label><input id="offSqft" type="number" value="${esc(off.sqft||"")}" placeholder="120"></div>
+          ${off.method==="actual"?`<div class="field"><label>Whole home square feet</label><input id="offTotal" type="number" value="${esc(off.totalSqft||"")}" placeholder="1400"></div>
+          <div class="field"><label>Annual home costs</label><input id="offCosts" type="number" value="${esc(off.annualCosts||"")}" placeholder="rent, utilities, insurance"></div>`:""}
+        </div>
+        <div class="note" style="margin-top:12px;font-size:13px">${off.method==="actual"
+          ?`The office's share of what the home costs — ${num(off.totalSqft)>0?`${Math.round(Math.min(1,num(off.sqft)/num(off.totalSqft))*100)}% of ${fmt(num(off.annualCosts))}`:"fill in both figures"}. More paperwork than the simplified method, usually more money.`
+          :`$${HOME_OFFICE_RATE} a square foot, up to ${HOME_OFFICE_MAXFT} sq ft — so ${fmt(HOME_OFFICE_MAXFT*HOME_OFFICE_RATE)} is the ceiling. The space has to be used <b>regularly and exclusively</b> for the business; a desk in the corner of a bedroom that is also a bedroom does not qualify.`}</div>
+        <div class="toolbar" style="margin-top:12px"><div class="spacer"></div>
+          <button class="btn ghost sm" data-dedoff="office">Stop claiming</button>
+          <button class="btn sm" data-dedclose="1">Done</button></div>
+      </div>`:""}
+    </div>
+    <div class="brow${openMiles?" editing":""}">
+      <div class="bmain" data-dedopen="mileage"${mi.on?"":' style="cursor:default"'}>
+        <span class="tdot" style="background:var(--warn-ink);flex:none"></span>
+        <div class="binfo"><div class="bname">Business miles</div>
+          <div class="bmeta">${mi.on?`${Math.round(miles).toLocaleString()} mi at $${mileageRate(b).toFixed(2)} · Schedule C line 9`:"not claimed"}</div></div>
+        <div class="bamt ${mileAmt>0?"pos":""}">${mileAmt>0?fmt(mileAmt):"—"}</div></div>
+      ${openMiles?`<div class="bpanel">
+        <div class="formgrid">
+          <div class="field"><label>Rate per mile</label><input id="miRate" type="number" step="0.01" value="${mileageRate(b).toFixed(2)}"></div>
+        </div>
+        <div class="sectiontitle" style="margin:14px 0 8px"><h2 style="font-size:15px">Log a trip</h2></div>
+        <div class="formgrid">
+          <div class="field"><label>Date</label><input id="miDate" type="date" value="${todayISO()}"></div>
+          <div class="field"><label>Miles</label><input id="miMiles" type="number" placeholder="46"></div>
+          <div class="field"><label>Where to <span class="muted" style="font-weight:400">optional</span></label><input id="miNote" placeholder="Set — Buckhead"></div>
+          <button class="btn primary" id="miAdd">Add trip</button>
+        </div>
+        ${rowsInYear.length?`<div class="${rowsInYear.length>5?"scrollrows":""}" style="margin-top:10px">${rowsInYear.map(e=>
+          `<div class="brow"><div class="bmain" style="cursor:default">
+            <div class="binfo"><div class="bname" style="font-size:14.5px">${esc(e.note||"Business trip")}</div>
+              <div class="bmeta">${esc(shortDate(e.date))} · ${fmt2(num(e.miles)*mileageRate(b))}</div></div>
+            <div class="bamt">${Math.round(num(e.miles))} mi</div>
+            <button class="btn ghost sm danger" data-midel="${e.id}">Delete</button></div></div>`).join("")}</div>`
+        :`<div class="empty" style="padding:14px 0">No trips logged for ${esc(y)} yet.</div>`}
+        <div class="note" style="margin-top:12px;font-size:13px">The standard rate replaces every actual car cost — fuel, insurance, repairs, depreciation. You take one method or the other, never both, and the rate changes each year. Keep the log: the date, the miles and the reason are exactly what gets asked for.</div>
+        <div class="toolbar" style="margin-top:12px"><div class="spacer"></div>
+          <button class="btn ghost sm" data-dedoff="mileage">Stop claiming</button>
+          <button class="btn sm" data-dedclose="1">Done</button></div>
+      </div>`:""}
+    </div>
+    <div class="brow">
+      <div class="bmain" style="cursor:default">
+        <span class="tdot" style="background:var(--muted);flex:none"></span>
+        <div class="binfo"><div class="bname">State filing fee</div>
+          <div class="bmeta">${fee>0?`${esc(st?st.name:"")} · charged whether or not you earn`:"none on file for this state"}</div></div>
+        <div class="bamt">${fee>0?fmt(fee):"—"}</div>
+        ${fee>0?`<label class="flex" style="gap:6px;font-size:13px;flex:none"><input type="checkbox" id="feeBooked" ${b.feeBooked!==false?"checked":""}><span class="muted">in books</span></label>`:""}
+      </div>
+    </div>
+    ${(!off.on||!mi.on)?`<div class="pad" style="padding-top:4px"><div class="toolbar">
+      ${!off.on?`<button class="btn sm" data-dedon="office">+ Home office</button>`:""}
+      ${!mi.on?`<button class="btn sm" data-dedon="mileage">+ Mileage</button>`:""}
+    </div></div>`:""}`;
+
+  const save=()=>saveAll();
+  el.querySelectorAll("[data-dedon]").forEach(n=>n.onclick=()=>{
+    const w=n.dataset.dedon;
+    if(w==="office")b.office=Object.assign({method:"simplified",sqft:0,totalSqft:0,annualCosts:0},b.office||{},{on:true});
+    else b.mileage=Object.assign({rate:MILEAGE_RATE_DEFAULT,log:[]},b.mileage||{},{on:true});
+    /* switching one on is the one time it opens itself — there is a number to
+       type before it means anything */
+    _dedOpen=w; save();});
+  el.querySelectorAll("[data-dedoff]").forEach(n=>n.onclick=()=>{
+    const w=n.dataset.dedoff;
+    if(w==="office")b.office.on=false; else b.mileage.on=false;
+    _dedOpen=null; save();});
+  el.querySelectorAll("[data-dedopen]").forEach(n=>n.onclick=e=>{
+    if(e.target.closest("button,input,select,label"))return;
+    const w=n.dataset.dedopen, o=w==="office"?b.office:b.mileage;
+    if(!o||!o.on)return;
+    _dedOpen=_dedOpen===w?null:w; renderBizDeduct(b,y);});
+  el.querySelectorAll("[data-dedclose]").forEach(n=>n.onclick=()=>{_dedOpen=null;renderBizDeduct(b,y);});
+  el.querySelectorAll("[data-offmethod]").forEach(n=>n.onclick=()=>{b.office.method=n.dataset.offmethod;save();});
+  const on=(id,fn)=>{const n=el.querySelector("#"+id); if(n)n.onchange=()=>{fn(n);save();};};
+  on("offSqft",n=>b.office.sqft=num(n.value));
+  on("offTotal",n=>b.office.totalSqft=num(n.value));
+  on("offCosts",n=>b.office.annualCosts=num(n.value));
+  on("miRate",n=>b.mileage.rate=num(n.value));
+  on("feeBooked",n=>b.feeBooked=n.checked);
+  const add=el.querySelector("#miAdd");
+  if(add)add.onclick=()=>{ const d=el.querySelector("#miDate").value||todayISO();
+    const m=num(el.querySelector("#miMiles").value);
+    if(!m){el.querySelector("#miMiles").focus();return;}
+    b.mileage.log.push({id:uid(),date:normalizeDate(d),miles:m,note:el.querySelector("#miNote").value.trim()});
+    save();};
+  el.querySelectorAll("[data-midel]").forEach(n=>n.onclick=()=>armConfirm(n,()=>{
+    b.mileage.log=b.mileage.log.filter(x=>x.id!==n.dataset.midel); save();}));
+}
+
+/* ---------- editing a business ---------- */
+/* Behind the Edit button, in the sheet, like every other editor in the app. */
+let _bizEdit=null;
+function openBizEditor(id){
+  _bizEdit=id;
+  openEditor({kicker:"Business",title:bizName(id)||"Business",
+    html:bizEditorHTML, wire:wireBizEditor, onClose:()=>{_bizEdit=null;renderBusiness();}});
+}
+function bizEditorHTML(){
+  const b=bizOf(_bizEdit); if(!b)return "";
+  const k=bizKindOf(b), st=stateOf(bizState(b));
+  return `<div class="formgrid">
+      <div class="field"><label>Name</label><input id="be-name" value="${esc(b.name)}"></div>
+      <div class="field"><label>Legal name <span class="muted" style="font-weight:400">if it differs</span></label>
+        <input id="be-legal" value="${esc(b.legalName||"")}" placeholder="${esc(b.name)} LLC"></div>
+      <div class="field"><label>Type</label><select id="be-kind">${Object.entries(BIZ_KINDS)
+        .map(([v,o])=>`<option value="${v}" ${b.kind===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
+      <div class="field"><label>State it operates in</label><select id="be-state">${Object.entries(US_STATES)
+        .map(([v,o])=>`<option value="${v}" ${bizState(b)===v?"selected":""}>${esc(o.name)}</option>`).join("")}</select></div>
+      <div class="field"><label>Started</label><input id="be-started" type="date" value="${esc(String(b.started||b.created||"").slice(0,10))}"></div>
+      <div class="field"><label>EIN <span class="muted" style="font-weight:400">optional</span></label><input id="be-ein" value="${esc(b.ein||"")}" placeholder="12-3456789"></div>
+      <div class="field"><label>What it does</label><input id="be-industry" value="${esc(b.industry||"")}" placeholder="Photography &amp; video production"></div>
+      <div class="field"><label>Accounting method</label><select id="be-method">${Object.entries(ACCT_METHODS)
+        .map(([v,o])=>`<option value="${v}" ${b.method===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
+    </div>
+    <div class="note" style="margin-top:14px;font-size:13px">${k.note}</div>
+    ${stateNoteHTML(st,k,10)}
+
+    ${k.k1?`<div class="field" style="margin-top:16px"><label>Your ownership share</label>
+      <div class="flex" style="gap:10px;align-items:center">
+        <input type="range" min="1" max="100" step="1" id="be-owner" value="${num(b.ownerPct)}" style="flex:1">
+        <b style="width:52px;text-align:right;font-variant-numeric:tabular-nums">${num(b.ownerPct)}%</b></div>
+      <span class="muted" style="font-size:12px">Only your share of the profit is yours to be taxed on.</span></div>`:""}
+
+    ${k.salary?`<div class="formgrid" style="margin-top:16px">
+      <div class="field"><label>Reasonable salary <span class="muted" style="font-weight:400">a year</span></label>
+        <input id="be-salary" type="number" value="${esc(b.salary||"")}" placeholder="60000"></div>
+    </div>
+    <label class="flex" style="gap:8px;font-size:15px;margin-top:10px"><input type="checkbox" id="be-salbooked" ${b.salaryBooked!==false?"checked":""}>
+      <span>The salary is already an expense in these books<br><span class="muted" style="font-size:13px">Tick this if payroll runs through a tagged transaction. Leave it off and the salary is taken off the profit here instead, so the distribution isn't overstated.</span></span></label>
+    <div class="note" style="margin-top:12px;font-size:13px">The IRS wants the salary to match what the work is worth. Too low and the whole election is at risk; the saving is real but it is not free.</div>`:""}
+
+    <div class="field" style="margin-top:16px"><label>State filing fee <span class="muted" style="font-weight:400">a year</span></label>
+      <input id="be-fee" type="number" value="${b.stateFee===undefined||b.stateFee===""?"":esc(b.stateFee)}" placeholder="${st&&st.fee?st.fee:0}"></div>
+    <span class="muted" style="font-size:12px">${st&&st.fee&&k.registered?`${esc(st.name)} charges about ${fmt(st.fee)} — leave it blank to use that.`:k.registered?`Nothing on file for ${esc(st?st.name:"this state")}. Type one if there is.`:`A sole proprietorship registers nothing, so there is usually no fee. Type one if you pay for a licence or a permit.`}</span>
+
+    <label class="flex" style="gap:8px;font-size:15px;margin-top:16px"><input type="checkbox" id="be-link" ${b.linkProfit?"checked":""}>
+      <span>Profit counts toward my personal income and tax<br><span class="muted" style="font-size:13px">Turn this off to keep the business completely separate — nothing from it reaches your estimate or your net worth.</span></span></label>
+    ${b.linkProfit?`<div class="field" style="margin-top:14px"><label>How much of the profit you actually take</label>
+      <div class="flex" style="gap:10px;align-items:center">
+        <input type="range" min="0" max="100" step="5" id="be-draw" value="${num(b.drawPct)}" style="flex:1">
+        <b style="width:52px;text-align:right;font-variant-numeric:tabular-nums">${num(b.drawPct)}%</b></div>
+      <span class="muted" style="font-size:12px">The rest stays in the business. You are taxed on the profit either way — this only changes what lands in your pocket.</span></div>`:""}
+
+    <label class="flex" style="gap:8px;font-size:15px;margin-top:14px"><input type="checkbox" id="be-active" ${b.active!==false?"checked":""}>
+      <span>Active<br><span class="muted" style="font-size:13px">Pause a business and its books stay but stop counting anywhere.</span></span></label>
+
+    <div class="field" style="margin-top:14px"><label>Note <span class="muted" style="font-weight:400">optional</span></label>
+      <input id="be-note" value="${esc(b.note||"")}" placeholder="accountant, registered agent, anything you'll forget"></div>
+
+    <div class="toolbar" style="margin-top:20px">
+      <button class="btn ghost sm danger" id="be-del">Delete business</button>
+      <div class="spacer"></div>
+    </div>`;
+}
+function wireBizEditor(body){
+  const b=bizOf(_bizEdit); if(!b)return;
+  const g=id=>body.querySelector("#"+id);
+  /* changing the type or the link changes which fields exist, so those redraw;
+     everything else saves in place so typing is never interrupted */
+  const redraw=fn=>()=>{fn();saveAll();renderEditor();};
+  const set=(id,fn,ev)=>{const n=g(id); if(n)n[ev||"onchange"]=()=>{fn(n);saveAll();};};
+  set("be-name",n=>b.name=n.value.trim()||b.name);
+  set("be-legal",n=>b.legalName=n.value.trim());
+  set("be-started",n=>b.started=normalizeDate(n.value||todayISO()));
+  set("be-ein",n=>b.ein=n.value.trim());
+  set("be-industry",n=>b.industry=n.value.trim());
+  set("be-method",n=>b.method=n.value);
+  set("be-salary",n=>b.salary=num(n.value));
+  set("be-salbooked",n=>b.salaryBooked=n.checked);
+  set("be-fee",n=>b.stateFee=n.value===""?undefined:num(n.value));
+  set("be-note",n=>b.note=n.value);
+  set("be-active",n=>b.active=n.checked);
+  const kk=g("be-kind"); if(kk)kk.onchange=redraw(()=>b.kind=kk.value);
+  const ss=g("be-state"); if(ss)ss.onchange=redraw(()=>b.state=ss.value);
+  const ln=g("be-link"); if(ln)ln.onchange=redraw(()=>b.linkProfit=ln.checked);
+  const dr=g("be-draw"); if(dr){dr.oninput=()=>{b.drawPct=num(dr.value);
+    const lab=dr.parentElement.querySelector("b"); if(lab)lab.textContent=num(dr.value)+"%";};
+    dr.onchange=()=>saveAll();}
+  const ow=g("be-owner"); if(ow){ow.oninput=()=>{b.ownerPct=num(ow.value);
+    const lab=ow.parentElement.querySelector("b"); if(lab)lab.textContent=num(ow.value)+"%";};
+    ow.onchange=()=>saveAll();}
+  const del=g("be-del"); if(del)del.onclick=()=>armConfirm(del,()=>{
+    const id=b.id;
+    /* untag rather than orphan — the transactions themselves stay */
+    db.transactions.forEach(t=>{ if(t.bizId===id){delete t.bizId;delete t.bizPct;} });
+    db.recurring.forEach(x=>{ if(x.bizId===id){delete x.bizId;x.biz=false;} });
+    db.businesses=db.businesses.filter(x=>x.id!==id);
+    bizOpen=null; closeEditor(); saveAll();});
+}
+
+/* ---------- onboarding ----------
+   Four steps instead of two fields. Everything asked for here changes a number
+   somewhere: the type decides which taxes the profit meets, the state decides
+   the rate and the annual fee, the split decides what reaches you. Every step
+   can be skipped — the defaults are the common answer — but a business set up
+   properly on day one is a year of books that doesn't need unpicking. */
+let _newBiz=null;
+const BIZ_STEPS=["What it is","How it's taxed","How it pays you","Deductions"];
+function openAddBiz(){
+  _newBiz={step:0,name:"",legalName:"",kind:"sole",state:homeState(),started:todayISO(),
+    ein:"",industry:"",method:"cash",ownerPct:100,salary:"",linkProfit:true,drawPct:100,
+    office:false,officeSqft:"",mileage:false};
+  openEditor({kicker:"New business",title:"Set one up",closeLabel:"Cancel",
+    html:addBizHTML, wire:wireAddBiz, onClose:()=>{_newBiz=null;}});
+}
+function addBizHTML(){
+  const d=_newBiz||{}, k=BIZ_KINDS[d.kind]||BIZ_KINDS.sole, st=stateOf(d.state);
+  const dots=BIZ_STEPS.map((s,i)=>`<span class="bizdot${i===d.step?" on":i<d.step?" done":""}"></span>`).join("");
+  const head=`<div class="bizsteps">${dots}<span class="bizstepname">${esc(BIZ_STEPS[d.step])}</span></div>`;
+  let body="";
+  if(d.step===0) body=`<div class="formgrid">
+      <div class="field"><label>What do you call it?</label><input id="nb-name" value="${esc(d.name)}" placeholder="L Roy Media"></div>
+      <div class="field"><label>Legal name <span class="muted" style="font-weight:400">if it differs</span></label>
+        <input id="nb-legal" value="${esc(d.legalName)}" placeholder="leave blank if it's the same"></div>
+      <div class="field"><label>What does it do?</label><input id="nb-industry" value="${esc(d.industry)}" placeholder="Photography &amp; video production"></div>
+      <div class="field"><label>When did it start?</label><input id="nb-started" type="date" value="${esc(d.started)}"></div>
+    </div>
+    <div class="note" style="margin-top:14px;font-size:13px">You don't need a separate bank account or an LLC to start. Tag transactions to it and the books build themselves.</div>`;
+  else if(d.step===1) body=`<div class="formgrid">
+      <div class="field"><label>How is it set up?</label><select id="nb-kind">${Object.entries(BIZ_KINDS)
+        .map(([v,o])=>`<option value="${v}" ${d.kind===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
+      <div class="field"><label>Which state does it operate in?</label><select id="nb-state">${Object.entries(US_STATES)
+        .map(([v,o])=>`<option value="${v}" ${d.state===v?"selected":""}>${esc(o.name)}</option>`).join("")}</select></div>
+      <div class="field"><label>EIN <span class="muted" style="font-weight:400">optional</span></label><input id="nb-ein" value="${esc(d.ein)}" placeholder="12-3456789"></div>
+      <div class="field"><label>Accounting method</label><select id="nb-method">${Object.entries(ACCT_METHODS)
+        .map(([v,o])=>`<option value="${v}" ${d.method===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
+      ${k.k1?`<div class="field"><label>Your ownership share (%)</label><input id="nb-owner" type="number" min="1" max="100" value="${esc(d.ownerPct)}"></div>`:""}
+      ${k.salary?`<div class="field"><label>Reasonable salary a year</label><input id="nb-salary" type="number" value="${esc(d.salary)}" placeholder="60000"></div>`:""}
+    </div>
+    <div class="note" style="margin-top:14px;font-size:13px"><b>${esc(k.label)}:</b> ${k.note}</div>
+    ${st?`<div class="note ${st.none?"ok":""}" style="margin-top:10px;font-size:13px"><b>${esc(st.name)}:</b> ${st.none?"no state income tax on this profit":`${st.flat?"flat":"graduated"} income tax, around <b>${st.rate}%</b>`}${st.fee&&k.registered?` · about <b>${fmt(st.fee)}</b> a year to keep the entity registered`:""}.${st.note?` ${st.note}`:""}${st.feeNote&&k.registered?` ${st.feeNote}`:""}</div>`:""}
+    <div class="muted" style="font-size:12px;margin-top:10px">${ACCT_METHODS[d.method]?ACCT_METHODS[d.method].note:""}</div>`;
+  else if(d.step===2) body=`<label class="flex" style="gap:8px;font-size:15px"><input type="checkbox" id="nb-link" ${d.linkProfit?"checked":""}>
+      <span>Its profit counts toward my personal income and tax<br><span class="muted" style="font-size:13px">Almost always yes for a pass-through — the profit is on your return whether or not you move the money. Turn it off only to keep a business completely separate.</span></span></label>
+    ${d.linkProfit?`<div class="field" style="margin-top:16px"><label>How much of the profit do you actually take?</label>
+      <div class="flex" style="gap:10px;align-items:center">
+        <input type="range" min="0" max="100" step="5" id="nb-draw" value="${d.drawPct}" style="flex:1">
+        <b style="width:52px;text-align:right;font-variant-numeric:tabular-nums">${d.drawPct}%</b></div>
+      <span class="muted" style="font-size:12px">The rest is reinvested and stays in the business.</span></div>
+      <div class="note" style="margin-top:14px;font-size:13px">This only changes what lands in your pocket and your net worth. You are taxed on ${d.drawPct<100?"the whole profit":"it"} either way — leaving money in the business does not defer the tax on a pass-through.</div>`:
+      `<div class="note warn" style="margin-top:14px;font-size:13px">Kept separate: nothing from this business will reach your tax estimate, your income or your net worth. Useful when it has its own accountant and its own bank account.</div>`}`;
+  else body=`<label class="flex" style="gap:8px;font-size:15px"><input type="checkbox" id="nb-office" ${d.office?"checked":""}>
+      <span>I work from home<br><span class="muted" style="font-size:13px">$${HOME_OFFICE_RATE} a square foot on space used regularly and exclusively for the business, up to ${HOME_OFFICE_MAXFT} sq ft.</span></span></label>
+    ${d.office?`<div class="field" style="margin-top:12px;max-width:260px"><label>Office square feet</label>
+      <input id="nb-sqft" type="number" value="${esc(d.officeSqft)}" placeholder="120"></div>
+      ${num(d.officeSqft)>0?`<div class="note ok" style="margin-top:10px;font-size:13px">About <b>${fmt(Math.min(HOME_OFFICE_MAXFT,num(d.officeSqft))*HOME_OFFICE_RATE)}</b> a year off the books.</div>`:""}`:""}
+    <label class="flex" style="gap:8px;font-size:15px;margin-top:16px"><input type="checkbox" id="nb-mileage" ${d.mileage?"checked":""}>
+      <span>I drive for it<br><span class="muted" style="font-size:13px">$${MILEAGE_RATE_DEFAULT.toFixed(2)} a mile at the standard rate, logged trip by trip. For anyone driving to sets this is usually the largest deduction there is.</span></span></label>
+    <div class="note" style="margin-top:16px;font-size:13px">Both of these can be switched on later from the business's own screen, and both need a record behind them — square footage, or a log with dates and reasons.</div>`;
+  const last=d.step===BIZ_STEPS.length-1;
+  return head+body+`<div class="toolbar" style="margin-top:22px">
+      ${d.step>0?`<button class="btn ghost sm" id="nb-back">Back</button>`:""}
+      <div class="spacer"></div>
+      ${last?`<button class="btn primary" id="nb-done">Create business</button>`
+        :`<button class="btn primary" id="nb-next">Next</button>`}
+    </div>`;
+}
+function wireAddBiz(body){
+  const d=_newBiz; if(!d)return;
+  const g=id=>body.querySelector("#"+id);
+  const keep=()=>{ const v=id=>{const n=g(id);return n?n.value:undefined;};
+    const c=id=>{const n=g(id);return n?n.checked:undefined;};
+    const put=(k2,val)=>{if(val!==undefined)d[k2]=val;};
+    put("name",v("nb-name")); put("legalName",v("nb-legal")); put("industry",v("nb-industry"));
+    put("started",v("nb-started")); put("ein",v("nb-ein")); put("method",v("nb-method"));
+    put("ownerPct",v("nb-owner")); put("salary",v("nb-salary")); put("officeSqft",v("nb-sqft"));
+    put("linkProfit",c("nb-link")); put("office",c("nb-office")); put("mileage",c("nb-mileage")); };
+  ["nb-name","nb-legal","nb-industry","nb-started","nb-ein","nb-owner","nb-salary"].forEach(id=>{
+    const n=g(id); if(n)n.oninput=keep;});
+  const m=g("nb-method"); if(m)m.onchange=()=>{keep();renderEditor();};
+  const kk=g("nb-kind"); if(kk)kk.onchange=()=>{keep();d.kind=kk.value;renderEditor();};
+  const ss=g("nb-state"); if(ss)ss.onchange=()=>{keep();d.state=ss.value;renderEditor();};
+  const ln=g("nb-link"); if(ln)ln.onchange=()=>{keep();renderEditor();};
+  const of=g("nb-office"); if(of)of.onchange=()=>{keep();renderEditor();};
+  const sq=g("nb-sqft"); if(sq)sq.oninput=()=>{keep();};
+  if(sq)sq.onchange=()=>{keep();renderEditor();};
+  const dr=g("nb-draw"); if(dr){dr.oninput=()=>{d.drawPct=num(dr.value);
+    const lab=dr.parentElement.querySelector("b"); if(lab)lab.textContent=d.drawPct+"%";};}
+  const bk=g("nb-back"); if(bk)bk.onclick=()=>{keep();d.step=Math.max(0,d.step-1);renderEditor();};
+  const nx=g("nb-next"); if(nx)nx.onclick=()=>{ keep();
+    if(d.step===0&&!String(d.name||"").trim()){ const n=g("nb-name"); if(n)n.focus(); return; }
+    d.step=Math.min(BIZ_STEPS.length-1,d.step+1); renderEditor();};
+  const dn=g("nb-done"); if(dn)dn.onclick=()=>{ keep();
+    const name=String(d.name||"").trim();
+    if(!name){ d.step=0; renderEditor(); return; }
+    const b={id:uid(),name,legalName:String(d.legalName||"").trim(),kind:d.kind,state:d.state,
+      started:normalizeDate(d.started||todayISO()),created:todayISO(),
+      ein:String(d.ein||"").trim(),industry:String(d.industry||"").trim(),method:d.method||"cash",
+      ownerPct:Math.max(1,Math.min(100,num(d.ownerPct)||100)),
+      salary:num(d.salary),salaryBooked:false,feeBooked:true,
+      linkProfit:d.linkProfit!==false,drawPct:num(d.drawPct),active:true,note:"",
+      color:BIZ_COLORS[db.businesses.length%BIZ_COLORS.length],
+      office:{on:!!d.office,method:"simplified",sqft:num(d.officeSqft),totalSqft:0,annualCosts:0},
+      mileage:{on:!!d.mileage,rate:MILEAGE_RATE_DEFAULT,log:[]}};
+    db.businesses.push(b);
+    bizOpen=b.id; closeEditor(); saveAll();};
 }
 /* A CSV an accountant can actually use — Schedule C line on every row. */
 function exportBizCSV(b,y){
@@ -7023,15 +7756,22 @@ function renderTax(){
   /* the arithmetic, shown */
   const yh=document.getElementById("taxYearHint"); if(yh)yh.textContent=e.year;
   const row=(k,v,cls,sub)=>`<div class="defrow"><span class="k">${k}${sub?`<br><span style="font-size:12px;opacity:.7">${sub}</span>`:""}</span><span class="v ${cls||""}">${v}</span></div>`;
+  const sp=e.split||bizTaxSplit(e.year);
+  const away=sp.rows.filter(r=>r.state!==homeState());
+  const effState=e.incomeBase>0?e.state/Math.max(1,e.incomeBase-e.pre)*100:num(c.stateRate);
   document.getElementById("taxBreak").innerHTML=`
     <div class="deflist tight">
       ${row("1099 income paid to you",fmt(e.inc.fromPay),"","from paychecks on streams marked self-employed")}
-      ${row("Business profit",fmt(e.inc.fromBiz),"","revenue less expenses across your businesses")}
+      ${row("Business profit",fmt(e.inc.fromBiz),"",sp.rows.length?"the share of your businesses' profit that meets self-employment tax":"revenue less expenses across your businesses")}
       ${row("<b>Net self-employment income</b>","<b>"+fmt(e.net)+"</b>","")}
       ${row("Self-employment tax",fmt(e.se),"neg",`${num(c.seRate)}% on ${fmt(e.seBase)} — 92.35% of net, the standard base`)}
+      ${e.pass>0?row("S-corp distributions",fmt(e.pass),"","income tax but no self-employment tax — that split is the point of the election"):""}
       ${e.pre>0?row("Less pre-tax retirement","−"+fmt(e.pre),"pos","your own contributions this year — off income tax, not off SE tax"):""}
       ${row("Federal income tax",fmt(e.fed),"neg",`${num(c.fedRate)}% marginal on ${fmt(e.fedBase)}${c.qbi?" after the 20% QBI deduction":""}`)}
-      ${row(esc(c.stateName)+" state tax",fmt(e.state),"neg",`${num(c.stateRate)}% of net less half your SE tax${e.pre>0?" and your contributions":""}`)}
+      ${row(away.length?"State tax":esc(c.stateName)+" state tax",fmt(e.state),"neg",
+        away.length?`a blended ${effState.toFixed(2)}% — ${esc(c.stateName)} on everything personal, and each business at its own state's rate`
+          :`${num(c.stateRate)}% of net less half your SE tax${e.pre>0?" and your contributions":""}`)}
+      ${e.entity>0?row("Corporate tax your business owes",fmt(e.entity),"neg","a C corp pays its own before anything reaches you"):""}
       ${row("<b>Estimated for the year</b>","<b class='neg'>"+fmt(e.gross)+"</b>","")}
       ${e.credit>0?row("Less W-2 already withheld","−"+fmt(e.credit),"pos","tax your employer already sent in"):""}
       ${num(c.otherCredits)?row("Less other credits","−"+fmt(num(c.otherCredits)),"pos"):""}
@@ -7039,7 +7779,15 @@ function renderTax(){
       ${row("Effective rate on 1099 income",e.rate.toFixed(1)+"%","","this is the percentage held back from each payment")}
       ${row("Paid so far",fmt(e.paid),"pos")}
     </div>
+    ${sp.rows.length?`<div class="sectiontitle" style="margin:18px 0 8px"><h2 style="font-size:15px">Which business it comes from</h2></div>
+    <div class="deflist tight">
+      ${sp.rows.map(r=>`<div class="defrow"><span class="k">${esc(r.name)}
+        <br><span style="font-size:12px;opacity:.7">${esc(BIZ_KINDS[r.kind]?BIZ_KINDS[r.kind].label:r.kind)} · ${esc(stateName(r.state))} at ${r.rate}%${r.salary>0?` · ${fmt(r.salary)} salary, ${fmt(Math.max(0,r.pass))} distributed`:""}</span></span>
+        <span class="v">${fmt(Math.max(0,r.se+r.pass))}</span></div>`).join("")}
+    </div>
+    ${away.length?`<div class="note warn" style="margin-top:12px;font-size:13px">${away.length===1?`<b>${esc(away[0].name)}</b> operates in <b>${esc(stateName(away[0].state))}</b>`:`${away.length} businesses operate outside ${esc(c.stateName)}`} — expect a return in each state. Your home state normally credits what you pay away, so this charges the higher rate once rather than both. <a href="#" data-go="business">Business</a> holds the details.</div>`:""}`:""}
     <div class="note warn" style="margin-top:14px">An estimate from the rates above, not a filing. It uses your <b>marginal</b> federal rate on all of it, which over-reserves slightly on purpose — being short in April is worse than being early. Confirm the numbers with a CPA who knows film-industry 1099 work.</div>`;
+  document.querySelectorAll("#taxBreak [data-go]").forEach(a=>a.onclick=ev=>{ev.preventDefault();setView(a.dataset.go);});
 
   /* editable assumptions */
   const f=(id,label,val,sub,step)=>`<div class="field"><label>${label}</label>
@@ -7056,9 +7804,16 @@ function renderTax(){
         ? f("txFlat","Hold back (%)",num(c.flatRate),"applied to every 1099 payment","0.1")
         : `${f("txSE","Self-employment tax (%)",num(c.seRate),"15.3% — Social Security and Medicare, both halves","0.1")}
            ${f("txFed","Federal marginal rate (%)",num(c.fedRate),"22% covers roughly $48k–$103k single in 2026","1")}
-           ${f("txState",esc(c.stateName)+" rate (%)",num(c.stateRate),"Georgia's flat rate is 5.39% for 2026","0.01")}
+           <div class="field"><label>State you live in</label>
+             <select id="txStateSel">${Object.entries(US_STATES)
+               .map(([v,o])=>`<option value="${v}" ${homeState()===v?"selected":""}>${esc(o.name)}</option>`).join("")}</select>
+             <span class="muted" style="font-size:12px">${(()=>{const hs=stateOf(homeState());
+               return hs?(hs.none?`${esc(hs.name)} takes no income tax.`
+                 :`${hs.flat?"Flat rate":"Graduated — this is roughly the marginal rate at a freelancer's income"}. Change it below if you know yours.`):"";})()}</span></div>
+           ${f("txState",esc(c.stateName)+" rate (%)",num(c.stateRate),"picking a state fills this in — correct it if you know better","0.01")}
            ${f("txCred","Other credits ($)",num(c.otherCredits),"anything already paid or credited","1")}`}
     </div>
+    ${(()=>{const hs=stateOf(homeState()); return hs&&hs.note?`<div class="note" style="margin-top:12px;font-size:13px"><b>${esc(hs.name)}:</b> ${hs.note}</div>`:"";})()}
     ${c.mode!=="flat"?`<label class="flex" style="gap:8px;font-size:15px;margin-top:12px"><input type="checkbox" id="txQbi" ${c.qbi?"checked":""}>
       <span>Take the 20% qualified business income deduction<br><span class="muted" style="font-size:13px">Most sole proprietors under the income threshold qualify. Ask your CPA before relying on it.</span></span></label>
     <label class="flex" style="gap:8px;font-size:15px;margin-top:10px"><input type="checkbox" id="txCredW2" ${c.creditW2!==false?"checked":""}>
@@ -7122,6 +7877,10 @@ function renderTax(){
   on("txSE",e2=>{db.tax.seRate=num(e2.target.value);saveAll();});
   on("txFed",e2=>{db.tax.fedRate=num(e2.target.value);saveAll();});
   on("txState",e2=>{db.tax.stateRate=num(e2.target.value);saveAll();});
+  /* picking a state sets the name and the rate together — the two drifting
+     apart is how you end up reserving Georgia's rate under a Texas heading */
+  on("txStateSel",e2=>{ const s2=stateOf(e2.target.value); if(!s2)return;
+    db.tax.stateName=s2.name; db.tax.stateRate=num(s2.rate); saveAll();});
   on("txCred",e2=>{db.tax.otherCredits=num(e2.target.value);saveAll();});
   on("txQbi",e2=>{db.tax.qbi=e2.target.checked;saveAll();});
   on("txCredW2",e2=>{db.tax.creditW2=e2.target.checked;saveAll();});
@@ -7708,7 +8467,10 @@ addEventListener("scroll",()=>{ navPulse(); if(headerTick)return; headerTick=tru
 addEventListener("resize",syncHeader);
 function openDrawer(){ document.getElementById("sidebar").classList.add("open"); document.getElementById("scrim").classList.add("on"); }
 function closeDrawer(){ const sb=document.getElementById("sidebar"); if(sb)sb.classList.remove("open"); const sc=document.getElementById("scrim"); if(sc)sc.classList.remove("on"); }
-document.addEventListener("click",e=>{ const b=e.target.closest("[data-go]"); if(b){ setView(b.dataset.go); } });
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-go]"); if(!b)return;
+  /* a business card on the dashboard opens that business, not the list of them */
+  if(b.dataset.gobiz&&bizOf(b.dataset.gobiz)) bizOpen=b.dataset.gobiz;
+  setView(b.dataset.go); });
 
 /* Each screen's intro paragraph explains it once and then costs vertical space
    forever. Tuck it behind a small (i) beside the title — clear, one tap, no clutter. */
@@ -7938,9 +8700,9 @@ document.addEventListener("click",e=>{ if(e.target.closest("[data-nwclose]")) cl
   else if(e.target.closest("[data-stsopen]")) openSTS(); });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(nwOpen)closeNW(); if(stsOpen)closeSTS(); if(recapOpen)closeRecap(); if(_editor)closeEditor(); } });
 /* ---- goals ---- */
-document.getElementById("showAddBiz").addEventListener("click",()=>{
-  addBizOpen=!addBizOpen; openBiz=null; renderBusiness();
-  if(addBizOpen){const n=document.getElementById("nbName"); if(n)n.focus();}});
+document.getElementById("showAddBiz").addEventListener("click",openAddBiz);
+document.getElementById("bizBack").addEventListener("click",()=>{
+  bizOpen=null; renderBusiness(); window.scrollTo({top:0,behavior:"auto"});});
 document.getElementById("addReserveBtn").addEventListener("click",()=>{
   addReserveOpen=!addReserveOpen; renderTax();
   if(addReserveOpen){const a=document.getElementById("trAmt"); if(a)a.focus();}});
@@ -8853,7 +9615,7 @@ function envSetup(){
 
 /* go — never let one failure blank the whole app */
 [["renderBudget"],["renderPaychecks"],["renderInvest"],["renderRetire"],["renderCredit"],["renderGoalsList"],
- ["renderTax"],["renderBusiness"],["renderReview"],["renderHistoryList"],["renderNWSheet"],
+ ["renderTax"],["renderBusiness"],["renderBizDeduct"],["renderReview"],["renderHistoryList"],["renderNWSheet"],
  ["renderTx"],["renderIncome"],["renderDash"]].forEach(([n])=>{
   try{ if(typeof window[n]==="function") window[n]=_keepScroll(window[n]); }catch(e){} });
 try{ load(); }catch(e){ db=seed(); normalize(); }

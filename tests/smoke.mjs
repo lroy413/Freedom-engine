@@ -920,28 +920,37 @@ await p.evaluate(()=>{db.settings.retire={};db.accounts=[];db.holdings=[];db.tra
   editRetire=null;saveAll();setView('dash');});
 await p.waitForTimeout(300);
 
-console.log('\n— the business screen opens with its books —');
+console.log('\n— businesses have a landing page and a screen each —');
 const bzs=await p.evaluate(async()=>{
-  db.businesses=[{id:"zb",name:"Freedom Films",kind:"sole",color:"#38bdf8",drawPct:70,linkProfit:true}];
+  db.businesses=[{id:"zb",name:"Freedom Films",kind:"sole",color:"#38bdf8",drawPct:70,linkProfit:true},
+    {id:"zc",name:"Rig Rentals",kind:"llc",color:"#7c5cf0",drawPct:100,linkProfit:true}];
   db.transactions=[{id:"zt",date:todayISO(),desc:"Shoot",category:"Income",amount:2400,bizId:"zb",bizPct:100}];
-  openBiz=null; bizAutoOpened=false; saveAll(); setView('business');
+  bizOpen=null; normalize(); saveAll(); setView('business');
   await new Promise(r=>setTimeout(r,320));
-  const h=()=>Math.round(document.getElementById('view-business').getBoundingClientRect().height);
-  const opened=h();
-  const c=document.querySelector('[data-bizclose]'); if(c)c.click();
-  await new Promise(r=>setTimeout(r,250));
-  const closed=h();
-  renderBusiness(); await new Promise(r=>setTimeout(r,250));
-  return {opened,closed,staysClosed:h(),
-    sections:[...document.querySelectorAll('#view-business .sectiontitle h2')].map(x=>x.textContent)};});
-/* the P&L, the Schedule C mapping and the tagged transactions all live in the
-   panel, so one business and nothing expanded was a row above a blank page */
-chk('one business opens expanded',bzs.opened>600,true);
-chk('  showing the books',bzs.sections.includes('Profit & loss')&&bzs.sections.includes('Schedule C'),true);
-/* and the close button must not spring straight back open */
-chk('closing it sticks',bzs.closed<300,true);
-chk('  through a re-render',bzs.staysClosed,bzs.closed);
-await p.evaluate(()=>{db.businesses=[];db.transactions=[];openBiz=null;bizAutoOpened=false;saveAll();setView('dash');});
+  const seen=()=>({idx:!document.getElementById('bizIndex').hidden,
+    one:!document.getElementById('bizOne').hidden,
+    rows:document.querySelectorAll('#bizList [data-bizgo]').length,
+    fields:document.querySelectorAll('#bizList input,#bizList select').length});
+  const landing=seen();
+  document.querySelector('[data-bizgo="zb"]').click();
+  await new Promise(r=>setTimeout(r,300));
+  const inside=Object.assign(seen(),{
+    title:document.querySelector('#bizOneHero .dh-label').textContent,
+    sections:[...document.querySelectorAll('#bizOne .sectiontitle h2')].map(x=>x.textContent)});
+  document.getElementById('bizBack').click();
+  await new Promise(r=>setTimeout(r,300));
+  const back=seen();
+  return {landing,inside,back};});
+/* the whole point of the rebuild: a list you choose from, not one row above a
+   blank page, and no editor unfolded until you ask for one */
+chk('it opens on the list',[bzs.landing.idx,bzs.landing.one,bzs.landing.rows],[true,false,2]);
+chk('  with nothing to edit on it',bzs.landing.fields,0);
+chk('a row opens that business in full',[bzs.inside.one,bzs.inside.title],[true,'Freedom Films']);
+chk('  carrying the books, the tax and the deductions',
+  ['Profit & loss','What this costs you in tax','Deductions','Schedule C']
+    .filter(x=>!bzs.inside.sections.includes(x)),[]);
+chk('and back returns to the list',[bzs.back.idx,bzs.back.one],[true,false]);
+await p.evaluate(()=>{db.businesses=[];db.transactions=[];bizOpen=null;saveAll();setView('dash');});
 await p.waitForTimeout(300);
 
 console.log('\n— the forecast prices what you spend, not only what you planned —');
