@@ -2,13 +2,16 @@
    app feel unfinished: a raw ISO date where a person would write "Aug 14",
    "in 1 days", a name clipped to an ellipsis, a row of cards that wraps
    ragged, a tap target too small for a thumb, text that doesn't meet contrast.
-   node polish.mjs [theme] */
+   node polish.mjs [theme] [width] */
 import pkg from 'playwright';
 import { SEED } from './seed-real.mjs';
 const { chromium } = pkg;
 const theme = process.argv[2] || 'light';
+const W = +(process.argv[3] || 402);
+const phone = W < 820;
 const b = await chromium.launch();
-const ctx = await b.newContext({ viewport: { width: 402, height: 874 }, hasTouch: true, isMobile: true });
+const ctx = await b.newContext({ viewport: { width: W, height: phone ? 874 : 950 },
+  hasTouch: phone, isMobile: phone });
 const p = await ctx.newPage();
 const errs = []; p.on('pageerror', e => errs.push(e.message));
 await p.goto('http://localhost:8899/index.html'); await p.waitForTimeout(900);
@@ -17,14 +20,14 @@ await p.evaluate(t => { db.settings.theme = t; syncTheme(); saveAll(); }, theme)
 await p.waitForTimeout(700);
 
 const VIEWS = ['dash', 'accounts', 'income', 'expenses', 'budget', 'goals', 'credit', 'invest', 'retire', 'tax', 'business', 'data'];
-const found = { iso: [], plural: [], clipped: [], ragged: [], tiny: [], contrast: [], overflow: [] };
+const found = { iso: [], plural: [], clipped: [], ragged: [], tiny: [], contrast: [], overflow: [], wide: [], stranded: [] };
 
 for (const v of VIEWS) {
   await p.evaluate(x => setView(x), v);
   await p.waitForTimeout(600);
   const r = await p.evaluate((view) => {
     const root = document.querySelector('.view.active');
-    const out = { iso: [], plural: [], clipped: [], ragged: [], tiny: [], contrast: [], overflow: [] };
+    const out = { iso: [], plural: [], clipped: [], ragged: [], tiny: [], contrast: [], overflow: [], wide: [], stranded: [] };
     if (!root) return out;
     const vis = el => { const s = getComputedStyle(el); const b = el.getBoundingClientRect();
       return s.display !== 'none' && s.visibility !== 'hidden' && +s.opacity > .05 && b.width > 0 && b.height > 0; };
@@ -137,6 +140,39 @@ for (const v of VIEWS) {
           out.contrast.push(view + ' · ' + ratio.toFixed(2) + ':1 · ' + Math.round(size) + 'px · ' + t.slice(0, 44));
       } catch (e) { }
     }
+    /* ---- what only goes wrong on a big screen ---- */
+    if (window.innerWidth >= 820) {
+      /* A line of prose past about 90 characters is measurably harder to read:
+         the eye loses the start of the next line on the way back. Newspapers
+         use columns for exactly this reason and a 1440px card does not. */
+      for (const el of root.querySelectorAll('p, .note, .lead, .muted, .empty, .hint')) {
+        if (!vis(el)) continue;
+        const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+        if (t.length < 90) continue;
+        /* Count the lines the browser actually drew rather than estimating an
+           average character width — a guess at the advance was reporting a
+           645px note as 166 characters wide. */
+        let lines = 1;
+        try {
+          const r = document.createRange(); r.selectNodeContents(el);
+          const ys = new Set([...r.getClientRects()].filter(x => x.height > 1).map(x => Math.round(x.top)));
+          lines = Math.max(1, ys.size);
+        } catch (e) { }
+        const chars = t.length / lines;
+        if (chars > 95) out.wide.push(view + ' · ' + Math.round(chars) + ' chars a line · ' + t.slice(0, 50));
+      }
+      /* A control or a value marooned in a sea of card. Fine on a phone where
+         the card is 370px; at 1400px it reads as a layout that never grew up. */
+      for (const el of root.querySelectorAll('.card')) {
+        if (!vis(el)) continue;
+        const cw = el.getBoundingClientRect().width;
+        if (cw < 700) continue;
+        const kids = [...el.children].filter(vis);
+        if (kids.length !== 1) continue;
+        const k = kids[0].getBoundingClientRect().width;
+        if (k < cw * 0.55) out.stranded.push(view + ' · .' + String(el.className).split(' ')[1 ] + ' · content ' + Math.round(k / cw * 100) + '% of a ' + Math.round(cw) + 'px card');
+      }
+    }
     /* anything pushing the page sideways */
     const de = document.documentElement;
     for (const el of root.querySelectorAll('*')) {
@@ -159,7 +195,7 @@ const show = (title, list, cap = 14) => {
   u.slice(0, cap).forEach(x => console.log('   ' + x));
   if (u.length > cap) console.log(`   … ${u.length - cap} more`);
 };
-console.log(`\n===== ${theme} =====`);
+console.log(`\n===== ${theme} · ${W}px =====`);
 show('RAW ISO DATES shown to the reader', found.iso);
 show('PLURAL SLIPS', found.plural);
 show('TEXT CLIPPED BY ELLIPSIS', found.clipped);
@@ -167,5 +203,6 @@ show('RAGGED CARD GRIDS', found.ragged);
 show('TAP TARGETS UNDER 30px', found.tiny, 18);
 show('CONTRAST BELOW WCAG AA', found.contrast, 18);
 show('HORIZONTAL OVERFLOW', found.overflow);
+if (!phone) { show('LINES TOO LONG TO READ COMFORTABLY', found.wide); show('CONTENT MAROONED IN A WIDE CARD', found.stranded); }
 console.log('\npage errors:', errs.length ? errs : 'none');
 await b.close();

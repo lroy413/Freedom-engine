@@ -134,8 +134,14 @@
   .pad{padding:20px}
   .grid{display:grid;gap:14px}
   .kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
-  @media(min-width:1024px){ .kpis{grid-template-columns:repeat(3,1fr)} }
-  @media(min-width:1500px){ .kpis{grid-template-columns:repeat(3,1fr)} }
+  @media(min-width:1024px){ .kpis{grid-template-columns:repeat(3,1fr)}
+    /* Four cards in a three-across grid leave one alone on the second row with
+       two card-widths of nothing beside it. There is room for four across at
+       this width, so take it. */
+    .kpis:has(>:nth-child(4):last-child){grid-template-columns:repeat(4,1fr)}
+    .kpis>:last-child:nth-child(odd):nth-child(3){grid-column:auto} }
+  @media(min-width:1500px){ .kpis{grid-template-columns:repeat(3,1fr)}
+    .kpis:has(>:nth-child(4):last-child){grid-template-columns:repeat(4,1fr)} }
   .row2{grid-template-columns:1fr 1fr}
   @media(max-width:760px){.row2{grid-template-columns:1fr}}
 
@@ -224,7 +230,10 @@
   .field input,.field select,textarea{padding:12px 12px;border:1px solid var(--line2);border-radius:12px;background:var(--card);width:100%;transition:border .14s,box-shadow .14s;box-shadow:var(--inset)}
   .field input:focus,.field select:focus,textarea:focus,.miniedit:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .inline{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
-  .formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;align-items:end}
+  /* 140px packed four columns into a sheet and left a select showing
+     "Terminus Studi◦". A form column has to hold the longest thing it can be
+     set to, not the shortest thing it might be. */
+  .formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(172px,1fr));gap:12px;align-items:end}
 
   .miniedit{width:118px;padding:8px 12px;border:1px solid var(--line2);border-radius:12px;text-align:right;font-variant-numeric:tabular-nums;background:var(--card);transition:border .14s,box-shadow .14s;box-shadow:var(--inset)}
   .muted{color:var(--muted)} .pos{color:var(--pos-ink)} .neg{color:var(--neg-ink)}
@@ -267,11 +276,22 @@
   @media(max-width:820px){ .between>.flex{flex-wrap:wrap;min-width:0} .iname{width:auto!important;flex:1 1 90px;min-width:0} }
   .empty{padding:36px;text-align:center;color:var(--muted);font-size:15px}
   .note{font-size:15px;color:var(--ink2);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+  /* A card 1,160px wide sets a line of prose about 150 characters long, and the
+     eye loses the start of the next line on the way back — the reason
+     newspapers use columns. The card keeps its width; the sentence does not.
+     Phones are already well under this, so it only applies where it is needed. */
+  @media(min-width:820px){
+    .note,.empty{max-width:78ch}
+    .note .deflist,.note .formgrid,.note .grid{max-width:none}
+  }
   .note.ok{border-color:color-mix(in srgb,var(--pos) 40%,var(--line));background:color-mix(in srgb,var(--pos) 8%,var(--bg))}
   .note.warn{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));background:color-mix(in srgb,var(--warn) 9%,var(--bg))}
   .thermo{height:200px;width:46px;border-radius:22px;background:var(--track);position:relative;overflow:hidden;flex:none}
   .thermo>span{position:absolute;bottom:0;left:0;right:0;border-radius:22px;background:linear-gradient(180deg,#22c3b3,#0ea5a0);transition:height .5s cubic-bezier(.4,0,.2,1)}
-  select.catsel{padding:4px 8px;border:1px solid var(--line2);border-radius:8px;font-size:13px;background:var(--card)}
+  /* min-height everywhere, not only on touch: on a mouse this rendered 25px
+     tall, which is small to hit and reads as an afterthought next to the
+     40px controls around it */
+  select.catsel{padding:4px 8px;border:1px solid var(--line2);border-radius:8px;font-size:13px;background:var(--card);min-height:34px}
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
   .spacer{flex:1}
   code{background:var(--bg);padding:2px 6px;border-radius:8px;font-size:13px;border:1px solid var(--line)}
@@ -1040,12 +1060,24 @@
   .rvpick{padding:0 14px 12px 46px}
   .rvpick .catsel{width:100%;max-width:340px}
   .rvrow .bmeta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Stacked is right on a phone, where four things will not fit across. On a
+     desktop it leaves seven hundred pixels of nothing beside a dropdown, which
+     is the look of a phone layout that was stretched rather than designed. */
+  @media(min-width:820px){
+    .brow.rvrow{display:flex;align-items:center;gap:14px}
+    .rvrow .bmain{flex:1;min-width:0}
+    .rvpick{padding:0 16px 0 0;flex:none}
+    .rvpick .catsel{width:210px;max-width:none}
+  }
   /* Two actions and an overflow menu came to 348px in 340px of row, so the
      menu wrapped onto a line of its own with a hole beside it. The two share
      what there is and the menu keeps its corner. */
   @media(max-width:820px){
     .txtools .spacer{flex-basis:0;min-width:0}
-    .txtools>.btn{flex:1 1 0;min-width:0;padding-left:10px;padding-right:10px;white-space:nowrap}
+    /* Equal columns clipped both labels — "Import CS" and "Add manuall". The
+       basis has to be the words; the flex only shares out what is left after
+       them, and the tighter padding is what buys the room. */
+    .txtools>.btn{flex:1 1 auto;padding-left:11px;padding-right:11px;white-space:nowrap}
   }
   /* A name is the thing you came to the row to read, so it gets a second line
      before it gets an ellipsis — "Clear the Milestone c…" is a row that failed
@@ -1434,7 +1466,9 @@
      tap on a tier chip lands on the tab row above it (v60 caught exactly this).
      39-41px effective: under the 44 ideal, bounded by the layout itself. */
   .seg::before,.tchip::before,.btab::before{content:"";position:absolute;left:0;right:0;top:-4px;bottom:-4px}
-  .itext::before,.dh-goal::before{content:"";position:absolute;left:0;right:0;top:-4px;bottom:-6px}
+  /* an insight row is one line of text tall — the reach around it is what makes
+     it a row you can hit rather than a sentence you have to aim at */
+  .itext::before,.dh-goal::before{content:"";position:absolute;left:0;right:0;top:-7px;bottom:-9px}
   /* dots sit 8px apart — ±4px is the most horizontal reach that can't land
      a tap on the neighbour; the height does the real work */
   .hdot::before{content:"";position:absolute;left:-4px;right:-4px;top:-19px;bottom:-19px}
