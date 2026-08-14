@@ -40,7 +40,10 @@ await p.click('[data-ddone]'); await p.waitForTimeout(300);
 
 // ---- credit card ACCOUNT ----
 await p.evaluate(()=>setView('accounts')); await p.waitForTimeout(400);
+/* the add form is a sheet now — open it to prove the button still works, then
+   get out of its way so the clicks below have a target */
 await p.click('#addAcctBtn').catch(()=>{});
+await p.evaluate(()=>closeEditor()); await p.waitForTimeout(300);
 console.log('\n-- accounts --');
 await p.evaluate(()=>{
   const a={id:"c1",name:"Milestone Card",kind:"credit",value:410,limit:500,parentId:null};

@@ -1541,7 +1541,6 @@
     <div class="sectiontitle"><h2>Your accounts</h2><span class="hint">tap one to edit</span><span class="spacer"></span>
       <span class="flex" style="gap:8px"><button class="btn sm" id="addInstBtn">+ Bank</button>
       <button class="btn sm primary" id="addAcctBtn">+ Account</button></span></div>
-    <div class="card pad" id="addPanel" style="display:none;margin-bottom:12px"></div>
     <div class="card" id="acctList"></div>
   </section>
 
@@ -1603,15 +1602,6 @@
         </span>
       </div>
       <div id="mapPanel"></div>
-      <div id="manualTxPanel" style="display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
-        <div class="formgrid">
-          <div class="field"><label>Date</label><input id="mt-date" type="date"></div>
-          <div class="field"><label>Description</label><input id="mt-desc" placeholder="Coffee"></div>
-          <div class="field"><label>Amount (− spend, + income)</label><input id="mt-amt" type="number" placeholder="-4.50"></div>
-          <div class="field"><label>Category</label><select id="mt-cat"></select></div>
-          <button class="btn primary" id="mt-add">Add</button>
-        </div>
-      </div>
     </div>
     <div id="learnNote" style="margin-bottom:12px"></div>
 
@@ -1693,34 +1683,15 @@
     <div class="card" id="billsList"></div>
     <div id="billHidden" style="margin-top:8px"></div>
     <div id="calMsg" class="muted" style="font-size:13px;margin-top:8px"></div>
-    <div class="card pad" id="addBillPanel" style="margin-top:12px;display:none">
-      <b style="font-size:13px">Add a bill</b>
-      <div class="formgrid" style="margin-top:10px">
-        <div class="field"><label>Bill name</label><input id="recName" placeholder="Rent"></div>
-        <div class="field"><label>Category</label><select id="recCat"></select></div>
-        <div class="field"><label>Amount / mo</label><input id="recAmt" type="number" placeholder="1450"></div>
-        <div class="field"><label>How often</label><select id="recFreq"></select></div>
-        <div class="field"><label>Due day of month</label><input id="recDay" type="number" min="1" max="28" placeholder="1"></div>
-        <div class="field"><label>Calendar reminder <span class="muted" style="font-weight:400">days before</span></label><input id="billAlertDays" type="number" min="0" max="14" placeholder="3"></div>
-        <button class="btn primary" id="addRecBtn">Add bill</button>
-        <button class="btn ghost" data-hideadd="addBillPanel">Cancel</button>
-      </div>
-    </div>
+    <!-- the lead time belongs with the calendar export, not with adding a bill,
+         which is where it used to sit for want of anywhere better -->
+    <div class="field" id="calLead" style="margin-top:10px;width:auto" hidden>
+      <label>Calendar reminder <span class="muted" style="font-weight:400">days before due</span></label>
+      <input id="billAlertDays" class="miniedit" type="number" min="0" max="14" style="width:90px;text-align:left" placeholder="3"></div>
 
     <div class="sectiontitle"><h2>Flexible budgets</h2><span class="hint">tap one to edit · rollover is per budget</span><span class="spacer"></span>
       <button class="btn sm primary" id="showAddBudget">+ Budget</button></div>
     <div class="card" id="budgetList"></div>
-    <div class="card pad" id="addBudgetPanel" style="margin-top:12px;display:none">
-      <b style="font-size:13px">Add a budget</b>
-      <div class="formgrid" style="margin-top:10px">
-        <div class="field"><label>Category</label><select id="budCat"></select></div>
-        <div class="field" id="budNewWrap" hidden><label>New category name</label>
-          <input id="budNew" placeholder="Date nights" autocomplete="off"></div>
-        <div class="field"><label>Monthly limit</label><input id="budLimit" type="number" placeholder="400"></div>
-        <button class="btn primary" id="addBudBtn">Add budget</button>
-        <button class="btn ghost" data-hideadd="addBudgetPanel">Cancel</button>
-      </div>
-    </div>
   </section>
 
   <!-- GOALS -->
@@ -4496,6 +4467,55 @@ function learnFromTx(t,cat){
       db.rules=db.rules.filter(r=>!(r.m===kw&&r.c===cat)); if(ln)ln.innerHTML=""; persist();};
   } else if(ln) ln.innerHTML="";
 }
+/* Adding one by hand opens the same sheet you'd tap a row to get, rather than a
+   panel unfolding between the toolbar and the list. Keeping the form open after
+   a save is the point of it — most manual entries come in twos and threes. */
+let _newTx=null;
+function openAddTx(){
+  /* "Income" happens to head the category list, which is the wrong default for
+     a form you nearly always reach to log a spend. Start neutral and let the
+     same rules the importer uses fill it in from what you type. */
+  _newTx={date:todayISO(),desc:"",amt:"",added:0,touched:false,
+    cat:db.categories.includes("Uncategorized")?"Uncategorized":(db.categories.find(c=>c!=="Income")||db.categories[0])};
+  openEditor({kicker:"New transaction",title:"Add by hand",closeLabel:"Done",
+    html:addTxHTML, wire:wireAddTx, onClose:()=>{_newTx=null;}});
+}
+function addTxHTML(){
+  const d=_newTx||{};
+  return `<div class="formgrid">
+      <div class="field"><label>Date</label><input id="mt-date" type="date" value="${esc(d.date||todayISO())}"></div>
+      <div class="field"><label>Description</label><input id="mt-desc" value="${esc(d.desc||"")}" placeholder="Coffee"></div>
+      <div class="field"><label>Amount <span class="muted" style="font-weight:400">− spend, + income</span></label>
+        <input id="mt-amt" type="number" value="${esc(d.amt||"")}" placeholder="-4.50"></div>
+      <div class="field"><label>Category</label><select id="mt-cat">${db.categories
+        .map(c=>`<option ${d.cat===c?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
+    </div>
+    <button class="btn primary" id="mt-add" style="width:100%;margin-top:16px">Add transaction</button>
+    <div class="note ok" id="mt-said" style="margin-top:12px" ${d.added?"":"hidden"}>Added <b>${d.added||0}</b> — the form is still here for the next one.</div>`;
+}
+function wireAddTx(body){
+  const g=id=>body.querySelector("#"+id), d=_newTx; if(!d)return;
+  const keep=()=>{ d.date=g("mt-date").value; d.desc=g("mt-desc").value;
+    d.amt=g("mt-amt").value; d.cat=g("mt-cat").value; };
+  /* set in place rather than through a re-render — redrawing the sheet on a
+     keystroke tears out the field being typed in */
+  const guess=()=>{ if(d.touched)return; const c2=g("mt-cat"); if(!c2)return;
+    const want=categorize(String(d.desc||""),num(d.amt));
+    if(want&&want!==c2.value&&[...c2.options].some(o=>o.value===want)){ c2.value=want; d.cat=want; } };
+  ["mt-date","mt-desc","mt-amt"].forEach(id=>{const el=g(id); if(el)el.oninput=()=>{keep();guess();};});
+  const c=g("mt-cat"); if(c)c.onchange=()=>{d.touched=true;keep();};
+  const a=g("mt-add"); if(a)a.onclick=()=>{ keep();
+    const desc=String(d.desc||"").trim(), amt=num(d.amt);
+    if(!desc){ g("mt-desc").focus(); return; }
+    if(!amt){ g("mt-amt").focus(); return; }
+    db.transactions.push({id:uid(),date:normalizeDate(d.date||todayISO()),desc,amount:amt,category:d.cat});
+    db.transactions.sort((x,y)=>y.date.localeCompare(x.date));
+    /* the date and the category stay — a run of manual entries is nearly always
+       the same day and the same kind of thing */
+    d.desc=""; d.amt=""; d.added=(d.added||0)+1;
+    saveAll(); if(editorOpen())renderEditor();
+    const n=document.querySelector("#editSheetBody #mt-desc"); if(n)n.focus(); };
+}
 let _txEdit=null;
 function openTxEditor(id){
   const t=db.transactions.find(x=>x.id===id); if(!t)return;
@@ -5176,16 +5196,8 @@ function renderBudget(){
     openBudgetEditor(b.dataset.budedit);});
   /* the panel's own handlers live in wireBudgetPanel now, wired when the
      editor sheet renders rather than with the list */
-  const rc=document.getElementById("recCat"); if(rc)rc.innerHTML=db.categories.filter(c=>c!=="Income").map(c=>`<option>${c}</option>`).join("");
-  {const rf=document.getElementById("recFreq");
-   if(rf&&!rf.options.length)rf.innerHTML=Object.entries(BILL_FREQ).map(([v,o])=>`<option value="${v}">${o.label}</option>`).join("");}
-  /* the list can't cover everyone, so the last option makes one up on the spot */
-  const bc=document.getElementById("budCat");
-  if(bc){ const keep=bc.value;
-    bc.innerHTML=db.categories.filter(c=>c!=="Income").map(c=>`<option>${esc(c)}</option>`).join("")
-      +`<option value="__new">+ New category…</option>`;
-    if(keep&&[...bc.options].some(o=>o.value===keep)) bc.value=keep;
-    const w=document.getElementById("budNewWrap"); if(w)w.hidden=bc.value!=="__new"; }
+  /* the add forms build their own selects when the sheet opens, so the category
+     list is always current without this render having to keep them fed */
 }
 
 /* CREDIT & DEBT */
@@ -5927,63 +5939,82 @@ function renderHistoryList(){
 }
 
 /* GOALS & CASH */
-let editAcct=null, addMode=null;
-function renderAddPanel(){
-  const p=document.getElementById("addPanel"); if(!p)return;
-  if(!addMode){ p.style.display="none"; p.innerHTML=""; return; }
-  p.style.display="block";
+let editAcct=null;
+/* These two forms used to unfold in a card above the list, holding a screenful
+   whether or not you were adding anything and pushing the accounts you came to
+   read off the bottom of the screen. They pull out of the editor sheet now, the
+   way adding a debt already did — same shape, same way out, and the list keeps
+   its space. */
+let _newAcct=null;
+function openAddInst(){
+  _newAcct={mode:"inst",name:"",kind:HOLDER_KINDS[0][0]};
+  openEditor({kicker:"New institution",title:"Add a bank",closeLabel:"Cancel",
+    html:addAcctHTML, wire:wireAddAcct, onClose:()=>{_newAcct=null;}});
+}
+function openAddAcct(){
+  _newAcct={mode:"acct",name:"",parent:"",kind:"checking",bal:"",lim:""};
+  openEditor({kicker:"New account",title:"Add an account",closeLabel:"Cancel",
+    html:addAcctHTML, wire:wireAddAcct, onClose:()=>{_newAcct=null;}});
+}
+function addAcctHTML(){
+  const d=_newAcct||{};
+  if(d.mode==="inst") return `<div class="muted" style="font-size:13px;margin:0 0 14px">A container for accounts — it has no balance of its own. You'll add checking and savings inside it.</div>
+    <div class="formgrid">
+      <div class="field"><label>Name</label><input id="ni-name" value="${esc(d.name||"")}" placeholder="Chase, OnePay, Navy Federal…"></div>
+      <div class="field"><label>Kind</label><select id="ni-kind">${HOLDER_KINDS
+        .map(([v,o])=>`<option value="${v}" ${d.kind===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
+    </div>
+    <button class="btn primary" id="ni-add" style="width:100%;margin-top:16px">Add institution</button>`;
   const holders=topAccounts().filter(a=>kindOf(a).holder);
-  if(addMode==="inst"){
-    p.innerHTML=`<b style="font-size:15px">Add a bank or institution</b>
-      <div class="muted" style="font-size:13px;margin:3px 0 12px">A container for accounts — it has no balance of its own. You'll add checking/savings inside it.</div>
-      <div class="formgrid">
-        <div class="field"><label>Name</label><input id="ni-name" placeholder="Chase, OnePay, Navy Federal…"></div>
-        <div class="field"><label>Kind</label><select id="ni-kind">${HOLDER_KINDS.map(([v,o])=>`<option value="${v}">${o.label}</option>`).join("")}</select></div>
-        <button class="btn primary" id="ni-add">Add institution</button>
-        <button class="btn ghost" data-addcancel="1">Cancel</button>
-      </div>`;
-    p.querySelector("#ni-add").onclick=()=>{const n=p.querySelector("#ni-name").value.trim();if(!n){p.querySelector("#ni-name").focus();return;}
-      const a={id:uid(),name:n,kind:p.querySelector("#ni-kind").value,value:0,parentId:null,collapsed:false};
-      db.accounts.push(a); addMode=null; saveAll();};
-  } else {
-    p.innerHTML=`<b style="font-size:15px">Add an account</b>
-      <div class="muted" style="font-size:13px;margin:3px 0 12px">Something that actually holds money — a checking account, a wallet, cash in your pocket.</div>
-      <div class="formgrid">
-        <div class="field"><label>Name</label><input id="na-name" placeholder="Checking"></div>
-        <div class="field"><label>Inside which institution?</label><select id="na-parent">
-          <option value="">On its own (no institution)</option>
-          ${holders.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("")}
-        </select></div>
-        <div class="field"><label>Type</label><select id="na-kind">${LEAF_KINDS.map(([v,o])=>`<option value="${v}" ${v==="checking"?"selected":""}>${o.label}</option>`).join("")}</select></div>
-        <div class="field"><label id="na-ballab">Balance</label><input id="na-bal" type="number" placeholder="0"></div>
-        <div class="field" id="na-limwrap" style="display:none"><label id="na-limlab">Credit limit</label><input id="na-lim" type="number" placeholder="750"></div>
-        <button class="btn primary" id="na-add">Add account</button>
-        <button class="btn ghost" data-addcancel="1">Cancel</button>
-      </div>
-      <div class="note" id="na-note" style="margin-top:12px;display:none"></div>
-      ${holders.length?"":`<div class="note" style="margin-top:12px">Tip: add a <b>bank</b> first if you want to group checking and savings under it.</div>`}`;
-    const kindSel=p.querySelector("#na-kind");
-    const refreshKind=()=>{ const k=ACCT_KINDS[kindSel.value]||{}, liab=!!k.liability, inst=!!k.installment;
-      p.querySelector("#na-limwrap").style.display=liab?"":"none";
-      p.querySelector("#na-limlab").textContent=inst?"Original loan amount":"Credit limit";
-      p.querySelector("#na-lim").placeholder=inst?"24000":"750";
-      p.querySelector("#na-ballab").textContent=liab?"Balance owed":"Balance";
-      const nt=p.querySelector("#na-note"); nt.style.display=liab?"block":"none";
-      if(liab)nt.innerHTML="This is money you owe, so it stays out of <b>money on hand</b>. It'll also be added to <b>Debt payoff</b> as a"+(inst?"n installment loan":" card")+" so the balance, payoff progress and payments all stay in one place. Add the APR and monthly payment there for a payoff date."; };
-    kindSel.onchange=refreshKind; refreshKind();
-    p.querySelector("#na-add").onclick=()=>{const n=p.querySelector("#na-name").value.trim();if(!n){p.querySelector("#na-name").focus();return;}
-      const pid=p.querySelector("#na-parent").value||null;
-      if(pid){const par=db.accounts.find(x=>x.id===pid); if(par)par.collapsed=false;}
-      const kind=kindSel.value, bal=num(p.querySelector("#na-bal").value);
-      const liab=!!(ACCT_KINDS[kind]||{}).liability;
-      const a={id:uid(),name:n,kind,value:liab?Math.abs(bal):bal,parentId:pid};
-      if(liab){ const extra=num(p.querySelector("#na-lim").value);
-        if((ACCT_KINDS[kind]||{}).installment)a.orig=extra; else a.limit=extra;
-        db.accounts.push(a); makeDebtFor(a); }
-      else db.accounts.push(a);
-      addMode=null; saveAll();};
+  const k=ACCT_KINDS[d.kind]||{}, liab=!!k.liability, inst=!!k.installment;
+  return `<div class="muted" style="font-size:13px;margin:0 0 14px">Something that actually holds money — a checking account, a wallet, cash in your pocket.</div>
+    <div class="formgrid">
+      <div class="field"><label>Name</label><input id="na-name" value="${esc(d.name||"")}" placeholder="Checking"></div>
+      <div class="field"><label>Inside which institution?</label><select id="na-parent">
+        <option value="">On its own (no institution)</option>
+        ${holders.map(a=>`<option value="${a.id}" ${d.parent===a.id?"selected":""}>${esc(a.name)}</option>`).join("")}
+      </select></div>
+      <div class="field"><label>Type</label><select id="na-kind">${LEAF_KINDS
+        .map(([v,o])=>`<option value="${v}" ${d.kind===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
+      <div class="field"><label>${liab?"Balance owed":"Balance"}</label><input id="na-bal" type="number" value="${esc(d.bal||"")}" placeholder="0"></div>
+      ${liab?`<div class="field"><label>${inst?"Original loan amount":"Credit limit"}</label>
+        <input id="na-lim" type="number" value="${esc(d.lim||"")}" placeholder="${inst?"24000":"750"}"></div>`:""}
+    </div>
+    ${liab?`<div class="note" style="margin-top:14px;font-size:13px">This is money you owe, so it stays out of <b>money on hand</b>. It'll also be added to <b>Debt payoff</b> as a${inst?"n installment loan":" card"} so the balance, payoff progress and payments all stay in one place. Add the APR and monthly payment there for a payoff date.</div>`
+    :holders.length?"":`<div class="note" style="margin-top:14px;font-size:13px">Tip: add a <b>bank</b> first if you want to group checking and savings under it.</div>`}
+    <button class="btn primary" id="na-add" style="width:100%;margin-top:16px">Add account</button>`;
+}
+function wireAddAcct(body){
+  const g=id=>body.querySelector("#"+id);
+  const d=_newAcct; if(!d)return;
+  if(d.mode==="inst"){
+    const n=g("ni-name"), k=g("ni-kind");
+    if(n)n.oninput=()=>{d.name=n.value;};
+    if(k)k.onchange=()=>{d.kind=k.value;};
+    const a=g("ni-add"); if(a)a.onclick=()=>{ const name=String(n?n.value:"").trim();
+      if(!name){ if(n)n.focus(); return; }
+      db.accounts.push({id:uid(),name,kind:k?k.value:HOLDER_KINDS[0][0],value:0,parentId:null,collapsed:false});
+      closeEditor(); saveAll(); };
+    return;
   }
-  p.querySelectorAll("[data-addcancel]").forEach(b=>b.onclick=()=>{addMode=null;renderAddPanel();});
+  /* the sheet redraws when the type changes — a card grows a limit field, a loan
+     an original amount — so what has been typed is carried out first */
+  const keep=()=>{ ["name","parent","bal","lim"].forEach(f=>{ const el=g("na-"+(f==="parent"?"parent":f)); if(el)d[f]=el.value; }); };
+  ["na-name","na-bal","na-lim"].forEach(id=>{const el=g(id); if(el)el.oninput=keep;});
+  const par=g("na-parent"); if(par)par.onchange=keep;
+  const ks=g("na-kind"); if(ks)ks.onchange=()=>{keep();d.kind=ks.value;renderEditor();};
+  const add=g("na-add"); if(add)add.onclick=()=>{ keep();
+    const name=String(d.name||"").trim();
+    if(!name){ const n=g("na-name"); if(n)n.focus(); return; }
+    const pid=d.parent||null;
+    if(pid){const p2=db.accounts.find(x=>x.id===pid); if(p2)p2.collapsed=false;}
+    const liab=!!(ACCT_KINDS[d.kind]||{}).liability, bal=num(d.bal);
+    const a={id:uid(),name,kind:d.kind,value:liab?Math.abs(bal):bal,parentId:pid};
+    if(liab){ const extra=num(d.lim);
+      if((ACCT_KINDS[d.kind]||{}).installment)a.orig=extra; else a.limit=extra;
+      db.accounts.push(a); makeDebtFor(a); }
+    else db.accounts.push(a);
+    closeEditor(); saveAll(); };
 }
 function renderCash(){
   const hero=document.getElementById("onHandHero");
@@ -6089,7 +6120,6 @@ function renderCash(){
       if(!isLiab(a)&&a.debtId)a.debtId=""; saveAll(); }});
   box.querySelectorAll("[data-cadel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{const id=b.dataset.cadel;
     db.accounts=db.accounts.filter(x=>x.id!==id&&x.parentId!==id);editAcct=null;saveAll();}));
-  renderAddPanel();
 }
 /* ======================= BUSINESSES & TAX =======================
    Two things the budgeting-app market doesn't do, and both matter when you're
@@ -7878,11 +7908,7 @@ document.getElementById("billFiltToggle").addEventListener("click",()=>{setBillF
 /* stays a two-tap confirm; the menu keeps it open so the second tap has a target */
 document.getElementById("clearTxBtn").addEventListener("click",e=>{e.stopPropagation();
   armConfirm(e.currentTarget,()=>{db.transactions=[];document.getElementById("txMoreMenu").hidden=true;saveAll();});});
-document.getElementById("addTxBtn").addEventListener("click",()=>{const p=document.getElementById("manualTxPanel");const show=p.style.display==="none";p.style.display=show?"block":"none";
-  if(show){document.getElementById("mt-cat").innerHTML=db.categories.map(c=>`<option>${c}</option>`).join("");document.getElementById("mt-date").value=todayISO();document.getElementById("mt-desc").focus();}});
-document.getElementById("mt-add").addEventListener("click",()=>{const desc=document.getElementById("mt-desc").value.trim();const amt=num(document.getElementById("mt-amt").value);if(!desc||!amt)return;
-  db.transactions.push({id:uid(),date:normalizeDate(document.getElementById("mt-date").value||todayISO()),desc,amount:amt,category:document.getElementById("mt-cat").value});
-  db.transactions.sort((a,b)=>b.date.localeCompare(a.date));document.getElementById("mt-desc").value="";document.getElementById("mt-amt").value="";saveAll();});
+document.getElementById("addTxBtn").addEventListener("click",openAddTx);
 document.getElementById("addIncomeBtn").addEventListener("click",()=>{
   const s={id:uid(),name:"New stream",type:"Gig",model:"monthly",rate:0,units:0,amount:0,start:todayISO(),end:"",date:todayISO(),active:true};
   db.income.push(s);saveAll();setTimeout(()=>openIncomeEditor(s.id),50);});
@@ -7955,8 +7981,8 @@ document.getElementById("goalsList").addEventListener("click",e=>{
   if(del){ const g=db.goals.find(x=>x.id===logGoal); if(!g)return;
     g.contribs=g.contribs.filter(c=>c.id!==del.dataset.gcdel); saveAll(); }});
 document.getElementById("burnInputG").addEventListener("change",e=>{db.settings.burnOverride=e.target.value===""?null:num(e.target.value);saveAll();});
-document.getElementById("addInstBtn").addEventListener("click",()=>{addMode=addMode==="inst"?null:"inst";renderAddPanel();const f=document.getElementById("ni-name");if(f)f.focus();});
-document.getElementById("addAcctBtn").addEventListener("click",()=>{addMode=addMode==="acct"?null:"acct";renderAddPanel();const f=document.getElementById("na-name");if(f)f.focus();});
+document.getElementById("addInstBtn").addEventListener("click",openAddInst);
+document.getElementById("addAcctBtn").addEventListener("click",openAddAcct);
 document.getElementById("scanStubBtn").addEventListener("click",toggleStubPanel);
 document.getElementById("addDebtBtn").addEventListener("click",openAddDebt);
 document.getElementById("addScoreBtn").addEventListener("click",()=>{const date=document.getElementById("scoreDate").value||todayISO();const score=parseInt(document.getElementById("scoreVal").value);if(isNaN(score))return;
@@ -8415,16 +8441,48 @@ function wireDivLog(body){
     closeEditor(); saveAll(); };
 }
 document.getElementById("openDivLog").addEventListener("click",openDivLog);
-document.getElementById("addRecBtn").addEventListener("click",()=>{const name=document.getElementById("recName").value.trim();const category=document.getElementById("recCat").value;const amount=num(document.getElementById("recAmt").value);if(!name||!amount)return;
-  const b={id:uid(),name,category,amount,dueDay:Math.min(28,Math.max(1,num(document.getElementById("recDay").value)||1))};
-  b.freq=(document.getElementById("recFreq")||{}).value||"monthly";
-  if(BILL_FREQ[b.freq]&&BILL_FREQ[b.freq].n>1) b.anchor=monthKey(todayISO());
-  b.group=CAT_GROUP[category]||"Other"; b.tier=DEFAULT_TIER[b.group]||"flexible";
-  db.recurring.push(b);
-  ["recName","recAmt","recDay"].forEach(i=>{const el=document.getElementById(i); if(el)el.value="";});
-  {const rf=document.getElementById("recFreq"); if(rf)rf.value="monthly";}
-  document.getElementById("addBillPanel").style.display="none";
-  billTab="all"; billTierFilter=null; editBill=b.id; saveAll();});
+/* Both of these used to unfold as a card under their list. They pull out of the
+   editor sheet now, so the lists stay where you left them and each form gets
+   room to explain itself. */
+let _newBill=null;
+function openAddBill(){
+  _newBill={name:"",cat:(db.categories.find(c=>c!=="Income")||"Other"),amt:"",freq:"monthly",day:""};
+  openEditor({kicker:"New bill",title:"Add a bill",closeLabel:"Cancel",
+    html:addBillHTML, wire:wireAddBill, onClose:()=>{_newBill=null;}});
+}
+function addBillHTML(){
+  const d=_newBill||{}, f=BILL_FREQ[d.freq]||BILL_FREQ.monthly;
+  return `<div class="formgrid">
+      <div class="field"><label>Bill name</label><input id="recName" value="${esc(d.name||"")}" placeholder="Rent"></div>
+      <div class="field"><label>Category</label><select id="recCat">${db.categories.filter(c=>c!=="Income")
+        .map(c=>`<option ${d.cat===c?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
+      <div class="field"><label>Amount ${f.n>1?"each time":"/ mo"}</label><input id="recAmt" type="number" value="${esc(d.amt||"")}" placeholder="1450"></div>
+      <div class="field"><label>How often</label><select id="recFreq">${Object.entries(BILL_FREQ)
+        .map(([v,o])=>`<option value="${v}" ${d.freq===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
+      <div class="field"><label>Due day of month</label><input id="recDay" type="number" min="1" max="28" value="${esc(d.day||"")}" placeholder="1"></div>
+    </div>
+    ${f.n>1?`<div class="note" style="margin-top:14px;font-size:13px">A ${esc(f.label.toLowerCase())} bill counts as <b>${fmt2(num(d.amt)/f.n)}/mo</b> against your plan, but only lands in the months it's actually due — starting this one.</div>`:""}
+    <button class="btn primary" id="addRecBtn" style="width:100%;margin-top:16px">Add bill</button>`;
+}
+function wireAddBill(body){
+  const g=id=>body.querySelector("#"+id), d=_newBill; if(!d)return;
+  const keep=()=>{ d.name=g("recName").value; d.cat=g("recCat").value;
+    d.amt=g("recAmt").value; d.freq=g("recFreq").value; d.day=g("recDay").value; };
+  ["recName","recAmt","recDay"].forEach(id=>{const el=g(id); if(el)el.oninput=keep;});
+  const c=g("recCat"); if(c)c.onchange=keep;
+  /* the sheet redraws on frequency so the amount label and the note follow it */
+  const fr=g("recFreq"); if(fr)fr.onchange=()=>{keep();renderEditor();};
+  const a=g("addRecBtn"); if(a)a.onclick=()=>{ keep();
+    const name=String(d.name||"").trim(), amount=num(d.amt);
+    if(!name){ g("recName").focus(); return; }
+    if(!amount){ g("recAmt").focus(); return; }
+    const b={id:uid(),name,category:d.cat,amount,dueDay:Math.min(28,Math.max(1,num(d.day)||1)),freq:d.freq||"monthly"};
+    if(BILL_FREQ[b.freq]&&BILL_FREQ[b.freq].n>1) b.anchor=monthKey(todayISO());
+    b.group=CAT_GROUP[b.category]||"Other"; b.tier=DEFAULT_TIER[b.group]||"flexible";
+    db.recurring.push(b);
+    closeEditor();
+    billTab="all"; billTierFilter=null; editBill=b.id; saveAll();};
+}
 /* one ⋯ menu behaves like the next: toggle on its button, close on any click
    outside it */
 function wirePopMenu(btnId,menuId){
@@ -8445,14 +8503,8 @@ document.getElementById("showAddPaycheck").addEventListener("click",()=>{
   addPayOpen=!addPayOpen; editPay=null; renderPaychecks();
   if(addPayOpen){ const el=document.getElementById("addPayPanel"); if(el)el.scrollIntoView({behavior:"smooth",block:"center"});
     const f=document.getElementById("pc-source"); if(f)setTimeout(()=>f.focus(),260); }});
-function showAddPanel(id,focusId){ const p=document.getElementById(id); if(!p)return;
-  const open=p.style.display!=="none"; p.style.display=open?"none":"block";
-  if(!open){ p.scrollIntoView({behavior:"smooth",block:"center"});
-    const f=document.getElementById(focusId); if(f)setTimeout(()=>f.focus(),260); } }
-document.getElementById("showAddBill").addEventListener("click",()=>showAddPanel("addBillPanel","recName"));
-document.getElementById("showAddBudget").addEventListener("click",()=>showAddPanel("addBudgetPanel","budLimit"));
-document.querySelectorAll("[data-hideadd]").forEach(b=>b.addEventListener("click",()=>{
-  document.getElementById(b.dataset.hideadd).style.display="none";}));
+document.getElementById("showAddBill").addEventListener("click",openAddBill);
+document.getElementById("showAddBudget").addEventListener("click",openAddBudget);
 {const el=document.getElementById("billAlertDays");
  if(el) el.addEventListener("change",e=>{ db.settings.billAlertDays=Math.min(14,Math.max(0,num(e.target.value)));
    persist(); e.target.value=db.settings.billAlertDays; });}
@@ -8460,30 +8512,57 @@ document.getElementById("calBillsBtn").addEventListener("click",()=>{
   const m=document.getElementById("calMsg");
   if(!db.recurring.length){ if(m)m.textContent="Add a bill first."; return; }
   const lead=num(db.settings.billAlertDays)||3;
+  /* the lead time appears once you've exported, so it's there to change and
+     re-export with, and absent until it would mean anything */
+  {const cl=document.getElementById("calLead"), ai=document.getElementById("billAlertDays");
+   if(cl)cl.hidden=false; if(ai&&!ai.value)ai.value=lead;}
   if(downloadBillsICS()&&m) m.innerHTML=`Downloaded <b>freebound-bills.ics</b> — open it and your calendar will add ${db.recurring.length} repeating reminder${db.recurring.length===1?"":"s"}, each alerting at 9am <b>${lead} day${lead===1?"":"s"}</b> before it's due. Re-export whenever you change a bill.`;});
-document.getElementById("budCat").addEventListener("change",e=>{
-  const w=document.getElementById("budNewWrap"); if(!w)return;
-  w.hidden=e.currentTarget.value!=="__new";
-  if(!w.hidden){const n=document.getElementById("budNew"); if(n)n.focus();}});
-document.getElementById("addBudBtn").addEventListener("click",()=>{
-  const sel=document.getElementById("budCat").value;
-  const typed=(document.getElementById("budNew").value||"").trim();
-  /* a made-up category joins the real list, so it is pickable everywhere after
-     — on a transaction, a bill, the next budget — not just here */
-  let c=sel;
-  if(sel==="__new"){
-    if(!typed)return;
-    c=db.categories.find(x=>x.toLowerCase()===typed.toLowerCase())||typed;
-    if(db.categories.indexOf(c)<0) db.categories.push(c);
-  }
-  const v=num(document.getElementById("budLimit").value);if(!c||!v)return;
-  document.getElementById("budNew").value="";
-  document.getElementById("budNewWrap").hidden=true;
-  db.budgets[c]=v;
-  /* starts this month, so it can't inherit a balance from before it existed */
-  db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[c]={since:monthKey(todayISO()),roll:true};
-  document.getElementById("budLimit").value=""; document.getElementById("addBudgetPanel").style.display="none";
-  editBudget=c; saveAll();});
+let _newBudget=null;
+function openAddBudget(){
+  const first=db.categories.find(c=>c!=="Income"&&!(c in db.budgets));
+  _newBudget={cat:first||"__new",typed:"",limit:""};
+  openEditor({kicker:"New budget",title:"Add a budget",closeLabel:"Cancel",
+    html:addBudgetHTML, wire:wireAddBudget, onClose:()=>{_newBudget=null;}});
+}
+function addBudgetHTML(){
+  const d=_newBudget||{}, mk=monthKey(todayISO());
+  /* a category that already has an envelope would just overwrite it, so it is
+     offered as an edit instead of silently replacing what is there */
+  const taken=d.cat!=="__new"&&(d.cat in (db.budgets||{}));
+  return `<div class="formgrid">
+      <div class="field"><label>Category</label><select id="budCat">${db.categories.filter(c=>c!=="Income")
+        .map(c=>`<option value="${esc(c)}" ${d.cat===c?"selected":""}>${esc(c)}${c in (db.budgets||{})?" — already budgeted":""}</option>`).join("")}
+        <option value="__new" ${d.cat==="__new"?"selected":""}>+ New category…</option></select></div>
+      ${d.cat==="__new"?`<div class="field"><label>New category name</label>
+        <input id="budNew" value="${esc(d.typed||"")}" placeholder="Date nights" autocomplete="off"></div>`:""}
+      <div class="field"><label>Monthly limit</label><input id="budLimit" type="number" value="${esc(d.limit||"")}" placeholder="400"></div>
+    </div>
+    ${taken?`<div class="note warn" style="margin-top:14px;font-size:13px"><b>${esc(d.cat)}</b> already has an envelope of <b>${fmt(num(db.budgets[d.cat]))}</b>. Adding it again replaces that limit and restarts its rollover from ${esc(prettyMonth(mk))}.</div>`
+    :`<div class="note" style="margin-top:14px;font-size:13px">It starts in <b>${esc(prettyMonth(mk))}</b>, so it can't inherit a balance from months it didn't exist for. Rollover is on — change it on the envelope once it's here.</div>`}
+    <button class="btn primary" id="addBudBtn" style="width:100%;margin-top:16px">${taken?"Replace budget":"Add budget"}</button>`;
+}
+function wireAddBudget(body){
+  const g=id=>body.querySelector("#"+id), d=_newBudget; if(!d)return;
+  const keep=()=>{ const t=g("budNew"); if(t)d.typed=t.value; const l=g("budLimit"); if(l)d.limit=l.value; };
+  ["budNew","budLimit"].forEach(id=>{const el=g(id); if(el)el.oninput=keep;});
+  const c=g("budCat"); if(c)c.onchange=()=>{keep();d.cat=c.value;renderEditor();};
+  const a=g("addBudBtn"); if(a)a.onclick=()=>{ keep();
+    /* a made-up category joins the real list, so it is pickable everywhere after
+       — on a transaction, a bill, the next budget — not just here */
+    let cat=d.cat;
+    if(cat==="__new"){
+      const typed=String(d.typed||"").trim();
+      if(!typed){ const t=g("budNew"); if(t)t.focus(); return; }
+      cat=db.categories.find(x=>x.toLowerCase()===typed.toLowerCase())||typed;
+      if(db.categories.indexOf(cat)<0) db.categories.push(cat);
+    }
+    const v=num(d.limit);
+    if(!v){ g("budLimit").focus(); return; }
+    db.budgets[cat]=v;
+    /* starts this month, so it can't inherit a balance from before it existed */
+    db.budgetMeta=db.budgetMeta||{}; db.budgetMeta[cat]={since:monthKey(todayISO()),roll:true};
+    closeEditor(); editBudget=cat; saveAll();};
+}
 document.getElementById("addRuleBtn").addEventListener("click",()=>{const m=document.getElementById("ruleMatch").value.trim();const c=document.getElementById("ruleCat").value;if(!m)return;db.rules.push({m,c});document.getElementById("ruleMatch").value="";saveAll();});
 document.getElementById("saveBtn").addEventListener("click",()=>{db.updatedAt=new Date().toISOString();
   const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});const a=document.createElement("a");

@@ -52,20 +52,22 @@ console.log('Netflix marked business:', await p.evaluate(()=>({biz:!!db.recurrin
 await p.uncheck('[data-billbiz="r6"]'); await p.waitForTimeout(400);
 await p.click('[data-billdone]'); await p.waitForTimeout(400);
 
-// compact add panels
-console.log('\nadd panels hidden at rest:', await p.evaluate(()=>({
-  bill:document.getElementById('addBillPanel').style.display,
-  budget:document.getElementById('addBudgetPanel').style.display})));
+/* the add forms pull out of the editor sheet now — nothing sits open under the
+   lists whether or not you're adding anything */
+const openSheet=()=>p.evaluate(()=>{const s=document.getElementById('editSheet');
+  return s&&!s.hidden?document.getElementById('editTitle').textContent:null;});
+console.log('\nnothing open at rest:', await openSheet());
 await p.click('#showAddBill'); await p.waitForTimeout(500);
-console.log('after + Bill:', await p.evaluate(()=>document.getElementById('addBillPanel').style.display));
+console.log('after + Bill:', await openSheet());
 await p.fill('#recName','Gym'); await p.fill('#recAmt','35'); await p.fill('#recDay','15');
 await p.selectOption('#recCat','Health'); await p.click('#addRecBtn'); await p.waitForTimeout(700);
-console.log('added:', await p.evaluate(()=>{const b=db.recurring[db.recurring.length-1];
-  return {name:b.name,group:b.group,tier:b.tier,panelClosed:document.getElementById('addBillPanel').style.display==='none'};}));
+console.log('added:', await p.evaluate(()=>{const b=db.recurring.find(x=>x.name==='Gym');
+  return {name:b.name,group:b.group,tier:b.tier};}));
+console.log('  sheet closed behind it:', await openSheet());
 await p.click('#showAddBudget'); await p.waitForTimeout(400);
-console.log('+ Budget opens:', await p.evaluate(()=>document.getElementById('addBudgetPanel').style.display));
-await p.click('[data-hideadd="addBudgetPanel"]'); await p.waitForTimeout(300);
-console.log('cancel closes:', await p.evaluate(()=>document.getElementById('addBudgetPanel').style.display));
+console.log('+ Budget opens:', await openSheet());
+await p.click('#editSheet .sheetx'); await p.waitForTimeout(400);
+console.log('cancel closes:', await openSheet());
 
 // ---- calendar export ----
 const dl=p.waitForEvent('download');

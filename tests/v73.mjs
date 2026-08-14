@@ -31,9 +31,12 @@ console.log('income editor:', await p.evaluate(()=>[...document.querySelectorAll
 await p.evaluate(()=>{setView('business');addBizOpen=true;renderBusiness();}); await p.waitForTimeout(900);
 console.log('business add panel:', await p.evaluate(()=>[...document.querySelectorAll('#view-business .infobtn.tiny')]
   .map(b2=>b2.parentElement.textContent.replace(/\s+/g,' ').replace(/i$/,'').trim().slice(0,40))));
-await p.evaluate(()=>{setView('accounts');addMode='inst';renderAddPanel();}); await p.waitForTimeout(900);
-console.log('accounts add panel:', await p.evaluate(()=>[...document.querySelectorAll('#view-accounts .infobtn.tiny')]
+/* the accounts add form moved into the editor sheet, so its help chips are
+   collapsed there rather than on the view */
+await p.evaluate(()=>{setView('accounts');openAddInst();}); await p.waitForTimeout(900);
+console.log('accounts add sheet:', await p.evaluate(()=>[...document.querySelectorAll('#editSheetBody .infobtn.tiny')]
   .map(b2=>b2.parentElement.textContent.replace(/\s+/g,' ').replace(/i$/,'').trim().slice(0,40))));
+await p.evaluate(()=>closeEditor()); await p.waitForTimeout(400);
 
 console.log('\n— TOGGLE BEHAVIOUR —');
 await p.evaluate(()=>setView('credit')); await p.waitForTimeout(600);
