@@ -1,0 +1,8 @@
+#!/bin/sh
+# Structural gate. ~150ms, and it has caught every way an edit has taken this
+# app down: a file that no longer parses, a comment swallowing code, a renamed
+# element with callers left behind, a frozen storage key quietly changed.
+#
+# Enable once per clone:   git config core.hooksPath .githooks
+# Skip deliberately:       git commit --no-verify
+exec node "$(git rev-parse --show-toplevel)/tools/check.mjs" --quiet

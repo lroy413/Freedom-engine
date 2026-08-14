@@ -1,0 +1,1418 @@
+/* FreeBound — the whole stylesheet.
+   Lifted out of index.html so a rule can be found without scrolling past
+   eight thousand lines of JavaScript. Nothing else changed: it is still one
+   render-blocking sheet in <head>, so there is no flash of unstyled content,
+   and no build step went near it. */
+  /* No zooming. touch-action kills double-tap zoom; text-size-adjust stops iOS
+     inflating text in landscape; the 16px rule below stops focus auto-zoom. */
+  html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+
+  :root{
+    --bg:#f2f5f4; --card:#ffffff; --ink:#16181f; --ink2:#565a66; --muted:#6b7080;
+    --line:#edeef2; --line2:#e3e5ea; --line2h:#cfd3db; --raise:#fafbfc; --raise2:#f5f6f8;
+    --track:#eef0f4; --grid:#edeef2;
+    --accent:#059669; --accent-soft:#e6f6ee; --accent-ink:#047857;
+    /* --warn/--debt are fills; --warn-ink is the same amber dark enough to read as small text (4.7:1) */
+    --pos:#0ca35a; --neg:#e0463e; --debt:#e5900f; --warn:#e5900f; --warn-ink:#9a6206; --goal:#0ea5a0; --invest:#7c5cf0;
+    /* Emerald leads, but a finance app has more than one kind of number, and a
+       screen where everything is the brand colour reads as unfinished rather
+       than considered. Five supporting hues, matched in saturation and weight
+       so they sit together, each carrying a meaning: money in, money out,
+       what's planned, what's owed, what's invested. */
+    --c-emerald:#059669; --c-teal:#0d9488; --c-sky:#0284c7;
+    --c-violet:#7c5cf0; --c-amber:#d97706; --c-rose:#e11d48;
+    /* the same family carried out to twelve, for places that need to tell many
+       things apart (category slices, business cards) rather than mean one
+       thing. Even chroma and lightness across the set is what stops a chart
+       looking like a bag of highlighters. */
+    --c-cyan:#0891b2; --c-blue:#2563eb; --c-fuchsia:#c026d3;
+    --c-orange:#ea580c; --c-lime:#4d7c0f; --c-slate:#64748b;
+    --s1:#059669; --s2:#0284c7; --s3:#e11d48; --s4:#d97706; --s5:#7c5cf0;
+    --barbg:rgba(255,255,255,.85); --barbg2:rgba(255,255,255,.97); --glass:rgba(255,255,255,.62);
+    /* Depth is three layers doing different jobs: a crisp contact line, a close
+       ambient, and a wide soft diffuse. One flat shadow reads as a border. */
+    --shadow:0 1px 2px rgba(16,18,27,.05),0 6px 16px -6px rgba(16,18,27,.08),0 20px 44px -18px rgba(16,18,27,.16);
+    --shadow-sm:0 1px 1px rgba(16,18,27,.03),0 3px 8px -3px rgba(16,18,27,.05),0 12px 28px -16px rgba(16,18,27,.11);
+    /* Light was flat: a no-op highlight and no gradient meant every card was
+       one solid white rectangle, and depth came from shadow alone. A whisper
+       of vertical gradient plus a real top highlight gives the surface a
+       direction for light to come from — the same trick dark already used. */
+    --card-hi:inset 0 1px 0 rgba(255,255,255,.9);
+    --card-grad:linear-gradient(180deg,#ffffff 0%,#fcfdfd 100%);
+    --inset:inset 0 1px 2px rgba(16,18,27,.05);
+    --radius:16px;
+    --chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+  /* Dark is a selected set of steps for a dark surface, not an inverted light theme. */
+  html[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#0f1014; --card:#181a20; --ink:#f2f3f5; --ink2:#b6bac4; --muted:#868b98;
+    --line:#24262e; --line2:#2e313a; --line2h:#3d414c; --raise:#1e2027; --raise2:#22242c;
+    --track:#2a2d36; --grid:#24262e;
+    --accent:#10b981; --accent-soft:#0c2f23; --accent-ink:#6ee7b7;
+    --pos:#3ecf8e; --neg:#f4736a; --debt:#f0ad3e; --warn:#f0ad3e; --warn-ink:#f0ad3e; --goal:#2dd4bf; --invest:#a78bfa;
+    --c-emerald:#34d399; --c-teal:#2dd4bf; --c-sky:#38bdf8;
+    --c-violet:#a78bfa; --c-amber:#fbbf24; --c-rose:#fb7185;
+    --c-cyan:#22d3ee; --c-blue:#60a5fa; --c-fuchsia:#e879f9;
+    --c-orange:#fb923c; --c-lime:#a3e635; --c-slate:#94a3b8;
+    --s1:#34d399; --s2:#38bdf8; --s3:#fb7185; --s4:#fbbf24; --s5:#a78bfa;
+    --barbg:rgba(24,26,32,.85); --barbg2:rgba(24,26,32,.97); --glass:rgba(24,26,32,.6);
+    --shadow:0 1px 2px rgba(0,0,0,.45),0 10px 26px -8px rgba(0,0,0,.5),0 24px 60px -20px rgba(0,0,0,.6);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 8px 22px -12px rgba(0,0,0,.5);
+    /* on a dark surface the light comes from the top edge, not from underneath */
+    --card-hi:inset 0 1px 0 rgba(255,255,255,.05);
+    --card-grad:linear-gradient(180deg,#1c1e26 0%,#181a20 68%);
+    --inset:inset 0 1px 2px rgba(0,0,0,.4);
+    --chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2398a1b0' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+  /* Shown only when scripts don't run (e.g. an iOS file preview), hidden the instant they do. */
+  #nojs{padding:20px 18px 40px}
+  html.js-on #nojs{display:none}
+  html:not(.js-on) header.topbar,html:not(.js-on) main{display:none}
+  .nojs-card{max-width:620px;margin:24px auto;background:#fff;border:1px solid #e3e5ea;border-left:5px solid #e5900f;border-radius:16px;padding:24px;box-shadow:0 1px 2px rgba(20,22,31,.05);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.55;font-size:16px;color:#16181f}
+  .nojs-title{font-size:20px;font-weight:720;letter-spacing:-.02em;margin-bottom:12px}
+  .nojs-card p{margin:0 0 14px}
+  .nojs-card p:last-child{margin-bottom:0}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5;font-size:15px}
+  h1,h2,h3{margin:0;font-weight:680;letter-spacing:-.015em}
+  button{font-family:inherit;cursor:pointer}
+  input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink)}
+  a{color:var(--accent);text-decoration:none}
+
+  /* Border only once you've scrolled — a hairline under a title that's flush with
+     the page above it is what made this feel like a toolbar bolted on top. */
+  /* The bar starts invisible — at the top of the page it IS the page — and
+     condenses into frosted glass once content scrolls beneath it. The blur
+     stays on permanently (only the tint fades) so the transition is pure
+     opacity, never a filter popping in. -webkit- prefix: iOS won't blur
+     without it, which is why the bar used to read as a flat strip there. */
+  header.topbar{position:sticky;top:0;z-index:20;background:transparent;
+    -webkit-backdrop-filter:saturate(180%) blur(16px);backdrop-filter:saturate(180%) blur(16px);
+    border-bottom:1px solid transparent;transition:background .25s ease,border-color .25s ease,box-shadow .25s ease}
+  header.topbar.stuck{background:var(--glass);border-bottom-color:var(--line);box-shadow:0 1px 12px -6px rgba(0,0,0,.28)}
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    header.topbar.stuck{background:var(--barbg2)}
+  }
+  .topinner{max-width:1060px;margin:0 auto;padding:10px 18px;display:flex;align-items:center;gap:12px;min-height:60px}
+  .brand{display:flex;align-items:center;gap:12px;font-weight:760;font-size:20px;white-space:nowrap;letter-spacing:-.03em;min-width:0}
+  /* both titles occupy the same grid cell so one can cross-fade into the other */
+  .brandswap{display:grid;min-width:0}
+  .brandswap .bt{grid-area:1/1;transition:opacity .18s ease,transform .18s ease;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .brandswap .viewname{opacity:0;transform:translateY(5px);pointer-events:none}
+  header.topbar.stuck .brandswap .wordmark{opacity:0;transform:translateY(-5px)}
+  header.topbar.stuck .brandswap .viewname{opacity:1;transform:none}
+  .brand .dot{width:27px;height:27px;border-radius:8px;background:linear-gradient(135deg,#10b981,#047857);box-shadow:0 2px 10px -2px rgba(5,150,105,.55);position:relative;flex:none}
+  .brand .dot::after{content:"";position:absolute;inset:8px;border-radius:4px;background:rgba(255,255,255,.92)}
+  nav.tabs{display:flex;gap:3px;overflow-x:auto;margin-left:auto;scrollbar-width:none}
+  nav.tabs::-webkit-scrollbar{display:none}
+  nav.tabs button{border:0;background:transparent;color:var(--ink2);padding:8px 12px;border-radius:12px;font-size:15px;font-weight:570;white-space:nowrap;transition:all .15s;display:flex;align-items:center;gap:8px}
+  nav.tabs button:hover{background:var(--bg);color:var(--ink)}
+  nav.tabs button.active{background:var(--accent-soft);color:var(--accent-ink)}
+  nav.tabs .ic{display:none;width:21px;height:21px;flex:none}
+
+  main{max-width:1060px;margin:0 auto;padding:24px 20px 110px}
+  .view{display:none;animation:fade .22s ease}
+  .view.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .card{background:var(--card);background-image:var(--card-grad);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--card-hi),var(--shadow-sm)}
+  .pad{padding:20px}
+  .grid{display:grid;gap:14px}
+  .kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  @media(min-width:1024px){ .kpis{grid-template-columns:repeat(3,1fr)} }
+  @media(min-width:1500px){ .kpis{grid-template-columns:repeat(3,1fr)} }
+  .row2{grid-template-columns:1fr 1fr}
+  @media(max-width:760px){.row2{grid-template-columns:1fr}}
+
+  .kpi{padding:20px 21px;transition:box-shadow .18s,transform .18s}
+  .kpi:hover{box-shadow:var(--shadow);transform:translateY(-1px)}
+  .kpi .label{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:660}
+  .kpi .val{font-size:32px;font-weight:720;margin-top:8px;letter-spacing:-.03em;line-height:1.15}
+  .kpi .sub{font-size:13px;color:var(--muted);margin-top:4px}
+  .val.pos{color:var(--pos)} .val.neg{color:var(--neg)}
+
+  h1.page{font-size:26px;margin-bottom:6px;font-weight:730}
+  .titlerow{display:flex;align-items:center;gap:8px;min-width:0}
+  .titlerow h1.page{margin-bottom:0}
+  .infobtn{width:21px;height:21px;flex:none;border:1.5px solid var(--line2);background:transparent;color:var(--muted);
+    border-radius:50%;font:italic 700 12px/1 Georgia,"Times New Roman",serif;display:flex;align-items:center;
+    justify-content:center;padding:0;cursor:pointer;transition:background .14s,color .14s,border-color .14s;align-self:center}
+
+  .infobtn.tiny{width:18px;height:18px;font-size:10px;margin-left:8px;
+    display:inline-flex;vertical-align:middle;position:relative;top:-1px}
+  /* the explanation drops in below whatever it explains, full width, never inline */
+  .helptext{font-size:13px;line-height:1.5;color:var(--ink2);background:var(--raise);
+    border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0 2px;flex-basis:100%}
+  .helptext[hidden]{display:none}
+  .sectiontitle+.helptext{margin:-6px 0 12px}
+  label+.helptext{margin:6px 0 4px}
+  @media(max-width:820px){ .helptext{font-size:13px;padding:8px 12px} }
+  .infobtn:hover{background:var(--raise);color:var(--ink);border-color:var(--muted)}
+  .infobtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  html[data-theme="dark"] .infobtn.on{color:#12131a}
+  p.lead[hidden]{display:none}
+  p.lead{color:var(--ink2);font-size:15px;margin-top:0;max-width:70ch}
+  .sectiontitle{display:flex;align-items:center;gap:10px;margin:32px 0 14px;flex-wrap:wrap}
+  .sectiontitle.foldable{cursor:pointer;user-select:none;border-radius:12px;padding:4px 8px;margin-left:-8px;margin-right:-8px}
+  .sectiontitle.foldable:hover{background:var(--raise)}
+  .sectiontitle .foldchev{display:inline-flex;color:var(--muted);transition:transform .2s ease;flex:none}
+  .sectiontitle .foldchev svg{width:18px;height:18px}
+  .sectiontitle.shut{margin-bottom:0}
+  .sectiontitle.shut .foldchev{transform:rotate(-90deg)}
+  .sectiontitle.shut h2{color:var(--ink2)}
+  .sectiontitle h2{font-size:17px;font-weight:690}
+  .sectiontitle .hint{font-size:13px;color:var(--muted)}
+
+  /* Progress bars carry more of this app than any other graphic — debt, budgets,
+     goals, utilization, the freedom tiers. Flat colour on flat grey read like a
+     wireframe, so the trough is recessed and the fill is lit from above.
+     The colour arrives as an inline background from a dozen call sites, so the
+     shading is an overlay rather than a background-image, which that inline
+     shorthand would wipe out. */
+  .bar,.gbar,.frbar{position:relative;box-shadow:inset 0 1px 2px rgba(0,0,0,.10),inset 0 0 0 1px rgba(0,0,0,.03)}
+  html[data-theme="dark"] .bar,html[data-theme="dark"] .gbar,html[data-theme="dark"] .frbar,
+  html[data-theme="bushido"] .bar,html[data-theme="bushido"] .gbar,html[data-theme="bushido"] .frbar{
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.03)}
+  .bar>span,.gbar>span,.frbar>span{position:relative;overflow:hidden}
+  .bar>span::after,.gbar>span::after,.frbar>span::after{content:"";position:absolute;inset:0;border-radius:inherit;
+    background:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,.06) 46%,rgba(0,0,0,.12));
+    pointer-events:none}
+  .bar{height:10px;border-radius:16px;background:var(--track);overflow:hidden}
+  .bar>span{display:block;height:100%;border-radius:16px;transition:width .4s cubic-bezier(.4,0,.2,1)}
+
+  table{width:100%;border-collapse:collapse;font-size:15px}
+  th,td{text-align:left;padding:12px 12px;border-bottom:1px solid var(--line)}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:660}
+  td.amt,th.amt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  tbody tr{transition:background .12s}
+  tbody tr:hover{background:var(--raise)}
+  tr:last-child td{border-bottom:0}
+  .catpill{font-size:13px;padding:4px 12px;border-radius:16px;background:var(--card);border:1px solid var(--line2);border-left-width:3px;white-space:nowrap;font-weight:550}
+
+  .btn{border:1px solid var(--line2);background:var(--card);color:var(--ink);padding:10px 17px;border-radius:12px;font-size:15px;font-weight:590;transition:all .14s;box-shadow:var(--card-hi),var(--shadow-sm)}
+  .btn:hover{border-color:var(--line2h);background:var(--raise);transform:translateY(-1px)}
+  /* a press should feel like contact — the shadow collapses, the button sits down */
+  .btn:active{transform:translateY(0);box-shadow:var(--card-hi),0 1px 1px rgba(16,18,27,.05)}
+  .btn.primary{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 88%,#fff) 0%,var(--accent) 100%);
+    color:#fff;border-color:var(--accent);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 3px 12px -4px color-mix(in srgb,var(--accent) 60%,transparent)}
+  .btn.primary:hover{background:var(--accent-ink);border-color:var(--accent-ink)}
+  .btn.primary:active{box-shadow:inset 0 1px 3px rgba(0,0,0,.22)}
+  .btn.ghost{background:transparent;box-shadow:none}
+  .btn.ghost:active{transform:none;box-shadow:none}
+  .btn.ghost:hover{background:var(--bg)}
+  .btn.sm{padding:8px 12px;font-size:15px}
+  .btn.danger{color:var(--neg);border-color:#f3cfcc}
+
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:13px;font-weight:630;color:var(--ink2)}
+  .field input,.field select,textarea{padding:12px 12px;border:1px solid var(--line2);border-radius:12px;background:var(--card);width:100%;transition:border .14s,box-shadow .14s;box-shadow:var(--inset)}
+  .field input:focus,.field select:focus,textarea:focus,.miniedit:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .inline{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;align-items:end}
+
+  .miniedit{width:118px;padding:8px 12px;border:1px solid var(--line2);border-radius:12px;text-align:right;font-variant-numeric:tabular-nums;background:var(--card);transition:border .14s,box-shadow .14s;box-shadow:var(--inset)}
+  .muted{color:var(--muted)} .pos{color:var(--pos)} .neg{color:var(--neg)}
+  .flex{display:flex;align-items:center;gap:10px}
+  .between{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  /* a page title and its month picker shouldn't fight over one narrow row */
+  .pagerow{align-items:flex-end;gap:14px}
+  /* only the big page titles need their picker on a line of its own */
+  @media(max-width:600px){
+    .pagerow>h1.page,.pagerow>.titlerow{flex:1 1 100%;margin-bottom:0}
+    .pagerow>h1.page~.field,.pagerow>.titlerow~.field{width:100%!important;max-width:none} }
+  @media(max-width:600px){ .nolabel-sm>label{display:none} }
+  /* the control says "July 2026" — a "Month" label above it is a wasted line */
+  .nolabel>label{display:none}
+  .stack{display:flex;flex-direction:column;gap:12px}
+  .tag{font-size:12px;font-weight:690;padding:3px 10px;border-radius:16px;letter-spacing:.02em}
+  .tag.ok{background:#e4f6ec;color:#0a9150} .tag.warn{background:#fcf0dd;color:#c07a10} .tag.bad{background:#fbe6e4;color:var(--neg)}
+  .tag.notax{background:var(--raise);color:var(--muted);border:1px solid var(--line2)}
+  /* An open account in good standing: the absence of a problem, not a warning.
+     It has to hold the badge column's width without competing with the two
+     badges that actually mean something. */
+  .tag.neutral{background:var(--raise);color:var(--ink2)}
+  /* One value, one action. The number is the point, so it gets the weight; the
+     button is fixed and the field takes the rest, which is a shape that cannot
+     collide however wide the engine decides a control should be. */
+  .scorerow{display:flex;gap:10px;align-items:stretch;margin-top:14px}
+  .scorerow>input{flex:1 1 auto;min-width:0;padding:12px 16px;border:1px solid var(--line2);border-radius:14px;
+    background:var(--card);box-shadow:var(--inset);font-size:19px;font-weight:680;letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums;transition:border .14s,box-shadow .14s}
+  .scorerow>input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .scorerow>.btn{flex:none;padding:0 20px;border-radius:14px}
+  .scoremeta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:13px;min-height:1px}
+  .scoremeta input[type=date]{padding:7px 10px;border:1px solid var(--line2);border-radius:10px;
+    background:var(--card);font-size:16px;box-shadow:var(--inset)}
+  /* a control that reads as text until you need it to be a control */
+  .linkish{background:none;border:0;padding:0;font:inherit;font-weight:640;color:var(--accent-ink);
+    cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px;
+    text-decoration-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+  .linkish:hover{text-decoration-color:var(--accent)}
+  @media(max-width:820px){ .between>.flex{flex-wrap:wrap;min-width:0} .iname{width:auto!important;flex:1 1 90px;min-width:0} }
+  .empty{padding:36px;text-align:center;color:var(--muted);font-size:15px}
+  .note{font-size:15px;color:var(--ink2);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+  .note.ok{border-color:color-mix(in srgb,var(--pos) 40%,var(--line));background:color-mix(in srgb,var(--pos) 8%,var(--bg))}
+  .note.warn{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));background:color-mix(in srgb,var(--warn) 9%,var(--bg))}
+  .thermo{height:200px;width:46px;border-radius:22px;background:var(--track);position:relative;overflow:hidden;flex:none}
+  .thermo>span{position:absolute;bottom:0;left:0;right:0;border-radius:22px;background:linear-gradient(180deg,#22c3b3,#0ea5a0);transition:height .5s cubic-bezier(.4,0,.2,1)}
+  select.catsel{padding:4px 8px;border:1px solid var(--line2);border-radius:8px;font-size:13px;background:var(--card)}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .spacer{flex:1}
+  code{background:var(--bg);padding:2px 6px;border-radius:8px;font-size:13px;border:1px solid var(--line)}
+  .big{font-size:44px;font-weight:760;letter-spacing:-.035em}
+  .segoptions{display:flex;gap:6px;flex-wrap:wrap}
+  .seg{padding:6px 12px;border:1px solid var(--line2);border-radius:16px;font-size:13px;background:var(--card);color:var(--ink2);font-weight:560;transition:all .14s}
+  .seg:hover{border-color:var(--line2h)}
+  .seg.active{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 88%,#fff),var(--accent));color:#fff;border-color:var(--accent);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 2px 8px -3px color-mix(in srgb,var(--accent) 55%,transparent)}
+  .chk{width:30px;height:30px;border-radius:8px;border:1.5px solid var(--line2);background:var(--card);color:#fff;font-size:15px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;transition:all .15s;flex:none}
+  .chk:hover{border-color:var(--pos)}
+  .chk.on{background:linear-gradient(180deg,color-mix(in srgb,var(--pos) 86%,#fff),var(--pos));border-color:var(--pos);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 2px 6px -2px color-mix(in srgb,var(--pos) 55%,transparent)}
+
+  /* hero — money on hand */
+  .hero{background:linear-gradient(140deg,#059669 0%,#047857 45%,#0d9488 100%);color:#fff;border-radius:16px;padding:24px 24px 24px;box-shadow:0 10px 34px -14px rgba(5,150,105,.6);position:relative;overflow:hidden}
+  .hero::after{content:"";position:absolute;right:-70px;top:-70px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.09)}
+  .hero .hlabel{font-size:13px;text-transform:uppercase;letter-spacing:.09em;font-weight:660;opacity:.85}
+  .hero .hval{font-size:44px;font-weight:760;letter-spacing:-.035em;margin-top:8px;line-height:1.05}
+  .hero .hsub{font-size:15px;opacity:.85;margin-top:8px}
+  .hero .hsplit{display:flex;gap:24px;flex-wrap:wrap;margin-top:20px;position:relative;z-index:1}
+  .hero .hitem .k{font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.05em;font-weight:620}
+  .hero .hitem .v{font-size:20px;font-weight:700;margin-top:3px;letter-spacing:-.02em}
+
+  /* compact account rows — read-only until you open the ⋯ editor */
+  .arow{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);transition:background .12s}
+  .arow:hover{background:var(--raise)}
+  .arow.editing{background:var(--raise)}
+  .arow .glyph{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:750;color:#fff;flex:none;letter-spacing:-.02em}
+  .arow .glyph.small{width:32px;height:32px;border-radius:8px;font-size:13px}
+  .ainfo{flex:1;min-width:0}
+  .aname{font-size:15px;font-weight:620;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ameta{font-size:13px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .abal{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right;flex:none;letter-spacing:-.02em}
+  .abal.owed{color:var(--neg)}
+  .abal.roll,.abal.owed{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+  .abal em{font-style:normal;font-size:10px;font-weight:660;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:2px}
+  .aedit{width:32px;height:32px;flex:none;border:0;background:transparent;color:var(--muted);border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0}
+  .aedit svg{width:19px;height:19px}
+  .aedit:hover{background:var(--line);color:var(--ink)}
+  .aedit.on{background:var(--accent);color:#fff}
+  .aedit-panel{padding:16px 16px 16px 62px;background:var(--raise);border-bottom:1px solid var(--line)}
+  .aedit-panel.sub{padding-left:78px}
+  .arow.sub{padding-left:44px;background:var(--raise);position:relative}
+  .arow.sub:hover{background:var(--raise2)}
+  .arow.sub::before{content:"";position:absolute;left:30px;top:0;bottom:0;width:2px;background:var(--line2)}
+  .arow.sub::after{content:"";position:absolute;left:30px;top:50%;width:10px;height:2px;background:var(--line2)}
+  .grouphead.total{background:var(--card);border-bottom:0;border-top:1px solid var(--line2);color:var(--ink);font-size:15px;text-transform:none;letter-spacing:0;padding:16px 16px}
+  .grouphead.total span:last-child{font-size:18px;font-weight:720;font-variant-numeric:tabular-nums}
+  #toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:60;background:#16181f;color:#fff;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:14px;font-size:15px;font-weight:550;box-shadow:0 10px 30px -8px rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;max-width:calc(100vw - 32px)}
+  #toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+  #toast button{background:transparent;border:0;color:#6ee7b7;font-weight:700;font-size:15px;padding:4px 6px;border-radius:8px}
+  #toast button:hover{background:rgba(255,255,255,.12);color:#a7f3d0}
+  @media(max-width:820px){ #toast{bottom:88px} }
+  .chart{width:100%}
+  .chart svg{display:block;overflow:visible}
+  .chlegend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--ink2);font-weight:550}
+  .chlegend span{display:flex;align-items:center;gap:8px}
+  .chlegend i{width:11px;height:11px;border-radius:4px;flex:none}
+  @media(max-width:820px){ .chlegend{font-size:13px;gap:14px} }
+  .twist{width:24px;height:24px;flex:none;border:0;background:transparent;color:var(--muted);border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0;transition:transform .18s,background .14s}
+  .twist svg{width:16px;height:16px}
+  .twist:hover{background:var(--line);color:var(--ink)}
+  .twist.open{transform:rotate(90deg)}
+  .twist.ghosted{pointer-events:none}
+  .grouphead{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--raise);border-bottom:1px solid var(--line);font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:670}
+
+  /* ---------- mobile ---------- */
+  /* Inside an embedded preview the page is one tall frame, so a fixed bottom bar
+     lands below the visible area. Keep the nav in the sticky header instead. */
+  .in-frame .topinner{flex-wrap:wrap}
+  .in-frame nav.tabs{position:static!important;margin-left:0;width:100%;border-top:0!important;box-shadow:none!important;background:transparent!important;backdrop-filter:none!important;padding:2px 0 0!important}
+  .in-frame nav.tabs{flex-wrap:nowrap;overflow-x:auto}
+  .in-frame nav.tabs button{flex:none!important;flex-direction:row!important;gap:8px!important;min-width:0!important;font-size:13px!important;padding:8px 12px!important;white-space:nowrap}
+  .in-frame nav.tabs .ic{display:none!important}
+  .in-frame main{padding-bottom:40px}
+  .storagewarn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:12px;padding:12px 14px;font-size:15px;margin-bottom:18px}
+
+  @media(max-width:820px){
+    /* backdrop-filter on an ancestor traps position:fixed children — drop it so the bottom nav anchors to the viewport */
+    /* no blur here (it would trap position:fixed children), so the bar must be
+       fully opaque or page content ghosts through it as you scroll */
+    .topinner{padding:12px 16px}
+    main{max-width:100%;padding:20px 16px 108px}
+    nav.tabs{position:fixed;bottom:0;left:0;right:0;margin:0;z-index:40;background:var(--barbg2);backdrop-filter:saturate(180%) blur(14px);border-top:1px solid var(--line2);padding:8px 8px calc(8px + env(safe-area-inset-bottom));gap:2px;justify-content:flex-start;box-shadow:0 -2px 16px -6px rgba(20,22,31,.12)}
+    nav.tabs button{flex-direction:column;gap:3px;padding:8px 12px;font-size:10px;font-weight:600;min-width:66px;border-radius:12px}
+    nav.tabs .ic{display:block}
+    nav.tabs button.active{background:var(--accent-soft)}
+    /* density pass: the phone should show more of the page, not bigger type */
+    .grid{gap:10px}
+    .kpis{grid-template-columns:1fr 1fr;gap:10px}
+    .kpi{padding:12px 14px}
+    .kpi .val{font-size:22px;margin-top:4px}
+    .kpi .label{font-size:10px;letter-spacing:.05em}
+    .kpi .sub{font-size:12px;margin-top:3px}
+    .kpitop{margin-bottom:0}
+    .kpiicon{width:28px;height:28px;border-radius:8px}
+    .kpiicon svg{width:15px;height:15px}
+    h1.page{font-size:22px;margin-bottom:4px}
+    p.lead{font-size:15px;line-height:1.45;margin-bottom:14px}
+    .toolbar>input[type=text],.toolbar>input:not([type]){flex:1 1 130px;min-width:0}
+    .hero{padding:22px 20px;border-radius:16px}
+    .hero .hval{font-size:44px}
+    .formgrid{grid-template-columns:1fr;gap:12px}
+    .between{flex-wrap:wrap}
+    .field select,.field input{min-width:150px}
+    .card{overflow-x:auto}
+    .pad{padding:16px}
+    .note{padding:12px 12px;font-size:13px}
+    .field input,.field select,.btn,textarea{min-height:44px}
+    .field label{font-size:12px;margin-bottom:3px}
+    .miniedit{min-height:40px;width:104px}
+    .btn.sm{min-height:36px;font-size:13px;padding:0 12px}
+    .btn.sm svg{width:16px;height:16px}
+    table{font-size:15px}
+    th,td{padding:12px 8px}
+    .row2{grid-template-columns:1fr}
+    .sectiontitle{margin:18px 0 10px;gap:8px}
+    .sectiontitle h2{font-size:16px}
+    .thermo{height:170px;width:42px}
+    .big{font-size:36px}
+    .arow{padding:12px 12px;gap:10px}
+    .arow.sub{padding-left:32px}
+    .arow.sub::before,.arow.sub::after{left:20px}
+    .aname{font-size:15px}
+    .abal{font-size:16px}
+    /* the red minus already says it's owed — the word just steals name width */
+    .abal.owed em{display:none}
+    /* tapping the row opens its editor, so the ⋯ is dead weight on a phone */
+    .arow{cursor:pointer}
+    .arow>.aedit{display:none}
+    .twist.ghosted{display:none}
+    .glyph{width:32px;height:32px;font-size:12px}
+    .aedit-panel{padding:16px 12px}
+    .aedit-panel.sub{padding-left:32px}
+  }
+  @media(max-width:380px){
+    .kpis{grid-template-columns:1fr}
+    nav.tabs button{min-width:60px;padding:8px 8px}
+  }
+
+  html[data-theme="dark"] .hero{box-shadow:0 10px 34px -16px rgba(0,0,0,.7)}
+  html[data-theme="dark"] .tag.ok{background:#123024;color:#4ade80}
+  html[data-theme="dark"] .tag.warn{background:#33270f;color:#fbbf24}
+  html[data-theme="dark"] .tag.bad{background:#3a1d1d;color:#fca5a5}
+  html[data-theme="dark"] .storagewarn{background:#2b2113;border-color:#5a4220;color:#fbbf24}
+  html[data-theme="dark"] .nojs-card{background:#181a20;border-color:#2e313a;color:#f2f3f5}
+  html[data-theme="dark"] #toast{background:#2a2d36;border:1px solid #3d414c}
+  html[data-theme="dark"] .btn.primary,html[data-theme="dark"] .seg.active,html[data-theme="dark"] .aedit.on{color:#12131a}
+  html[data-theme="dark"] .chk.on{color:#12131a}
+  .themeseg{display:inline-flex;gap:4px;background:var(--raise);border:1px solid var(--line2);border-radius:12px;padding:4px}
+  .themeseg button{border:0;background:transparent;color:var(--ink2);font-size:15px;font-weight:580;padding:8px 14px;border-radius:8px}
+  .themeseg button.on{background:var(--accent);color:#fff}
+  html[data-theme="dark"] .themeseg button.on{color:#12131a}
+
+  /* ---------- navigation: sidebar on wide screens, drawer + bottom bar on phones ---------- */
+  .iconbtn{width:46px;height:46px;flex:none;border:0;background:transparent;color:var(--ink);border-radius:12px;display:none;align-items:center;justify-content:center;padding:0;
+    transition:background .15s ease}
+  .iconbtn svg{width:26px;height:26px}
+  .iconbtn:active{background:var(--raise2)}
+  .iconbtn:hover{background:var(--raise)}
+  #scrim{position:fixed;inset:0;background:rgba(10,11,15,.5);opacity:0;pointer-events:none;transition:opacity .22s;z-index:44}
+  #scrim.on{opacity:1;pointer-events:auto}
+  .sidebar{position:fixed;top:0;left:0;bottom:0;width:236px;background:var(--card);border-right:1px solid var(--line);box-shadow:8px 0 28px -24px rgba(0,0,0,.28);z-index:45;display:flex;flex-direction:column;padding:16px 12px;gap:4px;overflow-y:auto;overscroll-behavior:contain;transition:transform .24s cubic-bezier(.4,0,.2,1)}
+  .sbbrand{display:flex;align-items:center;gap:10px;font-weight:760;font-size:17px;letter-spacing:-.025em;padding:6px 8px 14px}
+  .sbbrand .dot{width:27px;height:27px;border-radius:8px;background:linear-gradient(135deg,#10b981,#047857);position:relative;flex:none}
+  .sbbrand .dot::after{content:"";position:absolute;inset:8px;border-radius:4px;background:var(--card)}
+  .sblink{display:flex;align-items:center;gap:12px;padding:12px 12px;border-radius:12px;border:0;background:transparent;color:var(--ink2);font-size:15px;font-weight:570;width:100%;text-align:left;transition:background .14s,color .14s}
+  .sblink svg{width:20px;height:20px;flex:none}
+  .sblink:hover{background:var(--raise);color:var(--ink)}
+  .sblink.active{background:var(--accent-soft);color:var(--accent-ink);font-weight:640}
+  .sbfoot{margin-top:auto;padding:10px 12px 4px;font-size:13px;color:var(--muted);border-top:1px solid var(--line)}
+  main{margin-left:236px;max-width:none;padding:32px 40px 64px}
+  main>.view{max-width:1120px;margin:0 auto}
+  /* the sidebar already carries the brand, so the top bar is only for narrow screens */
+  @media(min-width:1024px){ header.topbar{display:none} main{padding-top:32px} }
+  header.topbar .topinner{max-width:1000px}
+
+  /* A floating glass pill rather than a bar welded to the screen edge. Glass
+     needs a visible edge to read as glass, and the free margin underneath is
+     what gives the bar somewhere to contract to. Denser than the header's
+     --glass on purpose: these labels are 10px over whatever is scrolling
+     past, where the header only ever has a page title behind it. */
+  .bottombar{position:fixed;left:0;right:0;z-index:40;display:none;align-items:flex-end;justify-content:space-around;
+    width:min(460px,calc(100% - 20px));margin:0 auto;bottom:calc(2px + env(safe-area-inset-bottom));
+    border-radius:22px;border:1px solid var(--line2);
+    background:color-mix(in srgb,var(--card) 76%,transparent);
+    -webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);
+    padding:6px 4px;box-shadow:0 10px 34px -12px rgba(20,22,31,.35),0 2px 10px -6px rgba(20,22,31,.2);
+    transform-origin:bottom center;transition:transform .3s cubic-bezier(.22,1,.36,1)}
+  /* While the page moves the bar gathers toward the dash button, then springs
+     back the moment it stops. The labels folding away is what makes it read
+     as gathering rather than as a plain scale. */
+  .bottombar.mini{transform:scale(.86)}
+  .bottombar.mini .bb span{opacity:0;max-height:0}
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    .bottombar{background:var(--barbg2)}
+  }
+  /* One scroller either side of Home, each carrying both pages. Equal width, so
+     keeping their scrollLeft in step moves all four shortcuts as one set while
+     Home stays where your thumb expects it. */
+  .bbside{flex:1;min-width:0;display:flex;overflow-x:auto;overscroll-behavior-x:contain;
+    scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .bbside::-webkit-scrollbar{display:none}
+  .bbpage{flex:0 0 100%;display:flex;align-items:flex-end;justify-content:space-around;
+    scroll-snap-align:start;scroll-snap-stop:always}
+  /* the 7px below the Home button is the only spare room in the bar, and it is
+     exactly enough to say which page you are on */
+  .bbdots{position:absolute;left:50%;transform:translateX(-50%);bottom:3px;
+    display:flex;gap:4px;pointer-events:none}
+  .bbdots i{display:block;width:5px;height:3px;border-radius:2px;
+    background:color-mix(in srgb,var(--muted) 55%,transparent);
+    transition:width .2s ease,background .2s ease}
+  .bbdots i.on{width:10px;background:var(--accent)}
+  .slotpage+.slotpage{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+  .slothead{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;
+    color:var(--muted);margin-bottom:10px}
+  .bb{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;border:0;background:transparent;color:var(--ink2);
+    font-size:10px;font-weight:600;padding:8px 2px;border-radius:12px}
+  .bb svg{width:23px;height:23px}
+  .bb.active{color:var(--accent-ink)}
+  .bb span{max-width:100%;max-height:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    transition:opacity .22s ease,max-height .26s ease}
+  .bbcenter{flex:none;width:62px;height:62px;margin:-32px 8px 0;border-radius:50%;border:4px solid var(--bg);
+    background:linear-gradient(140deg,color-mix(in srgb,var(--accent) 80%,#fff),var(--accent));color:#fff;display:flex;align-items:center;justify-content:center;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 8px 22px -8px color-mix(in srgb,var(--accent) 75%,transparent);transition:transform .16s}
+  .bbcenter svg{width:27px;height:27px}
+  .bbcenter:active{transform:scale(.94)}
+  .bbcenter.active{background:linear-gradient(140deg,color-mix(in srgb,var(--accent) 65%,#fff),var(--accent))}
+
+  @media(max-width:1023px){
+    .sidebar{transform:translateX(-105%);box-shadow:0 0 40px rgba(0,0,0,.25)}
+    .sidebar.open{transform:none}
+    /* the desktop rule sets 40px side padding for the sidebar layout; on a phone
+       that ate a fifth of the screen, so reset it along with the margin */
+    main{margin-left:0;padding:20px 16px 72px}
+    .iconbtn{display:flex}
+  }
+  @media(max-width:820px){
+    .bottombar{display:flex}
+    main{padding:18px 14px 124px}
+  }
+  @media(max-width:400px){ main{padding-left:12px;padding-right:12px} }
+  /* The nav must not scroll away with the page. Fixed works in a normal window and
+     inside a hosted iframe alike; it gets its own scrollbar in case the list grows. */
+  html.in-frame .sidebar{position:fixed}
+
+  /* ---------- holdings, Robinhood-style ---------- */
+  .hrow{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
+  .hrow:hover{background:var(--raise)}
+  .hrow.open{background:var(--raise)}
+  .htick{font-size:16px;font-weight:680;letter-spacing:-.01em}
+  .hsub{font-size:13px;color:var(--muted);margin-top:2px}
+  /* the price and the position's weight share one right-hand column, so the
+     weight takes no width from the row and the sparkline keeps its space */
+  .hright{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:3px}
+  .hweight{font-size:11px;font-weight:600;color:var(--muted);text-align:center;
+    font-variant-numeric:tabular-nums;letter-spacing:.01em}
+  .qstale{color:var(--warn-ink);font-weight:600;font-size:12px;margin-top:2px}
+  /* marks an entry that lives as a transaction, so it is clear why this one
+     opens Spending rather than an editor here */
+  .tagline{color:var(--accent-ink);font-weight:620}
+  /* a payment that buys shares rather than landing — carried on the invest ramp
+     so it reads as growth at a glance, never as cash */
+  .dripline{color:var(--invest);font-weight:620}
+  .hmain{flex:1;min-width:0}
+  .hspark{width:120px;height:38px;flex:none}
+  .hbadge{flex:none;min-width:96px;text-align:center;padding:8px 12px;border-radius:8px;font-size:15px;font-weight:670;font-variant-numeric:tabular-nums}
+  .hbadge.up{background:var(--pos);color:#06210f}
+  .hbadge.down{background:var(--neg);color:#2b0806}
+  .hbadge.flat{background:var(--raise2);color:var(--ink2)}
+  .hdetail{padding:4px 16px 18px;border-bottom:1px solid var(--line);background:var(--raise)}
+  .hstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px;margin:10px 0 16px}
+  .hstat .k{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:640}
+  .hstat .v{font-size:17px;font-weight:670;margin-top:3px;font-variant-numeric:tabular-nums}
+  @media(max-width:820px){ .hspark{width:78px;height:34px} .hbadge{min-width:84px;font-size:15px;padding:8px 10px} .hrow{padding:12px 12px;gap:10px} }
+  @media(max-width:460px){ .hsub{white-space:nowrap} }
+
+  /* ---------- tables on small screens ----------
+     A five-column table cannot fit 390px. The two transaction lists restack into
+     rows; everything else gets a horizontal scroll so no column is unreachable. */
+  @media(max-width:820px){
+    .card table:not(.stacktbl){display:block;overflow-x:auto;overscroll-behavior-x:contain}
+    .stacktbl,.stacktbl tbody{display:block;width:100%}
+    .stacktbl thead{display:none}
+    .stacktbl tr{display:grid;grid-template-columns:1fr auto;align-items:center;
+      gap:2px 12px;padding:12px 14px;border-bottom:1px solid var(--line)}
+    .stacktbl tr:last-child{border-bottom:0}
+    .stacktbl td{display:block;border:0;padding:0;min-width:0}
+    /* two grid rows, not three — the date and category share a line */
+    .stacktbl tr{grid-template-columns:auto 1fr auto;gap:4px 8px;padding:8px 12px}
+    .tx5 tr{grid-template-areas:"desc desc amt" "date cat del"}
+    .tx4 tr{grid-template-areas:"desc desc amt" "date cat amt"}
+    .stacktbl td:nth-child(1){grid-area:date;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;align-self:center}
+    .stacktbl td:nth-child(2){grid-area:desc;font-size:15px;font-weight:600;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .stacktbl td:nth-child(3){grid-area:cat;min-width:0}
+    .stacktbl td:nth-child(3) .catsel{width:100%;max-width:none}
+    .stacktbl td:nth-child(4){grid-area:amt;text-align:right;align-self:center;
+      font-size:16px;font-weight:680;font-variant-numeric:tabular-nums}
+    .tx5 td:nth-child(5){grid-area:del;text-align:right}
+    .stacktbl .catsel{min-height:32px;font-size:13px;padding:4px 22px 4px 8px}
+    .stacktbl .btn.sm{min-height:32px;padding:0 8px}
+    .stacktbl .txdesc,.stacktbl .txamt{padding:2px 4px;margin:-2px -4px}
+    .stacktbl .txdate{padding:2px 4px;margin:-2px -4px;font-size:12px}
+    .div5 tr{grid-template-columns:1fr auto;grid-template-areas:"name yr" "freq yr" "each next"}
+    .div5 td:nth-child(1){grid-area:name;font-size:15px}
+    .div5 td:nth-child(2){grid-area:freq;margin-top:4px}
+    .div5 td:nth-child(3){grid-area:each;margin-top:6px;text-align:left;font-size:13px;color:var(--muted)}
+    .div5 td:nth-child(3)::before{content:"each "}
+    .div5 td:nth-child(4){grid-area:yr;text-align:right;align-self:center;font-size:16px;font-weight:680}
+    .div5 td:nth-child(5){grid-area:next;margin-top:6px;text-align:right;font-size:13px}
+    .stacktbl tr.sumrow{display:flex;justify-content:space-between;align-items:center;background:var(--raise)}
+    .stacktbl tr.sumrow td{width:auto}
+    .stacktbl tr.sumrow td:empty{display:none}
+  }
+
+  /* ---------- transaction filters ---------- */
+  .filthead{display:flex;align-items:center;gap:8px;width:100%;padding:14px 16px;background:transparent;
+    border:0;color:var(--ink);font:inherit;font-size:15px;font-weight:640;cursor:pointer;text-align:left}
+  .filthead:hover{background:var(--raise)}
+  .filthead>svg:first-child{width:18px;height:18px;flex:none;color:var(--muted)}
+  .filtchev{width:17px;height:17px;flex:none;color:var(--muted);transition:transform .2s}
+  .filthead[aria-expanded="true"] .filtchev{transform:rotate(180deg)}
+  .fcount{background:var(--accent);color:#fff;font-size:12px;font-weight:700;min-width:20px;height:20px;
+    border-radius:16px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
+  .fcount[hidden]{display:none}
+  html[data-theme="dark"] .fcount{color:#12131a}
+  .filtbody{padding:2px 16px 16px;border-top:1px solid var(--line)}
+  .filtbody[hidden]{display:none}
+  .filtbody .filtrow{margin-top:14px}
+  #txChips:not(:empty){padding:0 16px 14px}
+  .filtrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+  .filtrow .field select,.filtrow .field input{min-width:0;width:100%}
+  .chiprow{display:flex;flex-wrap:wrap;gap:8px}
+  .fchip{display:inline-flex;align-items:center;gap:8px;background:var(--accent-soft);color:var(--accent-ink);
+    border:0;border-radius:16px;padding:6px 10px 6px 12px;font-size:13px;font-weight:600}
+  .fchip b{font-weight:700}
+  .fchip .x{display:flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;
+    background:rgba(0,0,0,.10);font-size:10px;line-height:1}
+  .fchip:hover .x{background:rgba(0,0,0,.2)}
+  html[data-theme="dark"] .fchip .x,html[data-theme="bushido"] .fchip .x{background:rgba(255,255,255,.16)}
+  .fclear{background:transparent;border:0;color:var(--muted);font-size:13px;font-weight:600;padding:6px 4px;text-decoration:underline}
+  /* three figures that answer the question, evenly spaced, with the rest quiet
+     underneath — six equal numbers wrapping ragged read as a pile */
+  .sumtrio{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .sumtrio .sumitem{min-width:0}
+  .sumfoot{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);
+    font-size:13px;color:var(--muted)}
+  /* A transaction is a line you read: when, what, which pot, how much. Everything
+     editable lives in the sheet the row opens, so heights are even and the list
+     scans instead of presenting five controls per row. */
+  .trow .bmain{gap:12px;align-items:center}
+  .tdate{flex:none;width:54px;font-size:12px;font-weight:640;color:var(--muted);
+    font-variant-numeric:tabular-nums;line-height:1.3}
+  .trow .bname{font-size:15px;font-weight:620}
+  .trow .dbal{font-variant-numeric:tabular-nums;white-space:nowrap}
+  /* the category's own colour, small enough to sit inside a line of meta text */
+  .tdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px;
+    vertical-align:1px;flex:none}
+  /* .bmeta is allowed to wrap on phones because bill and stream explanations are
+     prose. A transaction's meta is an identifier, not a sentence — it clips, so
+     every row is the same height and the list scans. */
+  .trow .bmeta{flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
+  .tmeta{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sumrow2{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:flex-end}
+  .sumitem .k{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:660}
+  .sumitem .v{font-size:20px;font-weight:730;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums}
+  /* label/value rows that wrap instead of forcing a horizontal scroll */
+  .deflist{display:flex;flex-direction:column}
+  .deflist[hidden]{display:none}
+  .defrow{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 16px;
+    padding:8px 0;border-top:1px solid var(--line)}
+  .defrow:first-child{border-top:0;padding-top:0}
+  .defrow:last-child{padding-bottom:0}
+  .defrow .k{font-size:13px;color:var(--muted);flex:0 0 auto}
+  .defrow .v{font-size:15px;font-weight:560;text-align:right;flex:1 1 auto;min-width:0;word-break:break-word}
+  @media(max-width:560px){ .defrow .v{text-align:left;flex:1 1 100%}
+    /* wrapping is for long values; a dollar figure fits beside its label, and
+       three lines per row turns a breakdown into a scroll marathon */
+    .deflist.tight .defrow{flex-wrap:nowrap;align-items:baseline;gap:12px}
+    .deflist.tight .defrow .k{flex:1 1 auto;min-width:0}
+    .deflist.tight .defrow .v{flex:0 0 auto;text-align:right} }
+  .rulelist .defrow{align-items:center;gap:6px 12px}
+  .rulelist .k{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .rulelist .v{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+  @media(max-width:560px){ .rulelist .v{justify-content:flex-start} }
+  .projctl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;
+    border-top:1px solid var(--line);padding-top:12px}
+  @media(max-width:820px){ .projctl{gap:8px;margin-top:14px} .projctl .segoptions{gap:4px} .projctl .seg{padding:6px 12px} }
+  .tacct{font-size:12px;color:var(--muted);display:block;margin-top:1px}
+  .txdate,.txdesc,.txamt{border:1px solid transparent;background:transparent;color:inherit;font:inherit;
+    border-radius:8px;padding:4px 6px;margin:-4px -6px;min-height:0;width:100%;max-width:100%}
+  .txdate{font-variant-numeric:tabular-nums;max-width:148px}
+  .txamt{text-align:right;font-weight:inherit;max-width:120px}
+  .txamt.neg{color:var(--neg)} .txamt.pos{color:var(--pos)}
+  .txdate:hover,.txdesc:hover,.txamt:hover{border-color:var(--line2);background:var(--card)}
+  .txdate:focus,.txdesc:focus,.txamt:focus{border-color:var(--accent);background:var(--card);outline:none}
+  @media(max-width:820px){ .txdate{font-size:12px;max-width:none} .txdesc{font-size:15px;font-weight:600} }
+  @media(max-width:820px){
+    .filtrow{grid-template-columns:1fr 1fr;gap:10px}
+    .sumrow2{gap:10px 18px} .sumitem .v{font-size:18px}
+  }
+
+  /* ---------- bill tabs, tiers ---------- */
+  .tabrow{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px;padding-bottom:2px}
+  /* Inside a collapsible panel there is no reason to run off the edge: the
+     chips wrap and stack, so every option is reachable without a sideways
+     scroll nobody knew was there. */
+  .tabrow.wrap{flex-wrap:wrap;overflow-x:visible;margin-bottom:0}
+  .filtbody .scrollchips{flex-wrap:wrap;overflow-x:visible;margin-bottom:10px}
+  .filtbody .scrollchips>*{flex:none}
+  .tabrow::-webkit-scrollbar{display:none}
+  .tabrow:empty{display:none}
+  .btab{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);background:var(--card);
+    color:var(--ink2);border-radius:16px;padding:8px 12px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer}
+  .btab:hover{background:var(--raise);color:var(--ink)}
+  .btab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  html[data-theme="dark"] .btab.on{color:#12131a}
+  .bcount{font-size:12px;opacity:.7;font-variant-numeric:tabular-nums}
+  .tchip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line2);background:var(--card);
+    color:var(--ink2);border-radius:16px;padding:8px 12px;font-size:13px;font-weight:560;cursor:pointer}
+  .tchip b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+  .tchip:hover{background:var(--raise)}
+  .tchip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+  .tchip.on b{color:var(--accent-ink)}
+  .tdot{width:8px;height:8px;border-radius:50%;flex:none}
+  .floornote{font-size:13px;color:var(--muted);margin:0 0 12px 2px;line-height:1.4}
+  .floornote b{color:var(--ink)}
+  .smonly{display:none}
+  @media(max-width:820px){
+    .lgonly{display:none} .smonly{display:inline}
+    /* one scrolling row beats two wrapped ones */
+    .scrollchips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;margin-bottom:10px}
+    .scrollchips::-webkit-scrollbar{display:none}
+    .scrollchips>*{flex:none}
+    .tchip{padding:6px 12px;font-size:13px}
+    .floornote{font-size:13px;margin-bottom:10px}
+  }
+  .bizmark{font-size:10px;font-weight:760;letter-spacing:.06em;color:#2563eb;background:rgba(37,99,235,.12);
+    padding:2px 4px;border-radius:4px;vertical-align:1px}
+
+  .taxclasssel{width:auto;text-align:left;flex:none;max-width:52%}
+  @media(max-width:640px){
+    /* the dropdown was squeezing stream names down to four characters */
+    .taxstream .bmain{flex-wrap:wrap}
+    .taxstream .binfo{flex:1 1 100%}
+    .taxclasssel{max-width:none;flex:1 1 100%;margin-top:8px}
+  }
+  .bizsel{margin-top:4px;font-size:12px}
+  .bizpct{width:58px;margin-top:4px;font-size:12px;padding:4px 6px;min-height:30px}
+  .stacktbl tr.bizrow,.brow.bizrow{box-shadow:inset 3px 0 0 var(--bizc)}
+  @media(max-width:820px){ .stacktbl tr.bizrow{box-shadow:inset 3px 0 0 var(--bizc)} }
+  html[data-theme="dark"] .bizmark,html[data-theme="bushido"] .bizmark{color:#93c5fd;background:rgba(147,197,253,.14)}
+  .brow.offmonth .bname,.brow.offmonth .bamt{color:var(--muted)}
+  .brow.offmonth .bamt{font-weight:620}
+  .bamt.roll{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15}
+  .bamt em{font-style:normal;font-size:10px;font-weight:640;color:var(--muted);margin-top:2px}
+  .bpay{flex:none;min-width:52px;padding:0 10px}
+  .bprog{height:3px;background:var(--line);margin:0 16px 10px;border-radius:16px;overflow:hidden}
+  .bprog span{display:block;height:100%;background:var(--warn);border-radius:16px;transition:width .4s cubic-bezier(.4,0,.2,1)}
+  .bpart{color:var(--warn-ink);font-weight:620}
+  @media(max-width:820px){ .bprog{margin:0 12px 8px} }
+  #billViewSeg{display:inline-flex}
+  @media(max-width:820px){ #billViewSeg{display:flex;width:100%} #billViewSeg .seg{flex:1;text-align:center} }
+  .scrollrows.bills{max-height:330px}
+  @media(max-width:820px){ .scrollrows.bills{max-height:296px} }
+
+  /* ---------- bill rows ---------- */
+  /* ---------- overflow menu ---------- */
+  .morebtn{padding:8px 8px}
+  .morebtn svg{width:18px;height:18px}
+  .popmenu{position:absolute;top:calc(100% + 6px);right:0;z-index:30;min-width:220px;
+    background:var(--card);background-image:var(--card-grad);border:1px solid var(--line2);
+    border-radius:12px;box-shadow:var(--card-hi),var(--shadow);padding:6px;display:flex;flex-direction:column}
+  .popitem{display:flex;align-items:center;gap:12px;width:100%;padding:12px 12px;border:0;background:transparent;
+    color:var(--ink);font-size:15px;font-weight:570;border-radius:8px;cursor:pointer;text-align:left}
+  .popitem:hover{background:var(--raise)}
+  .popitem svg{width:17px;height:17px;flex:none;color:var(--muted)}
+  .popitem.danger,.popitem.danger svg{color:var(--neg)}
+  /* search is the thing you reach for on this screen, so it gets the full width
+     and an icon rather than sharing a row with a destructive button */
+  .searchrow{position:relative;display:flex;align-items:center}
+  .searchrow .searchico{position:absolute;left:14px;width:18px;height:18px;color:var(--muted);pointer-events:none}
+  .searchrow input{width:100%;padding:12px 14px 12px 42px;border:1px solid var(--line2);border-radius:14px;
+    background:var(--card);box-shadow:var(--inset);font-size:16px;transition:border .14s,box-shadow .14s}
+  .searchrow input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .chipdiv{width:1px;align-self:stretch;background:var(--line2);margin:3px 3px;flex:none}
+  .tchip.vchip{font-weight:640}
+  .tchip.ichip{width:30px;justify-content:center;font:italic 700 12px/1 Georgia,serif;color:var(--muted)}
+  .tchip.ichip.on{color:var(--accent-ink);border-color:var(--accent)}
+  .floornote.helptext{margin:8px 0 2px}
+  .chk.payg{font-size:15px;font-weight:800;color:var(--muted);display:flex;align-items:center;justify-content:center}
+  /* ---------- insight cards ---------- */
+  #insightRow{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+  .insight{display:flex;align-items:center;gap:12px;background:var(--card);background-image:var(--card-grad);
+    border:1px solid var(--line);border-radius:12px;padding:12px 12px;box-shadow:var(--card-hi),var(--shadow-sm)}
+  .insight .idot{width:8px;height:8px;border-radius:50%;flex:none}
+  .insight.warn .idot{background:var(--warn)} .insight.info .idot{background:var(--accent)} .insight.good .idot{background:var(--pos)}
+  .insight .itext{flex:1;min-width:0;text-align:left;background:none;border:0;padding:0;color:var(--ink2);
+    font:inherit;font-size:13px;line-height:1.45;cursor:pointer}
+  .insight .itext b{color:var(--ink)}
+  .insight .itext:hover{color:var(--ink)}
+  .insight .ix{width:30px;height:30px;flex:none;border:0;background:transparent;color:var(--muted);
+    border-radius:8px;display:grid;place-items:center;cursor:pointer;font-size:12px}
+  .insight .ix:hover{background:var(--raise);color:var(--ink)}
+  @media(max-width:820px){ .insight{padding:10px 12px} .insight .itext{font-size:13px} }
+  /* ---------- hero carousel ---------- */
+  /* Scroll-snap does the work: real momentum on a phone, drag or arrow keys on a
+     desktop, and it degrades to a plain stack if scroll-snap isn't supported. */
+  .herowrap{position:relative;margin-bottom:22px}
+  .herotrack{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;
+    overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;gap:0}
+  .herotrack::-webkit-scrollbar{display:none}
+  .heroslide{flex:0 0 100%;scroll-snap-align:center;min-width:0}
+  .heroslide .dashhero{margin-bottom:0}
+  .herodots{display:flex;justify-content:center;gap:8px;margin-top:12px}
+  .hdot{width:7px;height:7px;border-radius:50%;border:0;padding:0;cursor:pointer;
+    background:var(--line2h);opacity:.55;transition:all .2s ease}
+  .hdot.on{opacity:1;width:20px;border-radius:16px;background:var(--accent)}
+  /* --bh comes from the business's own colour; the fallback matters because an
+     undefined var makes the whole gradient invalid, which paints the hero
+     transparent and leaves white text on a white page */
+  .dashhero.biz{--bh:var(--accent);
+    background:linear-gradient(135deg,var(--bh) 0%,color-mix(in srgb,var(--bh) 55%,#0f172a) 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 16px 38px -20px color-mix(in srgb,var(--bh) 70%,transparent)}
+  @media(prefers-reduced-motion:reduce){ .herotrack{scroll-behavior:auto} }
+  /* ---------- donut ---------- */
+  .donutwrap{display:flex;align-items:center;gap:24px}
+  .donutwrap[hidden]{display:none}
+  .donutbox{position:relative;width:168px;height:168px;flex:none}
+  .donut{width:100%;height:100%;display:block;overflow:visible}
+  .dslice{transition:opacity .18s ease,stroke-width .18s ease;cursor:pointer}
+  .donutbox:has(.dslice.on) .dslice:not(.on){opacity:.32}
+  .dslice.on{stroke-width:22}
+  .dcentre{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;pointer-events:none;padding:0 24px}
+  .dcval{font-size:22px;font-weight:770;letter-spacing:-.03em;line-height:1.05;font-variant-numeric:tabular-nums}
+  .dclab{font-size:10px;text-transform:uppercase;letter-spacing:.09em;font-weight:700;color:var(--muted);
+    margin-top:4px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dlegend{flex:1;min-width:0;display:flex;flex-direction:column}
+  .dlrow{display:flex;align-items:center;gap:10px;width:100%;padding:8px 8px;background:transparent;border:0;
+    border-radius:12px;color:inherit;font:inherit;cursor:pointer;text-align:left}
+  .dlrow:hover{background:var(--raise)}
+  .dlrow.on{background:var(--raise2)}
+  .dlsw{width:10px;height:10px;border-radius:4px;flex:none}
+  .dlname{flex:1;min-width:0;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dlpct{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none;width:38px;text-align:right}
+  .dlamt{font-size:15px;font-weight:680;font-variant-numeric:tabular-nums;flex:none}
+  @media(max-width:600px){
+    /* stacking beats shrinking — a 120px donut with a squeezed list reads worse than both at full size */
+    .donutwrap{flex-direction:column;gap:14px}
+    .donutbox{width:180px;height:180px}
+    .dlegend{width:100%}
+    .dlrow{padding:8px 6px}
+  }
+  /* ---------- drill-down sheet ---------- */
+  /* Full height on a phone, a centred panel on a desktop. Body scroll is locked
+     while it's open so the page behind doesn't drift under your thumb. */
+  .sheet{position:fixed;inset:0;z-index:120;display:flex;align-items:flex-end;justify-content:center}
+  .sheet[hidden]{display:none}
+  .sheetscrim{position:absolute;inset:0;background:rgba(12,14,20,.5);backdrop-filter:blur(2px)}
+  .sheetbody{position:relative;width:100%;max-width:720px;max-height:92vh;display:flex;flex-direction:column;
+    background:var(--card);border-radius:22px 22px 0 0;box-shadow:0 -12px 44px -8px rgba(0,0,0,.4);
+    animation:sheetup .26s cubic-bezier(.32,.72,0,1)}
+  @keyframes sheetup{from{transform:translateY(4%);opacity:.6}to{transform:none;opacity:1}}
+  .sheethead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
+    padding:18px 20px 14px;border-bottom:1px solid var(--line);flex:none}
+  .sheetkicker{font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:var(--muted)}
+  .sheettitle{font-size:32px;font-weight:780;letter-spacing:-.03em;line-height:1.05;margin-top:3px}
+  .sheetx{width:36px;height:36px;flex:none;border:0;border-radius:12px;background:var(--raise);color:var(--ink);
+    display:grid;place-items:center;cursor:pointer}
+  .sheetx:hover{background:var(--raise2)}
+  .sheetx svg{width:17px;height:17px}
+  .sheetscroll{overflow-y:auto;overscroll-behavior:contain;padding:16px 20px 24px;-webkit-overflow-scrolling:touch}
+  body.sheetopen{overflow:hidden}
+  /* A full-screen sheet in a home-screen app has no browser chrome to escape
+     through, so getting out has to be obvious: a grab handle you can drag, a
+     close button that says what it is, and the system back gesture (see
+     sheetPush). Three ways out, because one small X was not enough. */
+  /* month in review: big soft statements rather than a table, because the
+     point is to be read once and enjoyed, not audited */
+  .rcstat{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:14px 0}
+  .rccard{background:var(--raise);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+  .rccard .k{font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:680;color:var(--muted)}
+  .rccard .v{font-size:22px;font-weight:720;letter-spacing:-.02em;margin-top:4px;line-height:1.1}
+  .rccard .s{font-size:12px;color:var(--muted);margin-top:3px}
+  .rcline{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line);font-size:15px}
+  .rcline .rcn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rcline .rcv{font-weight:660;font-variant-numeric:tabular-nums;flex:none}
+  .rcdot{width:9px;height:9px;border-radius:50%;flex:none}
+  .rcbig{font-size:17px;line-height:1.5;margin:2px 0 4px}
+  .rcquiet{color:var(--muted);font-size:13px}
+  .sheetgrab{display:none}
+  .sheetx span{display:none}
+  @media(max-width:720px){
+    .sheetgrab{display:block;padding:10px 0 2px;flex:none;touch-action:none}
+    .sheetgrab i{display:block;width:38px;height:4px;border-radius:999px;background:var(--line2h);margin:0 auto}
+    .sheetbody{transition:transform .26s cubic-bezier(.32,.72,0,1)}
+    .sheetbody.dragging{transition:none}
+    /* the label and the ✕ sit side by side — a plain centred grid stacked them
+       into two rows, which is what the gap was written for */
+    .sheetx{width:auto;height:32px;padding:0 12px;gap:6px;font-size:13px;font-weight:640;grid-auto-flow:column}
+    .sheetx span{display:inline}
+  }
+  .nwsec{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--muted);
+    margin:20px 0 2px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .nwsec:first-child{margin-top:0}
+  .nwsec .t{font-size:13px;font-weight:700;letter-spacing:-.01em;text-transform:none;color:var(--ink)}
+  .nwhead{display:flex;align-items:center;gap:10px;width:100%;padding:12px 0;background:transparent;border:0;
+    border-top:1px solid var(--line);color:inherit;font:inherit;cursor:pointer;text-align:left}
+  .nwhead .nwcount{font-size:13px;font-weight:640;flex:none}
+  .nwhead .nwlead{font-size:13px;color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nwhead .nwchev{width:16px;height:16px;flex:none;color:var(--muted);transition:transform .2s ease}
+  .nwhead.open .nwchev{transform:rotate(180deg)}
+  .nwhead:hover{color:var(--accent-ink)}
+  .nwmove{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);font-size:13px}
+  .nwmove .arrow{font-size:10px;font-weight:700;flex:none;width:14px}
+  .nwmove .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .nwmove .d{font-weight:660;font-variant-numeric:tabular-nums;flex:none}
+  @media(min-width:721px){ .sheet{align-items:center} .sheetbody{border-radius:22px;max-height:86vh} }
+  /* 100vh on iOS is the tall viewport, as though the browser chrome were
+     hidden — taller than what you can actually see. With the sheet aligned to
+     the bottom, that surplus pushes the HEAD off the top of the screen, which
+     is how a sheet opened with its title already cut in half. dvh is the
+     visible viewport; browsers without it ignore these and keep vh. */
+  @media(max-width:720px){ .sheetbody{max-height:100vh;height:100vh;max-height:100dvh;height:100dvh;border-radius:0}
+    .sheethead{padding-top:max(18px,env(safe-area-inset-top))}
+    .sheetscroll{padding-bottom:max(24px,env(safe-area-inset-bottom))} .sheettitle{font-size:26px} }
+  /* the hero figure is now a control, so it needs to look like one */
+  /* it lives in a space-between flex row — 100% width shoves the sparkline out */
+  .dh-tap{background:none;border:0;padding:0;margin:0;color:inherit;font:inherit;text-align:left;cursor:pointer;
+    display:block;flex:1 1 auto;min-width:0}
+  .dh-tap:hover .dh-val{opacity:.86}
+  .dh-more{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:640;opacity:.8;margin-top:8px;
+    border:1px solid rgba(255,255,255,.34);border-radius:16px;padding:3px 8px}
+  /* ---------- goals ---------- */
+  /* The freedom card is the thesis of the app, so it gets one strong figure and
+     three slim bars — not a wall of numbers. Tapping a bar opens the maths. */
+  .freedom{padding:18px 18px 6px}
+  .frlabel{font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:var(--muted)}
+  .frbig{font-size:36px;font-weight:780;letter-spacing:-.03em;line-height:1.02;margin-top:4px;color:var(--pos)}
+  .frper{font-size:17px;font-weight:640;letter-spacing:-.01em;color:var(--muted);margin-left:2px}
+  .frsub{font-size:13px;color:var(--muted);margin-top:4px}
+  .frtiers{display:flex;flex-direction:column;gap:2px;margin:16px -18px 0;padding:0 6px}
+  .frtier{display:block;width:100%;text-align:left;background:transparent;border:0;cursor:pointer;
+    padding:10px 12px;border-radius:12px;color:inherit;font:inherit}
+  .frtier:hover{background:var(--raise)}
+  .frtier.open{background:var(--raise)}
+  .frtop{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
+  .frright{display:flex;align-items:baseline;gap:8px;flex:none}
+  .frgap{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .frtier.cleared .frgap{color:var(--pos);font-weight:620}
+  .frname{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:620}
+  .frtick{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--pos)}
+  .frpct{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted)}
+  .frtier.cleared .frpct{color:var(--pos)}
+  /* four dots and a name: enough to say how far in you are without a wizard's
+     worth of chrome above a form that is four fields long */
+  .bizsteps{display:flex;align-items:center;gap:6px;margin:0 0 18px}
+  .bizdot{width:7px;height:7px;border-radius:50%;background:var(--line2);flex:none;transition:background .2s}
+  .bizdot.done{background:color-mix(in srgb, var(--accent) 55%, transparent)}
+  .bizdot.on{background:var(--accent);width:20px;border-radius:6px}
+  .bizstepname{font-size:11px;text-transform:uppercase;letter-spacing:.09em;font-weight:680;color:var(--muted);margin-left:6px}
+  .frsame{font-size:13px;color:var(--muted);margin-top:10px;padding-left:12px;
+    border-left:2px solid var(--line2)}
+  .frsame b{color:var(--ink2);font-weight:640}
+  .frbar{height:7px;border-radius:16px;background:var(--line);overflow:hidden}
+  .frbar>span{display:block;height:100%;border-radius:16px;transition:width .35s ease}
+  .frmeta{font-size:12px;color:var(--muted);margin-top:4px}
+  .frneed{font-size:12px;color:var(--muted);margin:2px 0 0}
+  .frpanel{border-top:1px solid var(--line);margin:12px -18px 0;padding:14px 18px 16px}
+  .frcap{margin-top:12px;padding:12px 14px;border-radius:12px;background:var(--raise);border:1px solid var(--line)}
+  .frcaptop{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:4px;flex-wrap:wrap;line-height:1.55}
+  .frcapval{font-size:26px;font-weight:760;letter-spacing:-.025em;margin-bottom:2px}
+  .frwhere{margin-top:14px}
+  .frwherehead{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--muted);margin-bottom:2px}
+  /* A ring reads as progress at a glance and costs less width than a bar. */
+  .gring{--p:0;--c:#059669;width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;position:relative;
+    background:conic-gradient(var(--c) calc(var(--p)*1%),var(--line) 0)}
+  .gring::after{content:"";position:absolute;inset:3.5px;border-radius:50%;background:var(--card)}
+  /* ::after is generated last, so without a stacking bump it paints over the number */
+  .gring>span{position:relative;z-index:1;font-size:10px;font-weight:720;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .brow.editing .gring::after{background:var(--raise)}
+  /* three figures don't fit one phone line; a breakdown is allowed to wrap */
+  .brow.hsrow .bmeta{white-space:normal;overflow:visible}
+  .goleft{font-size:15px;font-weight:660;color:var(--muted)}
+  .gbarwrap{margin-bottom:12px}
+  .gbar{position:relative;height:10px;border-radius:16px;background:var(--line);overflow:hidden}
+  .gbar>span{display:block;height:100%;border-radius:16px;transition:width .35s ease}
+  .gbar>i{position:absolute;top:0;bottom:0;width:1.5px;background:var(--card);opacity:.65}
+  .gbarnums{display:flex;justify-content:space-between;font-size:13px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
+  .gnext{font-size:13px;color:var(--muted);margin-bottom:10px}
+  .chkgrid{display:flex;flex-wrap:wrap;gap:6px}
+  .chkpill{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:6px 10px;border-radius:16px;
+    border:1px solid var(--line2);background:var(--card);cursor:pointer;min-height:32px}
+  .chkpill.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);font-weight:620}
+  .chkpill input{margin:0}
+  @media(max-width:820px){
+    .freedom{padding:16px 14px 4px}
+    .frbig{font-size:32px}
+    .frtiers{margin:12px -14px 0;padding:0 4px}
+    .frtier{padding:8px 10px}
+    .frpanel{margin:12px -14px 0;padding:12px 14px 14px}
+    .gring{width:34px;height:34px}
+  }
+  .brow{border-bottom:1px solid var(--line)}
+  .brow:last-child{border-bottom:0}
+  .brow.editing{background:var(--raise)}
+  .bmain{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer}
+  .bmain:hover{background:var(--raise)}
+  .brow.sum .bmain{cursor:default;background:var(--raise)}
+  .binfo{flex:1;min-width:0}
+  .bname{font-size:15px;font-weight:620;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bmeta{font-size:13px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:4px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bdot{width:7px;height:7px;border-radius:50%;flex:none}
+  .bmeta .bneg{color:var(--neg);font-weight:620}
+  /* amber for "this number knows less than it looks like it does", wherever it
+     is said — bill rows, account rows, a forecast note, a burn hint */
+  .bwarn{color:var(--warn-ink);font-weight:620}
+  /* the same amber the bill rows use, so a question on an account row reads the
+     same way a question anywhere else does */
+  .ameta .bwarn{color:var(--warn-ink);font-weight:640}
+  .bamt{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;flex:none}
+  .brow.paid .bamt{color:var(--muted);text-decoration:line-through}
+  .brow.paid .bname{color:var(--ink2)}
+  .chk.ghosted{opacity:0;pointer-events:none}
+  .bpanel{border-top:1px solid var(--line);padding:14px 16px 16px}
+  @media(max-width:820px){ .bmain{gap:10px;padding:12px 12px} .bname{font-size:15px} .bamt{font-size:16px} .bpanel{padding:12px}
+    /* the coloured dot already says which category it is — tapping the row edits it */
+    .bcat{display:none} .bmain>.aedit{display:none} }
+
+  /* ---------- debt cards ---------- */
+  /* Income streams and debts used to be free-floating cards while bills, budgets,
+     goals and paychecks were flush rows in one card. Same idea, two looks. These
+     now match .brow exactly — one row idiom across the whole app. */
+  .stack.rowcard{gap:0;background:var(--card);background-image:var(--card-grad);border:1px solid var(--line);
+    border-radius:var(--radius);box-shadow:var(--card-hi),var(--shadow-sm);overflow:hidden}
+  .dcard{background:transparent;border:0;border-bottom:1px solid var(--line);transition:background .12s}
+  .stack:not(.rowcard)>.dcard{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--card)}
+  .rowcard>.dcard:last-child{border-bottom:0}
+  .dcard.editing{background:var(--raise)}
+  .dcard.done{opacity:.82}
+  .dtop{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer}
+  .dtop:hover{background:var(--raise)}
+  .dinfo{flex:1;min-width:0}
+  .dname{font-size:15px;font-weight:620;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dmeta{font-size:13px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .damt{text-align:right;flex:none}
+  .dbal{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .dof{font-size:10px;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums}
+  .dbarrow{display:flex;align-items:center;gap:12px;padding:0 16px 14px}
+  .dbarrow .bar{flex:1;min-width:0}
+  .dpaybtn{flex:none;min-width:74px}
+  .dclear{flex:none;font-size:13px;font-weight:640;color:var(--pos);padding:0 6px}
+  .dpanel{border-top:1px solid var(--line);padding:14px 16px 16px;background:var(--raise)}
+  .dcard.editing .dpanel{background:var(--raise2)}
+  .tshort{display:none}
+  @media(max-width:820px){
+    .dtop{gap:8px;padding:12px 12px 10px}
+    .dname{font-size:15px} .dbal{font-size:17px}
+    .dbarrow{padding:0 12px 12px;gap:10px}
+    .dpanel{padding:12px}
+    /* tapping the card opens the editor, so the ⋯ button is dead weight here */
+    .dtop>.aedit{display:none}
+    .tlong{display:none} .tshort{display:inline}
+  }
+
+  /* ---------- iOS-style settings list ---------- */
+  .setnav{margin-bottom:18px}
+  .setback{display:inline-flex;align-items:center;gap:3px;background:transparent;border:0;color:var(--accent);
+    font:inherit;font-size:16px;font-weight:600;padding:4px 0;margin-bottom:2px;cursor:pointer}
+  .setback svg{width:19px;height:19px;margin-left:-4px}
+  .setback:hover{opacity:.75}
+  .setback[hidden]{display:none}
+  #setRoot,.setpane{max-width:720px}
+  .setgrouplabel{font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;
+    color:var(--muted);margin:0 0 8px 16px}
+  .setgroup{background:var(--card);background-image:var(--card-grad);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    margin-bottom:24px;box-shadow:var(--card-hi),var(--shadow-sm)}
+  .setrow{position:relative;display:flex;align-items:center;gap:12px;width:100%;min-height:54px;
+    padding:12px 16px;background:transparent;border:0;text-align:left;color:var(--ink);
+    font:inherit;font-size:16px;cursor:pointer}
+  .setrow+.setrow::before{content:"";position:absolute;left:58px;right:0;top:0;height:1px;background:var(--line)}
+  .setrow:hover{background:var(--raise)}
+  .setrow:active{background:var(--line2)}
+  .setrow.static{cursor:default}
+  .setrow.static:hover{background:transparent}
+  .setico{width:30px;height:30px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff}
+  .setico svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+  .setlabel{flex:1;min-width:0;font-weight:560;letter-spacing:-.01em}
+  .setlabel small{display:block;font-size:13px;font-weight:480;color:var(--muted);margin-top:1px;letter-spacing:0}
+  .setval{color:var(--muted);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46%;text-align:right}
+  .setval.on{color:var(--pos);font-weight:580}
+  .setchev{width:15px;height:15px;flex:none;color:var(--muted);opacity:.55;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+  .setlabel,.setlabel small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @media(max-width:820px){ .setrow{font-size:15px;min-height:56px;gap:12px;padding:12px 12px}
+    .setrow+.setrow::before{left:52px} .setgrouplabel{margin-left:16px}
+    .setval{font-size:13px;max-width:42%} }
+
+  /* ---------- dashboard hero ---------- */
+  .dashhero{position:relative;overflow:hidden;border-radius:16px;padding:24px 28px 20px;margin-bottom:22px;color:#fff;
+    background:linear-gradient(135deg,#059669 0%,#047857 42%,#0d9488 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 16px 38px -20px rgba(5,150,105,.75)}
+  .dashhero::after{content:"";position:absolute;right:-80px;top:-120px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.09)}
+  .dashhero::before{content:"";position:absolute;right:120px;bottom:-150px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.06)}
+  /* ---------- the wood along the road (see roadWood) ----------
+     First child of the track, so it paints behind the road, its stops and the
+     marker without needing a z-index of its own. Trees are free to stand
+     taller than the 44px track — the top of a full-grown one crosses the road
+     line, which is what a treeline behind a road does. */
+  /* Top aligned with the track — which is why it lives inside it, so yFor's
+     coordinates need no translating — and extended down past the caption so the
+     trunks stand on the foot of the card. The caption is a later sibling, so it
+     paints over the wood without either needing a z-index. */
+  .dh-wood{position:absolute;left:0;right:0;top:0;bottom:-40px;pointer-events:none;color:#fff}
+  /* the outer span carries the gust, the inner the idle sway — two rotations
+     that have to compose, and one element can only run one transform animation */
+  .jsway{display:block;width:100%;height:100%;transform-origin:50% 100%;
+    animation:tsway var(--d,10s) ease-in-out var(--del,0s) infinite alternate}
+  @keyframes tsway{
+    from{transform:rotate(calc(var(--a,1.2deg) * -1))}
+    to{transform:rotate(var(--a,1.2deg))}
+  }
+  /* weather, not a metronome: at rest for four fifths of the cycle, then a lean
+     and two smaller ones settling back */
+  @keyframes gust{
+    0%,62%,100%{transform:translateX(-50%) rotate(0deg)}
+    70%{transform:translateX(-50%) rotate(var(--g,2deg))}
+    79%{transform:translateX(-50%) rotate(calc(var(--g,2deg) * -.42))}
+    87%{transform:translateX(-50%) rotate(calc(var(--g,2deg) * .18))}
+    93%{transform:translateX(-50%) rotate(calc(var(--g,2deg) * -.07))}
+  }
+  /* ---------- leaves crossing the card ----------
+     Sits over the whole hero and under its content. Each spends most of its
+     cycle at zero opacity, so what you get is the occasional one drifting past
+     rather than a permanent stream. */
+  .hero-weather{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;
+    border-radius:inherit}
+  .hleaf{position:absolute;left:-5%;display:block;width:var(--lw,5px);height:calc(var(--lw,5px) * .62);
+    border-radius:60% 12% 60% 12%;background:rgba(255,255,255,.8);opacity:0;
+    animation:leafdrift var(--gp,17s) linear var(--ldel,0s) infinite}
+  .hleaf.gold{background:#ffd479}
+  /* still for the first half, then it crosses while the wood is leaning */
+  @keyframes leafdrift{
+    0%,52%{opacity:0;transform:translate3d(0,0,0) rotate(0deg)}
+    59%{opacity:.45}
+    88%{opacity:.45}
+    96%,100%{opacity:0;transform:translate3d(var(--lx,240%),var(--ly,-20px),0) rotate(var(--lr,320deg))}
+  }
+  /* --dim carries how far back a tree stands and is spent on the leaves alone,
+     so the coins keep a level of their own — a couple of percent of gold is
+     what makes them read as money rather than as one more pale blob. */
+  .jtree .foliage{opacity:var(--dim,.12)}
+  .jtree .coin{fill:#ffd479}
+  .jtree .coin .rim{fill:#8a5f1c;opacity:.5}
+  .jtree .coin.fell{opacity:.22}
+  /* each on its own offset, so the crop glints rather than pulsing in unison */
+  .jtree .coin{animation:coinglint var(--cd,4s) ease-in-out var(--cdel,0s) infinite alternate}
+  @keyframes coinglint{from{opacity:.24}to{opacity:.5}}
+  html[data-theme="bushido"] .jtree .coin{fill:#e8c56a}
+  html[data-theme="light"] .jtree .coin{fill:#f2c14e}
+  /* no will-change: permanently promoted layers are a lot to ask of a phone for
+     a decoration, and an animating transform gets promoted anyway.
+     Rooted at the layer's foot: a transform is composited, so the wind costs no
+     repaints, and the pivot at the base is what makes it a sway not a slide. */
+  .jtree{position:absolute;bottom:0;display:block;transform:translateX(-50%);
+    transform-origin:50% 100%;
+    animation:gust var(--gp,17s) ease-in-out var(--gd,0s) infinite}
+  .jtree svg{display:block;width:100%;height:100%;fill:currentColor}
+  /* the light hero is a saturated emerald and the trees can afford to be
+     darker there than white; on the dark themes white is what reads */
+  html[data-theme="light"] .dh-wood{color:#022c22}
+  .dh-top{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+  .dh-greet{font-size:13px;font-weight:600;opacity:.82}
+  .dh-col{min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+  .dh-label{font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:680;opacity:.78;margin-top:12px;display:flex;align-items:center;gap:8px}
+  /* the (i) rides the hero ground, so the muted grays won't do */
+  .dashhero .infobtn{border-color:rgba(255,255,255,.5);color:rgba(255,255,255,.85);opacity:1}
+  .dashhero .infobtn.on{background:#fff;color:#065f46;border-color:#fff}
+  .dh-val{font-size:44px;font-weight:770;letter-spacing:-.035em;line-height:1.02;margin-top:4px}
+  .dh-delta{font-size:13px;margin-top:6px;opacity:.9;font-weight:550}
+  .dh-spark{flex:1;max-width:340px;min-width:0;align-self:flex-end;opacity:.92}
+  .dh-spark svg{display:block;width:100%;height:74px}
+  .dh-rule{position:relative;z-index:1;height:1px;background:rgba(255,255,255,.22);margin:18px 0 14px}
+  /* flex-start, not flex-end: the Safe-to-spend cell is taller (it carries a
+     per-day sub), and bottom-aligning shoved every other label off its line */
+  .dh-stats{position:relative;z-index:1;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+  .dh-stat{flex:1 1 0;min-width:84px}
+  .dh-stat .k{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:660;opacity:.78}
+  .dh-stat .v{font-size:20px;font-weight:720;margin-top:3px;letter-spacing:-.02em;white-space:nowrap}
+  .dh-sub{font-size:10px;font-weight:560;opacity:.72;margin-top:2px;white-space:nowrap}
+  .dh-goal{flex:1 1 140px;min-width:120px}
+  .dh-gbar{height:6px;border-radius:16px;background:rgba(255,255,255,.25);margin-top:8px;overflow:hidden}
+  .dh-gbar span{display:block;height:100%;border-radius:16px;background:#fff;transition:width .5s cubic-bezier(.4,0,.2,1)}
+  /* ---- the freedom road ----
+     The card's base is the app's thesis drawn as a road: passive income
+     travelling toward Survive, Maintain, Thrive. Monochrome white on the
+     hero ground so it reads as part of the card, not a chart pasted on. */
+  .dh-road{position:relative;z-index:1;display:block;width:100%;margin-top:22px;color:inherit}
+  .dh-rhead{display:flex;justify-content:space-between;align-items:center;gap:2px 12px}
+  .dh-rhead .k{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:660;opacity:.78;flex:none}
+  .dh-rhead .s{font-size:12px;font-weight:560;opacity:.92;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  /* the road no longer swallows the whole card's tap — one small control goes
+     to the tracker, and the stops speak for themselves */
+  .dh-rgo{flex:none;width:26px;height:26px;border-radius:50%;border:1px solid rgba(255,255,255,.35);
+    background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;cursor:pointer;
+    transition:background .16s,transform .16s;position:relative}
+  .dh-rgo svg{width:13px;height:13px}
+  .dh-rgo:hover{background:rgba(255,255,255,.24);transform:translateX(1px)}
+  .dh-rgo::before{content:"";position:absolute;left:-9px;right:-9px;top:-9px;bottom:-9px}
+  .dh-rtrack{position:relative;height:44px;margin-top:10px}
+  .dh-rtrack svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
+  /* No vector-effect here on purpose: the track's height equals the viewBox
+     height so vertical scale is 1:1 and near-horizontal strokes keep their
+     width — while non-scaling-stroke makes Chromium measure dashes in screen
+     units, which painted phantom cap-dots down the road every 100px. */
+  .dh-rtrack .jbase{fill:none;stroke:rgba(255,255,255,.28);stroke-width:2.2px;stroke-linecap:round}
+  .dh-rtrack .jfill{fill:none;stroke:#fff;stroke-width:2.6px;stroke-linecap:round;animation:roadin 1s cubic-bezier(.22,1,.36,1)}
+  @keyframes roadin{from{stroke-dasharray:0 999}}
+  /* stops are controls now: each carries its tier's colour, and tapping one
+     names it — which is what freed the labels from being crammed underneath */
+  .jstop{position:absolute;width:12px;height:12px;border-radius:50%;transform:translate(-50%,-50%);
+    border:2px solid var(--jc,#fff);background:rgba(255,255,255,.2);padding:0;cursor:pointer;
+    transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s,background .18s}
+  .jstop::before{content:"";position:absolute;left:-13px;right:-13px;top:-13px;bottom:-13px;border-radius:50%}
+  .jstop.done{background:var(--jc,#fff)}
+  .jstop.nxt{box-shadow:0 0 0 5px color-mix(in srgb,var(--jc,#fff) 26%,transparent)}
+  .jstop:hover,.jstop.sel{transform:translate(-50%,-50%) scale(1.3)}
+  .jstop.sel{background:var(--jc,#fff);box-shadow:0 0 0 6px color-mix(in srgb,var(--jc,#fff) 42%,transparent)}
+  /* the dotted stretch ahead of the marker is the 12-month projection at the
+     recent investing pace — visibly a sketch, not yet earned road */
+  .dh-rtrack .jproj{fill:none;stroke:rgba(255,255,255,.62);stroke-width:2.2px;stroke-linecap:round;stroke-dasharray:.14 2.6}
+  .jghost{position:absolute;width:9px;height:9px;border-radius:50%;transform:translate(-50%,-50%);border:1.6px solid rgba(255,255,255,.65);background:transparent}
+  .jeta{position:absolute;transform:translate(-50%,9px);font-size:9px;text-transform:uppercase;letter-spacing:.08em;font-weight:660;opacity:.62;white-space:nowrap}
+  button.dh-stat{background:none;border:0;padding:0;color:inherit;text-align:left;cursor:pointer;font:inherit}
+  .jyou{position:absolute;width:11px;height:11px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);
+    box-shadow:0 0 0 4px rgba(255,255,255,.22);transition:box-shadow .2s}
+  .jyou::after{content:"";position:absolute;inset:-8px;border-radius:50%;border:1.5px solid rgba(255,255,255,.55);animation:youpulse 2.6s ease-out infinite}
+  @keyframes youpulse{0%{transform:scale(.55);opacity:.9}70%{transform:scale(1.2);opacity:0}100%{transform:scale(1.2);opacity:0}}
+  /* one caption line replaces three crammed labels: it names what you tapped,
+     or reports the next tier when nothing is selected */
+  .dh-rcap{display:flex;align-items:center;gap:8px;margin-top:9px;min-height:18px}
+  .dh-rcap .cdot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--jc,#fff)}
+  .dh-rcap .cname{font-size:12px;font-weight:680;letter-spacing:.02em;flex:none}
+  .dh-rcap .cval{font-size:12px;font-weight:560;opacity:.8;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* below zero the ground stops celebrating: deep wine until the number
+     crosses — the emerald is earned, not given */
+  .dashhero.below{background:linear-gradient(135deg,#9f1239 0%,#7f1d3a 46%,#581c30 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 16px 38px -20px rgba(159,18,57,.7)}
+  @media(max-width:820px){ .dashhero{padding:20px 18px 16px;border-radius:16px} .dh-val{font-size:36px}
+    /* the spark used to vanish on phones, leaving the hero's right half dead
+       air — it stays now, compact, riding beside the number block */
+    .dh-spark{flex:0 0 112px;max-width:112px;align-self:flex-end;margin-bottom:26px}
+    .dh-spark svg{height:52px}
+    /* a strict 3-column grid on phones: every label starts on the same line,
+       every value lines up — flex basis percentages drifted with content */
+    .dh-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 10px}
+    .dh-stat{min-width:0} .dh-stat .k{font-size:10px;letter-spacing:.05em} .dh-stat .v{font-size:16px} .dh-goal{grid-column:1/-1} }
+
+  /* ---------- richer KPI cards ---------- */
+  .kpi{position:relative;overflow:hidden}
+  .kpitop{display:flex;align-items:center;gap:10px;margin-bottom:2px}
+  .kpiicon{width:32px;height:32px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none}
+  .kpiicon svg{width:17px;height:17px}
+  .kpi .label{margin:0}
+  .kpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--kpic,transparent);opacity:.9}
+  html[data-theme="dark"] .card{background:linear-gradient(180deg,#1a1c23 0%,#181a20 100%)}
+  html[data-theme="dark"] .kpi:hover{box-shadow:0 10px 30px -12px rgba(0,0,0,.7)}
+
+  /* ---------- friendlier empty states ---------- */
+  .empty{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .empty .eicon{width:46px;height:46px;border-radius:12px;background:var(--raise2);display:flex;align-items:center;justify-content:center;margin-bottom:2px}
+  .empty .eicon svg{width:23px;height:23px;color:var(--muted)}
+
+  .btn svg{width:16px;height:16px;vertical-align:-3px;margin-right:6px}
+  .btn.sm svg{width:15px;height:15px;margin-right:4px}
+  .btn.iconly svg{margin-right:0}
+  .startgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+  .startstep{display:flex;align-items:flex-start;gap:12px;text-align:left;padding:14px;border:1px solid var(--line2);border-radius:12px;background:var(--card);transition:all .14s}
+  .startstep:hover{border-color:var(--accent);background:var(--accent-soft);transform:translateY(-1px)}
+  .startstep .sn{width:26px;height:26px;flex:none;border-radius:50%;background:var(--accent);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .startstep b{display:block;font-size:15px;font-weight:640;color:var(--ink)}
+  .startstep em{display:block;font-style:normal;font-size:13px;color:var(--muted);margin-top:2px;line-height:1.35}
+  html[data-theme="dark"] .startstep .sn{color:#12131a}
+
+  /* Bushido — ink black, vermillion, gold */
+  html[data-theme="bushido"]{
+    color-scheme:dark;
+    --bg:#0c0a0d; --card:#16131a; --ink:#f4efe6; --ink2:#c3b8ac; --muted:#8b8078;
+    --line:#231e28; --line2:#2f2836; --line2h:#42394b; --raise:#1b1721; --raise2:#201b27;
+    --track:#2a2431; --grid:#231e28;
+    --accent:#c1272d; --accent-soft:#2b1418; --accent-ink:#ec6a63;
+    --pos:#5fae76; --neg:#d1495b; --debt:#c9a227; --warn:#c9a227; --goal:#c9a227; --invest:#9b7fd4;
+    --c-emerald:#5fae76; --c-teal:#5aa9a3; --c-sky:#6f97c4;
+    --c-violet:#a98cc4; --c-amber:#c9a227; --c-rose:#d1495b;
+    --c-cyan:#5f9fa8; --c-blue:#6f8fc4; --c-fuchsia:#b07ba6;
+    --c-orange:#e0873c; --c-lime:#8a9a52; --c-slate:#8a90a0;
+    --s1:#ec6a63; --s2:#c9a227; --s3:#d1495b; --s4:#5fae76; --s5:#e0873c;
+    --barbg:rgba(22,19,26,.85); --barbg2:rgba(22,19,26,.97); --glass:rgba(22,19,26,.6);
+    --shadow:0 1px 2px rgba(0,0,0,.55),0 10px 28px -8px rgba(0,0,0,.65),0 26px 64px -20px rgba(0,0,0,.7);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.5),0 8px 24px -12px rgba(0,0,0,.6);
+    --card-hi:inset 0 1px 0 rgba(255,255,255,.045);
+    --card-grad:linear-gradient(180deg,#191622 0%,#16131a 68%);
+    --inset:inset 0 1px 2px rgba(0,0,0,.45);
+  }
+  html[data-theme="bushido"] .tag.ok{background:#152a1c;color:#6fc98a}
+  html[data-theme="bushido"] .tag.warn{background:#2c2410;color:#e0bc4a}
+  html[data-theme="bushido"] .tag.bad{background:#2e1519;color:#f08b8b}
+  html[data-theme="bushido"] .btn.primary,html[data-theme="bushido"] .seg.active,
+  html[data-theme="bushido"] .aedit.on,html[data-theme="bushido"] .startstep .sn,
+  html[data-theme="bushido"] .themeseg button.on{color:#fdf6ec}
+  html[data-theme="bushido"] .chk.on{color:#0c0a0d}
+  html[data-theme="bushido"] #toast{background:#221c29;border:1px solid #3a3244}
+  html[data-theme="bushido"] .storagewarn{background:#2b2113;border-color:#5a4220;color:#e0bc4a}
+  html[data-theme="bushido"] .dashhero{background:linear-gradient(135deg,#1a1424 0%,#3d1620 48%,#c1272d 100%)}
+  html[data-theme="bushido"] .hero{background:linear-gradient(140deg,#1a1424 0%,#3d1620 50%,#c1272d 100%)}
+  /* rising sun behind the hero figure */
+  html[data-theme="bushido"] .dashhero::after{background:radial-gradient(circle,rgba(255,214,140,.30) 0%,rgba(193,39,45,.12) 60%,transparent 70%)}
+  html[data-theme="bushido"] .brandmark .blade{stroke:#fdf6ec}
+  html[data-theme="bushido"] .brandmark .bhead{stroke:#c9a227}
+  /* bright emerald needs dark ink, not white — the Cash App/Robinhood move */
+  html[data-theme="dark"] .btn.primary,html[data-theme="dark"] .seg.active,
+  html[data-theme="dark"] .bbcenter,html[data-theme="dark"] .chk.on,
+  html[data-theme="dark"] .fcount[style*="accent"],html[data-theme="dark"] .tchip.on b{color:#032b1f}
+  html[data-theme="dark"] .btn.primary{text-shadow:none}
+  html[data-theme="dark"] .dh-gbar span{background:#eafff5}
+
+  /* katana mark */
+  .brandmark{width:30px;height:30px;border-radius:12px;flex:none;background:linear-gradient(135deg,#10b981,#047857);
+    display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px -2px rgba(5,150,105,.55)}
+  .brandmark svg{width:21px;height:21px}
+  .brandmark .blade{stroke:#fff;stroke-width:2.1;stroke-linecap:round;fill:none}
+  .brandmark .tsuba{fill:#fff}
+  html[data-theme="bushido"] .brandmark{background:linear-gradient(135deg,#c1272d,#7a1418);box-shadow:0 2px 10px -2px rgba(193,39,45,.6)}
+
+  /* spending list: show ~5, then scroll */
+  .scrolllist{max-height:340px;overflow-y:auto;overscroll-behavior:contain;padding-right:6px}
+  .scrolllist::-webkit-scrollbar{width:9px}
+  .scrolllist::-webkit-scrollbar-track{background:transparent}
+  .scrolllist::-webkit-scrollbar-thumb{background:var(--line2);border-radius:16px;border:2px solid var(--card)}
+  .scrolllist::-webkit-scrollbar-thumb:hover{background:var(--line2h)}
+  .scrollrows{max-height:312px;overflow-y:auto;overscroll-behavior:contain}
+  .scrollrows::-webkit-scrollbar{width:9px}
+  .scrollrows::-webkit-scrollbar-track{background:transparent}
+  .scrollrows::-webkit-scrollbar-thumb{background:var(--line2);border-radius:16px;border:2px solid var(--card)}
+  .scrollrows::-webkit-scrollbar-thumb:hover{background:var(--line2h)}
+  .scrollrows.tx{max-height:236px}
+  @media(max-width:820px){ .scrollrows{max-height:300px} .scrollrows.tx{max-height:224px} }
+  .scrollhint{font-size:13px;color:var(--muted);text-align:center;padding-top:8px;border-top:1px solid var(--line);margin-top:6px}
+
+  /* coming up */
+  .upitem{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .upitem:last-child{border-bottom:0}
+  .updot{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none}
+  .updot svg{width:18px;height:18px}
+  .upmain{flex:1;min-width:0}
+  .upname{font-size:15px;font-weight:600}
+  .upwhen{font-size:13px;color:var(--muted);margin-top:1px}
+  .upamt{font-size:16px;font-weight:680;font-variant-numeric:tabular-nums}
+  .kpi.tappable{cursor:pointer;position:relative}
+  .kpi.tappable::before{content:"";position:absolute;right:14px;top:16px;width:7px;height:7px;border-right:2px solid var(--muted);border-top:2px solid var(--muted);transform:rotate(45deg);opacity:0;transition:opacity .15s,transform .15s}
+  .kpi.tappable:hover::before{opacity:.85;transform:rotate(45deg) translate(2px,-2px)}
+  .kpi.tappable:active{transform:translateY(0) scale(.995)}
+
+  /* Any class rule that sets a display beats the browser's own [hidden] rule, so
+     hiding something by attribute silently fails. This has now bitten four
+     separate components — one global guard ends the whole category. */
+  [hidden]{display:none !important}
+
+  /* ---- touch ergonomics ----
+     Every control reaches the 44px minimum through an invisible hit area,
+     not visual growth — the density stays, the misses stop. Horizontal
+     extension is kept small where controls sit in tight rows so a tap on
+     one button can't land on its neighbour. */
+  .btn,.chk,.infobtn,.seg,.aedit,.sheetx,.ix,.twist,.tchip,.btab,.itext,.dh-goal,.hdot{position:relative}
+  .btn::before{content:"";position:absolute;left:-4px;right:-4px;top:-6px;bottom:-6px}
+  .chk::before{content:"";position:absolute;left:-7px;right:-7px;top:-7px;bottom:-7px}
+  .aedit::before,.sheetx::before{content:"";position:absolute;left:-4px;right:-4px;top:-6px;bottom:-6px}
+  /* the dismiss × only reaches AWAY from the text button beside it — reaching
+     over it would turn "open the insight" taps into "dismiss" */
+  .ix::before{content:"";position:absolute;left:0;right:-6px;top:-6px;bottom:-6px}
+  .infobtn::before{content:"";position:absolute;left:-12px;right:-12px;top:-12px;bottom:-12px}
+  .twist::before{content:"";position:absolute;left:-10px;right:-10px;top:-10px;bottom:-10px}
+  /* chip rows stack 8px apart, so ±4px is the whole budget — any more and a
+     tap on a tier chip lands on the tab row above it (v60 caught exactly this).
+     39-41px effective: under the 44 ideal, bounded by the layout itself. */
+  .seg::before,.tchip::before,.btab::before{content:"";position:absolute;left:0;right:0;top:-4px;bottom:-4px}
+  .itext::before,.dh-goal::before{content:"";position:absolute;left:0;right:0;top:-4px;bottom:-6px}
+  /* dots sit 8px apart — ±4px is the most horizontal reach that can't land
+     a tap on the neighbour; the height does the real work */
+  .hdot::before{content:"";position:absolute;left:-4px;right:-4px;top:-19px;bottom:-19px}
+  .dlrow{min-height:44px}
+  input[type=checkbox]{width:18px;height:18px;flex:none;accent-color:var(--accent)}
+  @media (hover:none) and (pointer:coarse){
+    input,select,textarea,.miniedit,.catsel,.txdesc,.txamt,.txdate,.bizpct{font-size:16px !important}
+    select.catsel,.stacktbl .catsel,.miniedit{min-height:42px}
+  }
+
+  /* ---- native selects, dressed ----
+     The element stays native (the OS picker is the right control, and iOS
+     doesn't zoom on select focus) — only the closed box is styled. These sit
+     late in the sheet on purpose: the per-select `background:` shorthands
+     above would eat the chevron if this came first. */
+  select{appearance:none;-webkit-appearance:none;border:1px solid var(--line2);border-radius:12px;background-color:var(--card);
+    background-image:var(--chev);background-repeat:no-repeat;background-position:right 10px center;background-size:13px;
+    padding:8px 30px 8px 10px;box-shadow:var(--inset)}
+  .field select{background-image:var(--chev);background-repeat:no-repeat;background-position:right 10px center;background-size:13px;padding-right:32px}
+  select.catsel{background-image:var(--chev);background-repeat:no-repeat;background-position:right 6px center;background-size:12px;padding-right:24px}
+
+  /* ---- desktop dashboard: pair the sections instead of stacking one column.
+     dense flow back-fills the right column so title/body pairs stay aligned. */
+  @media(min-width:1100px){
+    #view-dash.active{display:grid;grid-template-columns:1fr 1fr;column-gap:22px;grid-auto-flow:row dense;align-items:start}
+    #view-dash.active>*{grid-column:1/-1;min-width:0}
+    #view-dash.active [data-sect="spend"],#view-dash.active [data-sectbody="spend"]{grid-column:1}
+    #view-dash.active [data-sect="coming"],#view-dash.active [data-sectbody="coming"]{grid-column:2}
+    #view-dash.active [data-sect="nw"],#view-dash.active [data-sectbody="nw"]{grid-column:1}
+    #view-dash.active [data-sect="io"],#view-dash.active [data-sectbody="io"]{grid-column:2}
+  }
+
+  /* ---- state settles instead of snapping: bars grow into place on render */
+  @keyframes growbar{from{width:0}}
+  .bar span,.gbar>span,.bprog span{animation:growbar .45s cubic-bezier(.22,1,.36,1)}
+
+  /* over-budget bars show the size of the overrun, not just that one exists:
+     the covered share in green, the overage share in red */
+  .bar.split{display:flex}
+  .bar.split span{border-radius:0}
+  .bar.split span:first-child{border-radius:16px 0 0 16px}
+  .bar.split span:last-child{border-radius:0 16px 16px 0}
+  .bar.split span:only-child{border-radius:16px}
+
+  /* a clipped scroller announces itself: fade the last rows while there is
+     more below, sharpen when the end is reached (class toggled in JS) */
+  .scrollmore{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 34px),transparent);
+    mask-image:linear-gradient(180deg,#000 calc(100% - 34px),transparent)}
+
+  @media(max-width:820px){
+    /* the stream/bill explanations are the product's voice — wrap, don't clip */
+    .bmeta{white-space:normal;overflow:visible;text-overflow:clip;flex-wrap:wrap;row-gap:1px}
+  }
+  @media(prefers-reduced-motion:reduce){
+    /* the wood stays; the wind, the glinting and the leaves stop */
+    .jtree{animation:none;transform:translateX(-50%)}
+    .jsway{animation:none}
+    .jtree .coin{animation:none;opacity:.85}
+    .hero-weather{display:none}
+    .bar span,.gbar>span,.bprog span,.dh-rtrack .jfill{animation:none}
+    .jyou::after{animation:none;opacity:0}
+    /* the nav keeps its glass but stops moving — a bar that resizes under a
+       reader who asked for stillness is worse than no effect at all */
+    .bottombar,.bb span{transition:none}
+    .bottombar.mini{transform:none}
+    .bottombar.mini .bb span{opacity:1;max-height:14px}
+  }
