@@ -8356,8 +8356,25 @@ document.getElementById("saveBtn").addEventListener("click",()=>{db.updatedAt=ne
   setNote("Backup saved ✓ — keep it in iCloud Drive so both devices can reach it.");});
 document.getElementById("loadFile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
   r.onload=()=>{ try{
-    const inc=JSON.parse(r.result); const mine=db.updatedAt||"", theirs=inc.updatedAt||"";
-    if(mine&&theirs&&mine>theirs&&!confirmedOlder){ confirmedOlder=true;
+    const inc=JSON.parse(r.result);
+    /* Loading replaces everything, so it has to be sure first. Any valid JSON
+       used to be accepted: hand it the wrong file and migrate/normalize would
+       turn it into an empty book and save that over a year of records. The
+       catch below never fired, because the file parsed perfectly well. */
+    const looksLikeBackup=inc&&typeof inc==="object"&&!Array.isArray(inc)&&
+      ["transactions","accounts","categories","recurring","income"].some(k=>Array.isArray(inc[k]));
+    if(inc&&inc.enc===true){
+      setNote("That's the encrypted cloud copy, not a backup file. Use <b>Pull from cloud</b> in Sync — it needs your passphrase to be readable."); e.target.value=""; return; }
+    if(!looksLikeBackup){
+      setNote("That doesn't look like a FreeBound backup, so nothing was changed. Look for a file named <b>freebound-… .json</b>."); e.target.value=""; return; }
+    /* A fresh install stamps itself the moment it boots, so its clock is always
+       newer than the backup you are about to restore — which made the very case
+       this guard exists for ask you to click twice for nothing. There is only
+       something to protect if there is something here. */
+    const somethingHere=["transactions","accounts","invoices","businesses","paychecks","debts","holdings"]
+      .some(k=>Array.isArray(db[k])&&db[k].length);
+    const mine=db.updatedAt||"", theirs=inc.updatedAt||"";
+    if(somethingHere&&mine&&theirs&&mine>theirs&&!confirmedOlder){ confirmedOlder=true;
       setNote(`That backup is older (${stamp(theirs)}) than this device's data (${stamp(mine)}). Click Load again to overwrite anyway.`); e.target.value=""; return; }
     confirmedOlder=false; db=migrate(inc); normalize(); saveAll(); renderSync();
     setNote(`Loaded the backup from ${stamp(theirs)} ✓`);
