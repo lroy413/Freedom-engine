@@ -1398,7 +1398,6 @@
   /* rising sun behind the hero figure */
   html[data-theme="bushido"] .dashhero::after{background:radial-gradient(circle,rgba(255,214,140,.30) 0%,rgba(193,39,45,.12) 60%,transparent 70%)}
   html[data-theme="bushido"] .brandmark .blade{stroke:#fdf6ec}
-  html[data-theme="bushido"] .brandmark .bhead{stroke:#c9a227}
   /* bright emerald needs dark ink, not white — the Cash App/Robinhood move */
   html[data-theme="dark"] .btn.primary,html[data-theme="dark"] .seg.active,
   html[data-theme="dark"] .bbcenter,html[data-theme="dark"] .chk.on,
@@ -1410,7 +1409,11 @@
   .brandmark{width:30px;height:30px;border-radius:12px;flex:none;background:linear-gradient(135deg,#10b981,#047857);
     display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px -2px rgba(5,150,105,.55)}
   .brandmark svg{width:21px;height:21px}
-  .brandmark .blade{stroke:#fff;stroke-width:2.1;stroke-linecap:round;fill:none}
+  /* Every stroke in the mark is a blade. There used to be a separate `bhead`
+     for the arrow with no base rule at all — only a bushido override — so in
+     light and dark it drew with stroke:none and SVG's default black fill: a
+     small dark triangle where a white chevron belonged. */
+  .brandmark .blade{stroke:#fff;stroke-linecap:round;stroke-linejoin:round;fill:none}
   .brandmark .tsuba{fill:#fff}
   html[data-theme="bushido"] .brandmark{background:linear-gradient(135deg,#c1272d,#7a1418);box-shadow:0 2px 10px -2px rgba(193,39,45,.6)}
 

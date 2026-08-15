@@ -136,6 +136,29 @@ else ok(`${wanted.size} referenced element ids all exist`);
   else ok("frozen storage/sync identifiers intact");
 }
 
+/* ---------- 9. the manifest points at files that exist ---------- */
+/* A manifest naming an icon that isn't there costs you the install prompt, and
+   nothing on screen ever says so. */
+{
+  const mf = read("manifest.webmanifest");
+  if (!/<link[^>]+manifest\.webmanifest/.test(html)) fail("index.html", "does not link the manifest");
+  else if (mf === null) fail("manifest.webmanifest", "linked but missing");
+  else {
+    let j = null;
+    try { j = JSON.parse(mf); } catch (e) { fail("manifest.webmanifest", "is not valid JSON — " + e.message); }
+    if (j) {
+      const icons = Array.isArray(j.icons) ? j.icons : [];
+      const gone = icons.map(i => i.src).filter(src => src && !existsSync(src));
+      if (gone.length) fail("manifest.webmanifest", "names icons that do not exist: " + gone.join(", "));
+      else if (!icons.length) fail("manifest.webmanifest", "lists no icons");
+      else if (!icons.some(i => String(i.purpose || "").includes("maskable")))
+        fail("manifest.webmanifest", "has no maskable icon — Android will crop the corners off a rounded one");
+      else ok(`manifest lists ${icons.length} icons, all present`);
+      for (const k of ["name", "start_url", "display"]) if (!j[k]) fail("manifest.webmanifest", "has no " + k);
+    }
+  }
+}
+
 /* ---------- 9. nothing secret got committed ---------- */
 {
   const leaks = [
