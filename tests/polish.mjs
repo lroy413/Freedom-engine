@@ -99,8 +99,12 @@ for (const v of VIEWS) {
       return .2126 * f(r) + .7152 * f(g) + .0722 * f(bl); };
     /* A gradient is a background-image, not a background-color, so walking for
        a colour sails straight past every hero and compares white text against
-       the page behind it. There is no single colour to compare against there —
-       skip rather than report a number that is not true. */
+       the page behind it.
+       Skipping was the safe answer and it left every hero in the app unchecked
+       — which is where a grey-on-green subtitle sat unnoticed. There is no ONE
+       colour to compare against, but there is a worst one: test the text
+       against every stop in the gradient and report the weakest result. Text
+       that fails against the lightest stop fails somewhere on that hero. */
     /* Returns [r,g,b] 0-255, compositing every translucent layer over the one
        behind it. A 12% wash read as its own pure colour is how a perfectly
        legible badge gets reported at 1.5:1. */
@@ -108,17 +112,7 @@ for (const v of VIEWS) {
       const sc = /^color\(/.test(c.trim()) ? 255 : 1;
       const a = /^(rgba|color)/.test(c.trim()) && n.length > 3 ? n[3] : 1;
       return { rgb: [n[0] * sc, n[1] * sc, n[2] * sc], a }; };
-    const bgOf = el => {
-      const stack = [];
-      let n = el;
-      while (n && n !== document.documentElement) {
-        const s = getComputedStyle(n);
-        if (s.backgroundImage && s.backgroundImage !== 'none') return null;   // a gradient: no one colour
-        const c = s.backgroundColor;
-        if (c && c !== 'transparent') { const { rgb, a } = chan(c); if (a > 0) { stack.push({ rgb, a }); if (a >= 1) break; } }
-        n = n.parentElement;
-      }
-      const base = chan(getComputedStyle(document.body).backgroundColor).rgb;
+    const flatten = (stack, base) => {
       let out = (stack.length && stack[stack.length - 1].a >= 1) ? stack.pop().rgb : base;
       for (let i = stack.length - 1; i >= 0; i--) {
         const { rgb, a } = stack[i];
@@ -126,18 +120,45 @@ for (const v of VIEWS) {
       }
       return out;
     };
+    /* Every backdrop the text might be sitting on. One colour normally; for a
+       gradient, one per colour stop. */
+    const bgsOf = el => {
+      const stack = [];
+      let n = el;
+      const base = chan(getComputedStyle(document.body).backgroundColor).rgb;
+      while (n && n !== document.documentElement) {
+        const s = getComputedStyle(n);
+        const bi = s.backgroundImage;
+        if (bi && bi !== 'none') {
+          const stops = (bi.match(/rgba?\([^)]+\)/g) || []).map(chan).filter(x => x.a > 0);
+          /* an image or a gradient we cannot read: no honest answer, so say so */
+          if (!stops.length) return null;
+          const under = flatten(stack.slice(), base);
+          return stops.map(st => st.rgb.map((v, k) => v * st.a + under[k] * (1 - st.a)));
+        }
+        const c = s.backgroundColor;
+        if (c && c !== 'transparent') { const { rgb, a } = chan(c); if (a > 0) { stack.push({ rgb, a }); if (a >= 1) break; } }
+        n = n.parentElement;
+      }
+      return [flatten(stack, base)];
+    };
     for (const el of root.querySelectorAll('*')) {
       if (!vis(el) || el.children.length) continue;
       const t = (el.textContent || '').trim(); if (t.length < 4) continue;
       const s = getComputedStyle(el);
       const size = parseFloat(s.fontSize), weight = +s.fontWeight || 400;
       const large = size >= 24 || (size >= 18.66 && weight >= 700);
-      const bg = bgOf(el); if (!bg) continue;
+      const bgs = bgsOf(el); if (!bgs) continue;
       try {
-        const L1 = lumRGB(chan(s.color).rgb), L2 = lumRGB(bg);
-        const ratio = (Math.max(L1, L2) + .05) / (Math.min(L1, L2) + .05);
-        if (ratio < (large ? 3 : 4.5))
-          out.contrast.push(view + ' · ' + ratio.toFixed(2) + ':1 · ' + Math.round(size) + 'px · ' + t.slice(0, 44));
+        const L1 = lumRGB(chan(s.color).rgb);
+        let worst = Infinity;
+        for (const bg of bgs) {
+          const L2 = lumRGB(bg);
+          worst = Math.min(worst, (Math.max(L1, L2) + .05) / (Math.min(L1, L2) + .05));
+        }
+        if (worst < (large ? 3 : 4.5))
+          out.contrast.push(view + ' · ' + worst.toFixed(2) + ':1 · ' + Math.round(size) + 'px · .' +
+            (String(el.className).trim().split(/\s+/)[0] || el.tagName.toLowerCase()) + ' · ' + t.slice(0, 34));
       } catch (e) { }
     }
     /* ---- what only goes wrong on a big screen ---- */

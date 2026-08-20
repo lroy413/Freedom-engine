@@ -11,14 +11,14 @@
     --bg:#f2f5f4; --card:#ffffff; --ink:#16181f; --ink2:#565a66; --muted:#656a7a;
     --line:#edeef2; --line2:#e3e5ea; --line2h:#cfd3db; --raise:#fafbfc; --raise2:#f5f6f8;
     --track:#eef0f4; --grid:#edeef2;
-    --accent:#059669; --accent-soft:#e6f6ee; --accent-ink:#047857;
+    --accent:#04815d; --accent-soft:#e6f6ee; --accent-ink:#046a4d;
     /* --warn/--debt are fills; --warn-ink is the same amber dark enough to read as small text (4.7:1) */
     --pos:#0ca35a; --neg:#e0463e; --debt:#e5900f; --warn:#e5900f; --warn-ink:#9a6206; --goal:#0ea5a0; --invest:#7c5cf0;
     /* A bar and a number want different greens. The fill above is chosen to
        read as a colour at 7px tall; as 16px text on white it lands at 3.2:1,
        under the 4.5 that small text needs. So text gets its own ink, the way
        --warn already does, and the charts keep the colour they were tuned for. */
-    --pos-ink:#07803f; --neg-ink:#c2261e;
+    --pos-ink:#067538; --neg-ink:#c2261e; --invest-ink:#6d4ae0;
     /* Emerald leads, but a finance app has more than one kind of number, and a
        screen where everything is the brand colour reads as unfinished rather
        than considered. Five supporting hues, matched in saturation and weight
@@ -61,7 +61,7 @@
     --accent:#10b981; --accent-soft:#0c2f23; --accent-ink:#6ee7b7;
     --pos:#3ecf8e; --neg:#f4736a; --debt:#f0ad3e; --warn:#f0ad3e; --warn-ink:#f0ad3e; --goal:#2dd4bf; --invest:#a78bfa;
     /* on a near-black ground these already clear AA comfortably */
-    --pos-ink:#3ecf8e; --neg-ink:#f4736a;
+    --pos-ink:#3ecf8e; --neg-ink:#f4736a; --invest-ink:#a78bfa;
     --c-emerald:#34d399; --c-teal:#2dd4bf; --c-sky:#38bdf8;
     --c-violet:#a78bfa; --c-amber:#fbbf24; --c-rose:#fb7185;
     --c-cyan:#22d3ee; --c-blue:#60a5fa; --c-fuchsia:#d986d0;
@@ -361,11 +361,11 @@
     box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 2px 6px -2px color-mix(in srgb,var(--pos) 55%,transparent)}
 
   /* hero — money on hand */
-  .hero{background:linear-gradient(140deg,#059669 0%,#047857 45%,#0d9488 100%);color:#fff;border-radius:16px;padding:24px 24px 24px;box-shadow:0 10px 34px -14px rgba(5,150,105,.6);position:relative;overflow:hidden}
+  .hero{background:linear-gradient(140deg,#04815d 0%,#047857 45%,#0b7f72 100%);color:#fff;border-radius:16px;padding:24px 24px 24px;box-shadow:0 10px 34px -14px rgba(5,150,105,.6);position:relative;overflow:hidden}
   .hero::after{content:"";position:absolute;right:-70px;top:-70px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.09)}
   .hero .hlabel{font-size:13px;text-transform:uppercase;letter-spacing:.09em;font-weight:660;opacity:.85}
   .hero .hval{font-size:44px;font-weight:760;letter-spacing:-.035em;margin-top:8px;line-height:1.05}
-  .hero .hsub{font-size:15px;opacity:.85;margin-top:8px}
+  .hero .hsub{font-size:15px;opacity:.85;margin-top:8px;color:inherit}
   .hero .hsplit{display:flex;gap:24px;flex-wrap:wrap;margin-top:20px;position:relative;z-index:1}
   .hero .hitem .k{font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:.05em;font-weight:620}
   .hero .hitem .v{font-size:20px;font-weight:700;margin-top:3px;letter-spacing:-.02em}
@@ -847,7 +847,7 @@
   .ookind{font-size:10px;font-weight:760;letter-spacing:.06em;padding:2px 5px;border-radius:4px;vertical-align:1px}
   .oodone{color:var(--ink2);font-weight:620}
   .ooquiet{color:var(--c-amber);font-weight:620}
-  .ootag{color:var(--c-violet);font-weight:620}
+  .ootag{color:color-mix(in srgb,var(--c-violet) 62%,var(--ink));font-weight:620}
   .oototal{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-top:16px;
     padding:13px 14px;border:1px solid var(--line);border-radius:var(--radius);background:var(--raise)}
   .oototal .k{font-size:12px;font-weight:640;color:var(--muted);letter-spacing:.02em}
@@ -863,7 +863,7 @@
   .ooitem [data-oneadd]:hover .ooplus{background:var(--accent);color:#fff;border-color:var(--accent)}
 
   /* splitting one purchase across categories */
-  .sptag{color:var(--c-sky);font-weight:620}
+  .sptag{color:color-mix(in srgb,var(--c-sky) 62%,var(--ink));font-weight:620}
   .splithead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
   .splithead .k{font-size:12px;font-weight:640;color:var(--muted);letter-spacing:.02em}
   .splithead .v{font-size:28px;font-weight:740;letter-spacing:-.03em;margin-top:2px;font-variant-numeric:tabular-nums}
@@ -967,7 +967,7 @@
      undefined var makes the whole gradient invalid, which paints the hero
      transparent and leaves white text on a white page */
   .dashhero.biz{--bh:var(--accent);
-    background:linear-gradient(135deg,var(--bh) 0%,color-mix(in srgb,var(--bh) 55%,#0f172a) 100%);
+    background:linear-gradient(135deg,color-mix(in srgb,var(--bh) 84%,#0f172a) 0%,color-mix(in srgb,var(--bh) 52%,#0f172a) 100%);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 16px 38px -20px color-mix(in srgb,var(--bh) 70%,transparent)}
   @media(prefers-reduced-motion:reduce){ .herotrack{scroll-behavior:auto} }
   /* ---------- donut ---------- */
@@ -1217,7 +1217,7 @@
   .bmeta{font-size:13px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:4px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .bdot{width:7px;height:7px;border-radius:50%;flex:none}
-  .bmeta .bneg{color:var(--neg);font-weight:620}
+  .bmeta .bneg{color:var(--neg-ink);font-weight:620}
   .bmeta .bpos{color:var(--pos-ink);font-weight:620}
   /* a bill that handles itself — stated, not shouted: it is a fact about the
      bill, not a warning and not an achievement */
@@ -1307,7 +1307,7 @@
 
   /* ---------- dashboard hero ---------- */
   .dashhero{position:relative;overflow:hidden;border-radius:16px;padding:24px 28px 20px;margin-bottom:22px;color:#fff;
-    background:linear-gradient(135deg,#059669 0%,#047857 42%,#0d9488 100%);
+    background:linear-gradient(135deg,#04815d 0%,#047857 42%,#0b7f72 100%);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 16px 38px -20px rgba(5,150,105,.75)}
   .dashhero::after{content:"";position:absolute;right:-80px;top:-120px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.09)}
   .dashhero::before{content:"";position:absolute;right:120px;bottom:-150px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.06)}
@@ -1510,7 +1510,7 @@
     --track:#2a2431; --grid:#231e28;
     --accent:#c1272d; --accent-soft:#2b1418; --accent-ink:#ec6a63;
     --pos:#5fae76; --neg:#d1495b; --debt:#c9a227; --warn:#c9a227; --goal:#c9a227; --invest:#9b7fd4;
-    --pos-ink:#6fbd85; --neg-ink:#e0687a;
+    --pos-ink:#6fbd85; --neg-ink:#e0687a; --warn-ink:#d9b444; --invest-ink:#a98cc4;
     --c-emerald:#5fae76; --c-teal:#5aa9a3; --c-sky:#6f97c4;
     --c-violet:#a98cc4; --c-amber:#c9a227; --c-rose:#d1495b;
     --c-cyan:#5f9fa8; --c-blue:#6f8fc4; --c-fuchsia:#b07ba6;

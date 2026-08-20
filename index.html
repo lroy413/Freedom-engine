@@ -2763,7 +2763,7 @@ function renderIncome(){
         <div class="damt"><div class="dbal">${fmt(streamMonthly(s))}</div><div class="dof">per month</div></div>
         <button class="aedit${open?" on":""}" data-iedit="${s.id}" aria-label="Edit ${esc(s.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
       </div>
-      ${np?`<div class="dbarrow" style="padding-bottom:12px"><span style="font-size:13px;color:var(--pos);font-weight:580">Next payday ${esc(shortDate(np))} · ${daysUntil(np)<=0?"today":daysUntil(np)===1?"tomorrow":"in "+daysUntil(np)+" days"}</span></div>`:""}
+      ${np?`<div class="dbarrow" style="padding-bottom:12px"><span style="font-size:13px;color:var(--pos-ink);font-weight:580">Next payday ${esc(shortDate(np))} · ${daysUntil(np)<=0?"today":daysUntil(np)===1?"tomorrow":"in "+daysUntil(np)+" days"}</span></div>`:""}
       ${open?`<div class="dpanel">
         <div class="formgrid"><div class="field"><label>Name</label><input value="${esc(s.name)}" data-iname="${s.id}"></div></div>
         <div class="muted" style="font-size:13px;margin-top:6px">${esc(win)}</div>
@@ -3451,7 +3451,7 @@ function renderOneoffs(){
         <div class="bmain" data-oneopen="${o.id}">
           <i class="oodot" style="background:${oneHue(o)}"></i>
           <div class="binfo">
-            <div class="bname">${esc(o.name)} <span class="ookind" style="color:${oneHue(o)};background:color-mix(in srgb, ${oneHue(o)} 14%, transparent)">${esc(k.short)}</span></div>
+            <div class="bname">${esc(o.name)} <span class="ookind" style="color:color-mix(in srgb, ${oneHue(o)} 62%, var(--ink));background:color-mix(in srgb, ${oneHue(o)} 14%, transparent)">${esc(k.short)}</span></div>
             <div class="bmeta">${esc(oneoffSpanText(o))}${o.closed?` · <span class="oodone">settled</span>`
               :quiet!=null&&quiet>=30?` · <span class="ooquiet">quiet ${quiet} days</span>`:""}</div>
           </div>
@@ -4457,7 +4457,7 @@ function renderBudget(){
       <div class="bmain" data-budopen="${esc(c)}">
         <span class="bdot" style="background:${catColor[c]||'#94a3b8'};width:9px;height:9px"></span>
         <div class="binfo"><div class="bname">${esc(c)}</div><div class="bmeta">${meta}</div></div>
-        <div class="damt"><div class="dbal" style="color:${avail<0?'var(--neg)':'var(--ink)'}">${fmt(avail)}</div>
+        <div class="damt"><div class="dbal" style="color:${avail<0?'var(--neg-ink)':'var(--ink)'}">${fmt(avail)}</div>
           <div class="dof">${avail<0?"over":"left"}</div></div>
         <button class="aedit${editing?" on":""}" data-budedit="${esc(c)}" aria-label="Edit ${esc(c)} budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
       </div>
@@ -5191,7 +5191,7 @@ function renderInvest(){
           ?`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5A8 8 0 006.3 6.3L4 8.5"/><path d="M4 4.5v4h4"/><path d="M4 12.5a8 8 0 0013.7 5.2L20 15.5"/><path d="M20 19.5v-4h-4"/></svg>`
           :`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`}</span>
         <div class="upmain"><div class="upname">${esc(x.name)}</div><div class="upwhen">${esc(shortDate(x.date))} · ${esc(inDays(Math.max(0,Math.ceil(daysBetween(todayISO(),x.date)))))}${x.drip?" · reinvested":""}</div></div>
-        <div class="upamt${x.drip?"":" pos"}"${x.drip?` style="color:var(--invest)"`:""}>${x.drip?"":"+"}${fmt2(x.amount)}</div></div>`;}).join("")}</div>
+        <div class="upamt${x.drip?"":" pos"}"${x.drip?` style="color:var(--invest-ink)"`:""}>${x.drip?"":"+"}${fmt2(x.amount)}</div></div>`;}).join("")}</div>
       <div class="upitem" style="background:var(--raise);border-bottom:0"><span class="updot" style="background:transparent"></span>
         <div class="upmain"><div class="upname">${upDrip>0?"Arriving over 4 months":"Expected over 4 months"}</div><div class="upwhen">${up.length} payment${up.length===1?"":"s"}${upDrip>0?` · ${fmt2(upDrip)} reinvested`:""}</div></div>
         <div class="upamt pos">+${fmt2(upCash)}</div></div>`
