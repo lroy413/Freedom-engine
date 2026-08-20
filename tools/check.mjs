@@ -70,6 +70,40 @@ else {
   if (!/<link[^>]+styles\.css/.test(html)) fail("index.html", "does not link styles.css");
 }
 
+/* ---------- 3b. two components must not claim one class name ---------- */
+/* One stylesheet, no scoping, and names get reused by accident: a new `.hdot`
+   for holding colours landed on top of the hero carousel's `.hdot`, inheriting
+   its shape and a 38px invisible tap target. A `.hero` for a KPI card picked up
+   the dashboard's green gradient and painted itself solid emerald. Both looked
+   like CSS mysteries and were really name collisions.
+   Only bare `.foo{` counts — `.foo.bar`, `.foo:hover`, `.a .foo` are variants of
+   one component, and anything inside @media or a theme override is a legitimate
+   restatement. */
+if (css !== null) {
+  const lines = css.replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, " ")).split("\n");
+  let depth = 0, skipUntil = -1;
+  const owners = new Map();
+  lines.forEach((ln, i) => {
+    const opensContext = /^\s*(@media|@supports|html\[data-theme|:root)/.test(ln);
+    if (opensContext && skipUntil < 0) skipUntil = depth;
+    const bare = /^\s*\.([A-Za-z][\w-]*)\s*\{/.exec(ln);
+    if (bare && skipUntil < 0) {
+      if (!owners.has(bare[1])) owners.set(bare[1], []);
+      owners.get(bare[1]).push(i + 1);
+    }
+    depth += (ln.match(/\{/g) || []).length - (ln.match(/\}/g) || []).length;
+    if (skipUntil >= 0 && depth <= skipUntil) skipUntil = -1;
+  });
+  /* styles.css declares its intentional restatements in one comment */
+  const allowed = new Set((/restated-by-design:\s*([^\n*]+)/.exec(css) || [, ""])[1]
+    .split(",").map(x => x.trim()).filter(Boolean));
+  const clashes = [...owners].filter(([c, at]) =>
+    at.length > 1 && at[at.length - 1] - at[0] > 40 && !allowed.has(c));
+  if (clashes.length) fail("styles.css", "one class, two components — rename one:\n   " +
+    clashes.map(([c, at]) => `.${c} defined at lines ${at.join(", ")}`).join("\n   "));
+  else ok(`${owners.size} component class names are each defined in one place`);
+}
+
 /* ---------- 4. data.js runs before the app needs it ---------- */
 /* A classic script's top-level const joins the shared global scope, but only
    once it has run. Getting the order wrong is a blank page. */

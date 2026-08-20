@@ -46,6 +46,7 @@
        of vertical gradient plus a real top highlight gives the surface a
        direction for light to come from — the same trick dark already used. */
     --card-hi:inset 0 1px 0 rgba(255,255,255,.9);
+    --sheen:rgba(255,255,255,.55);
     --card-grad:linear-gradient(180deg,#ffffff 0%,#fcfdfd 100%);
     --inset:inset 0 1px 2px rgba(16,18,27,.05);
     --radius:16px;
@@ -71,6 +72,7 @@
     --shadow-sm:0 1px 2px rgba(0,0,0,.4),0 8px 22px -12px rgba(0,0,0,.5);
     /* on a dark surface the light comes from the top edge, not from underneath */
     --card-hi:inset 0 1px 0 rgba(255,255,255,.05);
+    --sheen:rgba(255,255,255,.045);
     --card-grad:linear-gradient(180deg,#1c1e26 0%,#181a20 68%);
     --inset:inset 0 1px 2px rgba(0,0,0,.4);
     --chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2398a1b0' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -130,7 +132,43 @@
   .view.active{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
-  .card{background:var(--card);background-image:var(--card-grad);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--card-hi),var(--shadow-sm)}
+  /* restated-by-design: kpi, empty, dlrow
+     These three are deliberately picked up again further down — richer KPI
+     cards, friendlier empty states, and the 44px touch-target pass. The gate
+     checks that no OTHER class is claimed by two components; add a name here
+     only when the second rule refines the same thing rather than a new one. */
+  .card{background:var(--card);background-image:var(--card-grad);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--card-hi),var(--shadow-sm);
+    position:relative;isolation:isolate}
+  /* The signature surface: one soft light from the top-left, the same direction
+     the app icon is lit from. Pointer-events off and z-index behind, so it can
+     never intercept a tap or sit over content. */
+  .card::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;
+    background:radial-gradient(120% 90% at 12% 0%, var(--sheen) 0%, transparent 62%)}
+  .card.flat::before{display:none}
+
+  /* Money reads better when the currency mark stops competing with the figure.
+     Used in the places where a number is the point — heroes and KPI values. */
+  .cur{font-size:.62em;font-weight:640;color:var(--muted);margin-right:.06em;vertical-align:.09em;letter-spacing:0}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+  /* One number per screen that is allowed to be large. Named `headline`
+     rather than `hero` because `.hero` is already the dashboard's green
+     gradient card — the collision painted this one solid emerald. */
+  .kpi.headline{grid-column:1/-1}
+  .kpi.headline .val{font-size:46px;letter-spacing:-.04em;margin-top:6px}
+  .kpi.headline .label{font-size:12px}
+  @media(max-width:520px){ .kpi.headline .val{font-size:38px} }
+  .herotop{display:flex;align-items:flex-start;gap:14px}
+  .herotop .spacer{flex:1}
+  /* the movement chip, so gain does not need a card of its own */
+  .movechip{flex:none;display:inline-flex;align-items:baseline;gap:6px;padding:6px 11px;border-radius:999px;
+    font-size:14px;font-weight:680;font-variant-numeric:tabular-nums;border:1px solid transparent;margin-top:2px}
+  .movechip.pos{background:color-mix(in srgb,var(--pos) 12%,transparent);color:var(--pos-ink);
+    border-color:color-mix(in srgb,var(--pos) 26%,transparent)}
+  .movechip.neg{background:color-mix(in srgb,var(--neg) 12%,transparent);color:var(--neg-ink);
+    border-color:color-mix(in srgb,var(--neg) 26%,transparent)}
+  .movechip.flat{background:var(--raise2);color:var(--ink2);border-color:var(--line)}
+  .movechip em{font-style:normal;font-size:12px;opacity:.75;font-weight:620}
   .pad{padding:20px}
   .grid{display:grid;gap:14px}
   .kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
@@ -559,13 +597,15 @@
   .hsub{font-size:13px;color:var(--muted);margin-top:2px}
   /* the price and the position's weight share one right-hand column, so the
      weight takes no width from the row and the sparkline keeps its space */
-  .hright{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:3px}
+  .hright{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:3px;min-width:104px}
   .hweight{font-size:11px;font-weight:600;color:var(--muted);text-align:center;
     font-variant-numeric:tabular-nums;letter-spacing:.01em}
   /* Not knowing a price is a state, not a fault. In amber it shouted on every
      row of a portfolio nobody had refreshed yet; amber is for things that need
      doing. */
-  .qstale{color:var(--muted);font-weight:560;font-size:12px;margin-top:2px}
+  /* This sits under the share count and was heavier than it — a note about
+     where the price came from was outranking the position itself. */
+  .qstale{color:var(--muted);font-weight:500;font-size:12px;margin-top:2px}
   /* marks an entry that lives as a transaction, so it is clear why this one
      opens Spending rather than an editor here */
   .tagline{color:var(--accent-ink);font-weight:620}
@@ -591,6 +631,22 @@
   .hstat .k{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:640}
   .hstat .v{font-size:17px;font-weight:670;margin-top:3px;font-variant-numeric:tabular-nums}
   @media(max-width:820px){ .hspark{width:78px;height:34px} .hbadge{min-width:84px;font-size:15px;padding:8px 10px} .hrow{padding:12px 12px;gap:10px} }
+  /* allocation: the portfolio as one bar, and every holding known by a colour */
+  .alloc{padding:16px 16px 14px;border-bottom:1px solid var(--line)}
+  .allocbar{display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--raise2);gap:2px}
+  .allocseg{display:block;min-width:2px;transition:opacity .15s}
+  .allocbar:hover .allocseg{opacity:.55}
+  .allocbar .allocseg:hover{opacity:1}
+  .alloclegend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:11px;font-size:12.5px;color:var(--ink2)}
+  .allockey{display:inline-flex;align-items:center;gap:6px;font-weight:560}
+  .allockey i{width:8px;height:8px;border-radius:2px;flex:none}
+  .allockey b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+  .allocdot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:8px;vertical-align:1px;flex:none}
+  /* the price, as a number rather than something you could type in */
+  .hprice{font-size:19px;font-weight:700;letter-spacing:-.02em;text-align:right;line-height:1.15}
+  .hchange{font-size:12px;font-weight:620;text-align:right;margin-top:3px;font-variant-numeric:tabular-nums;color:var(--muted)}
+  .hchange.pos{color:var(--pos-ink)} .hchange.neg{color:var(--neg-ink)}
+  @media(max-width:820px){ .hright{min-width:92px} .hprice{font-size:17px} .alloc{padding:14px 12px 12px} }
   @media(max-width:460px){ .hsub{white-space:nowrap} }
 
   /* ---------- tables on small screens ----------
@@ -673,7 +729,7 @@
   .trow .bname{font-size:15px;font-weight:620}
   .trow .dbal{font-variant-numeric:tabular-nums;white-space:nowrap}
   /* the category's own colour, small enough to sit inside a line of meta text */
-  .tdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px;
+  .tdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;
     vertical-align:1px;flex:none}
   /* .bmeta is allowed to wrap on phones because bill and stream explanations are
      prose. A transaction's meta is an identifier, not a sentence — it clips, so
@@ -741,7 +797,6 @@
   .tchip:hover{background:var(--raise)}
   .tchip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
   .tchip.on b{color:var(--accent-ink)}
-  .tdot{width:8px;height:8px;border-radius:50%;flex:none}
   .floornote{font-size:13px;color:var(--muted);margin:0 0 12px 2px;line-height:1.4}
   .floornote b{color:var(--ink)}
   .smonly{display:none}
@@ -1433,6 +1488,7 @@
     --shadow:0 1px 2px rgba(0,0,0,.55),0 10px 28px -8px rgba(0,0,0,.65),0 26px 64px -20px rgba(0,0,0,.7);
     --shadow-sm:0 1px 2px rgba(0,0,0,.5),0 8px 24px -12px rgba(0,0,0,.6);
     --card-hi:inset 0 1px 0 rgba(255,255,255,.045);
+    --sheen:rgba(214,178,102,.05);
     --card-grad:linear-gradient(180deg,#191622 0%,#16131a 68%);
     --inset:inset 0 1px 2px rgba(0,0,0,.45);
   }

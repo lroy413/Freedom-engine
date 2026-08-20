@@ -56,18 +56,14 @@ const r = await run(25);
 chk('every one of them gets a price', r.priced, 9);
 chk('  one price lookup each, no more', r.calls.quote, 9);
 chk('  and the whole run fits inside the daily limit', r.calls.total <= 25, true);
-chk('  dividends are looked up for two of them, not all nine',
-  [r.calls.overview, r.calls.dividends], [2, 2]);
-chk('  which is 13 calls, where it used to ask for 27', r.calls.total, 13);
+chk('  and not one dividend call rides along', [r.calls.overview, r.calls.dividends], [0, 0]);
+chk('  which is 9 calls, where it used to ask for 27', r.calls.total, 9);
 chk('nothing was blamed on the holdings', /Couldn't price/.test(r.said), false);
 chk('  it just says it worked', /Updated 9 of 9/.test(r.said), true);
 
-console.log('\n— and the run after it, with dividends already fresh for two —');
-const r2 = await p.evaluate(async () => {
-  _avCapped = false;
-  const before = db.holdings.filter(h => h.divChecked === todayISO()).length;
-  return before; });
-chk('two holdings are stamped, so the next run moves on to two others', r2, 2);
+console.log('\n— dividends are their own button now —');
+chk('a price refresh leaves them all unchecked', await p.evaluate(() =>
+  db.holdings.filter(h => h.divChecked).length), 0);
 
 console.log('\n— a key that is genuinely spent says so, and says what to do —');
 const c = await run(0);
@@ -85,13 +81,13 @@ chk('3 calls x 9 holdings would have overrun the day', 3 * 9 > 25, true);
 
 console.log('\n— one key for prices, another for dividends —');
 /* Alpha Vantage is the only one carrying dividends, and prices are the thing
-   you refresh daily. Splitting the jobs means the 25-a-day limit stops being
-   the ceiling on how often a portfolio can be priced. */
+   you refresh daily. Two buttons, two keys, two budgets — so a spent dividend
+   key never reads as a price problem. */
 const two = await p.evaluate(async ({ TICKERS }) => {
   db.holdings = TICKERS.map((t, i) => ({ id: 'h' + i, name: t, ticker: t, shares: 1,
     price: 100, avgCost: 100, divPerShare: 0, divFreq: 'quarterly', divBasis: 'payment' }));
   db.settings.mdProvider = 'finnhub'; db.settings.mdKey = 'FINN';
-  db.settings.divKey = 'AVKEY'; _avCapped = false;
+  db.settings.divKey = 'AVKEY'; _avCapped = false; _avDivCapped = false;
   const seen = { finnhub: 0, avOverview: 0, avDividends: 0, avQuote: 0 };
   const keys = { finnhub: new Set(), av: new Set() };
   window.fetch = async (url) => {
@@ -101,7 +97,7 @@ const two = await p.evaluate(async ({ TICKERS }) => {
     if (/alphavantage/.test(u)) {
       keys.av.add(/apikey=([^&]+)/.exec(u)[1]);
       const fn = /function=([A-Z_]+)/.exec(u)[1];
-      if (fn === 'GLOBAL_QUOTE') seen.avQuote++;
+      if (fn === 'GLOBAL_QUOTE') { seen.avQuote++; return { ok: true, json: async () => ({}) }; }
       if (fn === 'OVERVIEW') { seen.avOverview++;
         return { ok: true, json: async () => ({ Symbol: 'X', DividendPerShare: '2.00', DividendYield: '0.03' }) }; }
       seen.avDividends++;
@@ -112,18 +108,64 @@ const two = await p.evaluate(async ({ TICKERS }) => {
   setView('invest'); await new Promise(r => setTimeout(r, 400));
   document.getElementById('refreshAllBtn').click();
   await new Promise(r => setTimeout(r, 9000));
-  return { seen, finnKeys: [...keys.finnhub], avKeys: [...keys.av],
+  const priceSaid = document.getElementById('quoteStatus').textContent.replace(/\s+/g, ' ').trim();
+  const afterPrices = JSON.parse(JSON.stringify(seen));
+  /* now the other button */
+  document.getElementById('refreshDivBtn').click();
+  await new Promise(r => setTimeout(r, 8000));
+  return { afterPrices, seen, finnKeys: [...keys.finnhub], avKeys: [...keys.av],
     priced: db.holdings.filter(h => h.lastQuote === todayISO()).length,
-    said: document.getElementById('quoteStatus').textContent.replace(/\s+/g, ' ').trim(),
+    checked: db.holdings.filter(h => h.divChecked === todayISO()).length,
+    paying: db.holdings.filter(h => h.divPerShare > 0).length,
+    priceSaid, divSaid: document.getElementById('divStatusLine').textContent.replace(/\s+/g, ' ').trim(),
     budget: divBudgetPerRun() };
 }, { TICKERS });
 
-chk('all nine priced by the quote provider', [two.priced, two.seen.finnhub], [9, 9]);
+chk('all nine priced by the quote provider', [two.priced, two.afterPrices.finnhub], [9, 9]);
 chk('  and Alpha Vantage was never asked for a price', two.seen.avQuote, 0);
-chk('each key is used only for its own job', [two.finnKeys, two.avKeys], [['FINN'], ['AVKEY']]);
-chk('dividends still come from Alpha Vantage', [two.seen.avOverview, two.seen.avDividends], [6, 6]);
-chk('  and get a bigger share per run now that prices are elsewhere', two.budget, 6);
-chk('nothing failed', /Couldn't price/.test(two.said), false);
+chk('and prices ask Alpha Vantage for nothing at all',
+  [two.afterPrices.avOverview, two.afterPrices.avDividends], [0, 0]);
+chk('  dividends get a bigger share per run now that prices are elsewhere', two.budget, 6);
+chk('nothing failed', /Couldn't price/.test(two.priceSaid), false);
+
+console.log('\n— and the dividend button does the other half —');
+chk('it checks a run\'s worth', two.checked, 6);
+chk('  using the dividend key, and only that one',
+  [two.finnKeys, two.avKeys], [['FINN'], ['AVKEY']]);
+chk('  two calls each, no prices among them',
+  [two.seen.avOverview, two.seen.avDividends, two.seen.avQuote], [6, 6, 0]);
+chk('  the per-share figure came back', two.paying, 6);
+chk('  and it says how many are still waiting',
+  /3 holdings still to check/.test(two.divSaid), true);
+chk('the price line was not touched by any of it',
+  /Updated 9 of 9/.test(two.priceSaid), true);
+
+console.log('\n— a spent dividend key is not a price problem —');
+const spent = await p.evaluate(async () => {
+  _avCapped = false; _avDivCapped = false;
+  db.holdings.forEach(h => { delete h.divChecked; });
+  window.fetch = async (url) => {
+    const u = String(url);
+    if (/finnhub/.test(u)) return { ok: true, json: async () => ({ c: 200.5 }) };
+    return { ok: true, json: async () => ({ Information: 'rate limit is 25 requests per day' }) };
+  };
+  document.getElementById('refreshDivBtn').click();
+  await new Promise(r => setTimeout(r, 6000));
+  const divSaid = document.getElementById('divStatusLine').textContent.replace(/\s+/g, ' ').trim();
+  document.getElementById('refreshAllBtn').click();
+  await new Promise(r => setTimeout(r, 9000));
+  return { divSaid, priceSaid: document.getElementById('quoteStatus').textContent.replace(/\s+/g, ' ').trim(),
+    priced: db.holdings.filter(h => h.lastQuote === todayISO()).length, divCapped: _avDivCapped, quoteCapped: _avCapped };
+});
+chk('the dividend line says it is out for the day', /out of lookups for today/.test(spent.divSaid), true);
+chk('  and says prices are unaffected', /Prices are unaffected/.test(spent.divSaid), true);
+chk('  naming the provider actually doing them', /Finnhub/.test(spent.divSaid), true);
+chk('the two caps are tracked apart', [spent.divCapped, spent.quoteCapped], [true, false]);
+chk('prices still refresh perfectly well', spent.priced, 9);
+/* the bug this whole section exists for: being told to switch to Finnhub while
+   already on Finnhub */
+chk('  and nothing tells you to switch to what you already use',
+  /switch to/.test(spent.priceSaid) || /Twelve Data/.test(spent.priceSaid), false);
 
 console.log('\n— a book that predates any of this —');
 chk('an Alpha Vantage quote key still does dividends with nothing else set', await p.evaluate(() => {
