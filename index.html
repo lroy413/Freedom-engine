@@ -3290,6 +3290,25 @@ function renderTxFilters(){
       const el=document.getElementById("txSearch"); if(el)el.value=""; renderTx(); };
   }
 }
+/* "Aug 8" repeated down the left of forty rows is a column of noise, and it
+   tells you nothing about the day it belongs to. Group by day instead: one
+   heading, the day's net beside it, and the rows underneath keep their width
+   for the thing you are actually reading — what you bought.
+   Only for date sorts; ordering by amount deliberately cuts across days, and
+   heading each one would be nonsense, so those keep the per-row date. */
+function dayLabel(iso){
+  const d=daysBetween(iso,todayISO());
+  if(d===0) return "Today";
+  if(d===1) return "Yesterday";
+  /* A weekday is worth naming while you can still remember it. Past that it is
+     noise, so older days are just their date rather than a truncated
+     "THU ·" that makes the column look ragged. */
+  if(d>0&&d<7){
+    const wd=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][dayOf(iso).getDay()];
+    return wd+" · "+txDate(iso);
+  }
+  return txDate(iso);
+}
 function renderTx(){
   renderTxFilters();
   const list=filteredTx();
@@ -3326,7 +3345,17 @@ function renderTx(){
      dropdowns and a delete — which made a list you cannot skim and rows whose
      height depended on how chatty the bank was. A row is now a line you read;
      tapping it opens the editor in a sheet, the same as every other list here. */
+  const byDay=(txFilter.sort==="new"||txFilter.sort==="old");
+  let _lastDay=null;
   document.getElementById("txTable").innerHTML=list.length?shownTx.map(t=>{
+    let head="";
+    if(byDay&&t.date!==_lastDay){
+      _lastDay=t.date;
+      const net=shownTx.filter(x=>x.date===t.date&&!isNeutral(x))
+        .reduce((a,x)=>a+num(x.amount),0);
+      head=`<div class="dayhead"><span class="dayname">${esc(dayLabel(t.date))}</span>
+        <span class="daynet ${net>0?"pos":""}">${Math.abs(net)<0.005?"":(net>0?"+":"−")+fmt(Math.abs(net))}</span></div>`;
+    }
     const an=shortAcctName(acctName(t.acctId));
     const bz=bizOf(t.bizId), share=t.bizPct===undefined?100:num(t.bizPct);
     const a=num(t.amount), neutral=isNeutral(t);
@@ -3343,9 +3372,9 @@ function renderTx(){
       bz?`${esc(bz.name)}${share<100?` ${share}%`:""}`:null,
       (()=>{const o=oneoffOf(t.oneId); return o?`<span class="ootag">${esc(o.name)}</span>`:null;})()
     ].filter(Boolean).join(" · ");
-    return `<div class="brow trow${bz?" bizrow":""}"${bz?` style="--bizc:${bz.color}"`:""}>
+    return head+`<div class="brow trow${bz?" bizrow":""}"${bz?` style="--bizc:${bz.color}"`:""}>
       <div class="bmain" ${t._pay?`data-payjump="${esc(t.payId)}"`:`data-txopen="${esc(t.id)}"`}>
-        <span class="tdate">${esc(txDate(t.date))}</span>
+        ${byDay?"":`<span class="tdate">${esc(txDate(t.date))}</span>`}
         <div class="binfo">
           <div class="bname">${esc(t.desc||"—")}</div>
           <div class="bmeta"><i class="tdot" style="background:${catColor[t.category]||'var(--line2)'}"></i><span class="tmeta">${meta}</span></div>
