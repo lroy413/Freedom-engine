@@ -349,6 +349,27 @@ const GOAL_KINDS={
     blurb:"A gear purchase, a trip, a buffer — you log what you put aside and it tracks the total.",dir:"up",auto:false}
 };
 
+/* The things you did not plan for. Kinds exist so a year of them can be read
+   back as a pattern rather than a pile — "gear fails about twice a year" is a
+   number you can hold a reserve against; "$3,180 of miscellaneous" is not. */
+const ONEOFF_KINDS={
+  medical:{label:"Health & medical",short:"Medical",hue:"--c-rose",
+    blurb:"Exams, glasses, dental, prescriptions, a trip to urgent care."},
+  repair:{label:"Repair or breakdown",short:"Repair",hue:"--c-amber",
+    blurb:"The car, the boiler, the laptop — something broke and had to be fixed."},
+  gear:{label:"Gear replacement",short:"Gear",hue:"--c-violet",
+    blurb:"A body, a lens, a drive that died mid-job. Work kit that failed rather than kit you chose to buy."},
+  home:{label:"Home & moving",short:"Home",hue:"--c-teal",
+    blurb:"A deposit, a move, a repair the landlord would not cover."},
+  travel:{label:"Family & travel",short:"Family",hue:"--c-cyan",
+    blurb:"A funeral, a flight home, an emergency someone else was having."},
+  admin:{label:"Legal & admin",short:"Admin",hue:"--c-slate",
+    blurb:"Fines, filings, licences, a lawyer's hour."},
+  pet:{label:"Pet",short:"Pet",hue:"--c-lime",blurb:"The vet, mostly."},
+  other:{label:"Something else",short:"One-off",hue:"--c-fuchsia",
+    blurb:"A one-off that does not fit the rest."}
+};
+
 const ICONS={
  dash:'<path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/>',
  accounts:'<rect x="2" y="6" width="20" height="13" rx="2.5"/><path d="M2 10.5h20M6 15h4"/>',

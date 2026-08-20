@@ -72,6 +72,19 @@ export const SEED = (page) => page.evaluate(() => {
     { id: "bz2", date: day(Math.max(1, thisM - 2), 3), desc: "Brand film — Terminus", category: "Income", amount: 8600, bizId: "b1" },
     { id: "bz3", date: day(Math.max(1, thisM - 2), 19), desc: "Sigma 24-70 Art", category: "Gear", amount: -1180, bizId: "b1" },
     { id: "bz4", date: day(Math.max(1, thisM - 1), 8), desc: "Doc short — Westside", category: "Income", amount: 5400, bizId: "b1" });
+  /* the glasses: one thing that happened, spread over three weeks, three
+     categories and a partial reimbursement */
+  db.oneoffs = [
+    { id: "oo1", name: "New glasses", kind: "medical", opened: day(Math.max(1, thisM - 1), 6), closed: "", note: "Sat on them." },
+    { id: "oo2", name: "Alternator", kind: "repair", opened: day(Math.max(1, thisM - 4), 11),
+      closed: day(Math.max(1, thisM - 4), 13), note: "" }];
+  db.transactions.push(
+    { id: "oo1a", date: day(Math.max(1, thisM - 1), 6), desc: "Atlanta Eye Care", category: "Health", amount: -145, acctId: "nfc", oneId: "oo1" },
+    { id: "oo1b", date: day(Math.max(1, thisM - 1), 14), desc: "Warby Parker frames", category: "Health", amount: -295, acctId: "nfc", oneId: "oo1" },
+    { id: "oo1c", date: day(thisM, 4), desc: "Lenses — Pearle", category: "Health", amount: -262, acctId: "nfc", oneId: "oo1" },
+    { id: "oo1d", date: day(thisM, 12), desc: "Vision plan reimbursement", category: "Health", amount: 180, acctId: "nfc", oneId: "oo1" },
+    { id: "oo2a", date: day(Math.max(1, thisM - 4), 11), desc: "Buckhead Auto", category: "Auto & Gas", amount: -640, acctId: "nfc", oneId: "oo2" },
+    { id: "oo2b", date: day(Math.max(1, thisM - 4), 13), desc: "Towing", category: "Auto & Gas", amount: -95, acctId: "nfc", oneId: "oo2" });
   db.transactions.push({ id: "rv1", date: day(thisM, 2), desc: "SQ *UNKNOWN VENDOR", category: "Uncategorized", amount: -74.2, review: true, acctId: "nfc" },
     { id: "rv2", date: day(thisM, 3), desc: "PAYPAL *INST XFER", category: "Uncategorized", amount: -22, review: true, acctId: "nfc" });
   db.transactions.sort((a, b) => b.date.localeCompare(a.date));

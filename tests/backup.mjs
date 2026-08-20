@@ -30,6 +30,7 @@ const COUNTS = () => p.evaluate(() => ({
   recurring: db.recurring.length, income: db.income.length, paychecks: db.paychecks.length,
   debts: db.debts.length, holdings: db.holdings.length, goals: db.goals.length,
   businesses: db.businesses.length, invoices: db.invoices.length, clients: db.clients.length,
+  oneoffs: db.oneoffs.length, tagged: db.transactions.filter(t => t.oneId).length,
   budgets: Object.keys(db.budgets).length, reserve: db.tax.reserve.length,
   mileage: db.businesses[0] ? db.businesses[0].mileage.log.length : 0,
   net: Math.round(netWorth()), owed: Math.round(allReceivable()),
@@ -88,6 +89,10 @@ chk('an invoice keeps its schedule', await p.evaluate(() => {
 chk('  a business keeps its deductions', await p.evaluate(() => {
   const x = db.businesses[0];
   return [x.office.sqft, x.mileage.log.length, x.state, x.method]; }), [120, 3, 'GA', 'cash']);
+chk('  an unplanned episode keeps what belonged to it', await p.evaluate(() => {
+  const o = db.oneoffs.find(x => x.name === 'New glasses');
+  return { items: oneoffTxs(o.id).length, net: Math.round(oneoffNet(o.id)), kind: o.kind }; }),
+  { items: 4, net: 522, kind: 'medical' });
 chk('  and a mixed-use bill keeps its split', await p.evaluate(() => {
   const r = db.recurring.find(x => x.name === 'Adobe CC'); return [r.bizPct, !!r.bizId]; }), [80, true]);
 

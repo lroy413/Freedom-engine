@@ -206,6 +206,7 @@
     <div id="learnNote" style="margin-bottom:12px"></div>
 
     <div class="card" id="reviewCard" hidden style="margin-bottom:12px"></div>
+    <div class="card" id="oneoffCard" style="margin-bottom:12px"></div>
     <div class="card" style="margin-bottom:12px" id="txFilterCard">
       <button class="filthead" id="filtToggle" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M7 12h10M10 19h4"/></svg>
@@ -234,6 +235,11 @@
         </select></div>
         <div class="field"><label>Min $</label><input id="f-min" type="number" placeholder="any"></div>
         <div class="field"><label>Max $</label><input id="f-max" type="number" placeholder="any"></div>
+        <div class="field"><label>Unplanned</label><select id="f-one">
+          <option value="all">Everything</option>
+          <option value="any">Unplanned only</option>
+          <option value="none">Planned only</option>
+        </select></div>
         <div class="field"><label>Sort</label><select id="f-sort">
           <option value="new">Newest first</option>
           <option value="old">Oldest first</option>
@@ -688,6 +694,7 @@ function seed(){
     holdings:[],
     dividends:[],
     creditLog:[],
+    oneoffs:[],
     paychecks:[],
     snapshots:[],
     goal:{target:0,deadline:""},
@@ -708,11 +715,12 @@ function migrate(d){
   if(d.version>=2){ // ensure new arrays exist
     d.budgets=d.budgets||{}; d.recurring=d.recurring||[]; d.income=d.income||[];
     d.holdings=d.holdings||[]; d.dividends=d.dividends||[]; d.creditLog=d.creditLog||[];
+    d.oneoffs=d.oneoffs||[];
     return d;
   }
   // migrate v1 -> v2
   const s=seed();
-  d.budgets={}; d.recurring=[]; d.income=[]; d.holdings=[]; d.dividends=[]; d.creditLog=[];
+  d.budgets={}; d.recurring=[]; d.income=[]; d.holdings=[]; d.dividends=[]; d.creditLog=[]; d.oneoffs=[];
   (d.debts||[]).forEach(x=>{ if(!x.kind){ const n=(x.name||"").toLowerCase();
     x.kind = n.includes("collection")?"collection": n.includes("car")||n.includes("auto")?"auto": n.includes("card")?"card":"loan"; x.limit=x.limit||0; }});
   // move investment-type assets into holdings, keep cash
@@ -730,8 +738,10 @@ function repairIds(){
   const parentIdx=acc.map(a=>(a&&a.parentId)?acc.findIndex(x=>x&&x.id===a.parentId):-1);
   const rec=Array.isArray(db.recurring)?db.recurring:[];
   const oldBill=rec.map(r=>r&&r.id);
+  const one=Array.isArray(db.oneoffs)?db.oneoffs:[];
+  const oldOne=one.map(o=>o&&o.id);
   const seen=new Set();
-  [db.debts,acc,db.income,db.holdings,db.transactions,db.dividends,rec,db.paychecks].forEach(arr=>{
+  [db.debts,acc,db.income,db.holdings,db.transactions,db.dividends,rec,one,db.paychecks].forEach(arr=>{
     if(!Array.isArray(arr))return;
     arr.forEach(r=>{ if(!r||typeof r!=="object")return;
       if(!r.id||seen.has(r.id)){ r.id=uid(); fixed++; }
@@ -744,11 +754,31 @@ function repairIds(){
     const map={}; rec.forEach((r,i)=>{ if(oldBill[i]&&r&&r.id&&oldBill[i]!==r.id) map[oldBill[i]]=r.id; });
     db.transactions.forEach(t=>{ if(!t||!t.billRef)return; const [bid,mk]=String(t.billRef).split("|");
       if(map[bid]) t.billRef=map[bid]+"|"+mk; });
+    /* and the same for the unplanned episode a transaction belongs to — a
+       re-issued id here would scatter the glasses back into loose spending */
+    const omap={}; one.forEach((o,i)=>{ if(oldOne[i]&&o&&o.id&&oldOne[i]!==o.id) omap[oldOne[i]]=o.id; });
+    db.transactions.forEach(t=>{ if(t&&t.oneId&&omap[t.oneId]) t.oneId=omap[t.oneId]; });
   }
   idsRepaired=fixed; return fixed;
 }
 function normalize(){
   if(!Array.isArray(db.paychecks)) db.paychecks=[];
+  /* Unplanned episodes: a name, a kind, and the day it started. A transaction
+     pointing at an episode that no longer exists is worse than an untagged one
+     — it disappears from both the loose spending and the episode — so the link
+     is dropped rather than left dangling. */
+  if(!Array.isArray(db.oneoffs)) db.oneoffs=[];
+  db.oneoffs=db.oneoffs.filter(o=>o&&typeof o==="object");
+  db.oneoffs.forEach(o=>{
+    if(!o.id)o.id=uid();
+    o.name=String(o.name||"Unplanned");
+    if(!ONEOFF_KINDS[o.kind])o.kind="other";
+    if(!o.opened)o.opened=todayISO();
+    if(o.closed===undefined)o.closed="";
+    o.note=String(o.note||"");
+  });
+  { const live=new Set(db.oneoffs.map(o=>o.id));
+    (db.transactions||[]).forEach(t=>{ if(t&&t.oneId&&!live.has(t.oneId)) delete t.oneId; }); }
   /* Rollover is per budget now, and each one records the month it started so a
      brand-new budget can't "carry in" money from months it didn't exist in. */
   if(!db.budgetMeta||typeof db.budgetMeta!=="object") db.budgetMeta={};
@@ -1873,13 +1903,16 @@ function monthRecap(mk){
   /* how this month compares with the one before */
   const pm=(()=>{const d=new Date(yy,mm-1,1);d.setMonth(d.getMonth()-1);return monthOf(d);})();
   const prevSpend=monthTotals(pm).exp;
-  return {mk,tx:tx.length,spendCount:spendTx.length,income,spend,
+  const unplanned=unplannedIn(mk);
+  return {mk,tx:tx.length,spendCount:spendTx.length,income,spend,unplanned,
     cats,merch,biggest,noSpend,elapsed,bestStreak:best,
     billsDue:due.length,billsPaid:paid.length,
     nwMove,prevSpend,held:held.length,budgets:budCats.length,
     freedomPct:fs.next?fs.next.pct:100,freedomLabel:fs.next?fs.next.label:"every tier",
     passive:fs.passive.total,isNow};
 }
+const unluckyLine = r =>
+  `${fmt(r.unplanned)} of it was unplanned. Take that out and you spent ${fmt(r.spend-r.unplanned)}.`;
 /* A month earns a name from whatever it actually did most. Not a score — a
    nickname, so the recap opens with something human instead of a total. */
 function recapTitle(r){
@@ -1887,8 +1920,16 @@ function recapTitle(r){
   if(r.bestStreak>=7) return {t:"The Long Walk",s:`${r.bestStreak} days straight without spending a penny.`};
   if(r.nwMove!=null&&r.nwMove>0&&r.spend<r.prevSpend) return {t:"The Turn",s:"Spent less than last month and came out further ahead."};
   if(r.billsDue&&r.billsPaid===r.billsDue) return {t:"The Clean Sweep",s:"Every bill due this month, paid."};
+  /* A month can be heavy because you chose it or because something broke. Once
+     a quarter of it was unplanned, that is the truer name — and it sits ahead of
+     both the category name and the splurge so a root canal is never either. */
+  if(r.unplanned>=150&&r.spend>0&&r.unplanned>=r.spend*0.25) return {t:"The Unlucky One",s:unluckyLine(r)};
   if(r.cats.length&&r.cats[0][1]>r.spend*0.4) return {t:`The ${r.cats[0][0]} Month`,s:`${esc(r.cats[0][0])} took ${Math.round(r.cats[0][1]/r.spend*100)}% of everything you spent.`};
   if(r.merch.length&&r.merch[0][1].n>=6) return {t:"The Regular",s:`${esc(r.merch[0][0])} saw you ${r.merch[0][1].n} times.`};
+  /* And the quieter case: a smaller unplanned share that still accounts for the
+     entire rise. Without this the month reads as a splurge you chose. */
+  if(r.unplanned>0&&r.spend>r.prevSpend*1.25&&r.prevSpend>0&&r.spend-r.unplanned<=r.prevSpend*1.15)
+    return {t:"The Unlucky One",s:unluckyLine(r)};
   if(r.spend>r.prevSpend*1.25&&r.prevSpend>0) return {t:"The Splurge",s:"A heavier month than the last one. Worth a look at what changed."};
   return {t:"The Steady One",s:"No drama. Bills covered, nothing wild — most months should look like this."};
 }
@@ -1925,10 +1966,23 @@ function insights(){
     const frac=Math.min(1,new Date().getDate()/30.44);
     let worst=null;
     db.categories.forEach(c=>{ if(c==="Income"||c==="Transfer")return;
-      const now=spentFor(c,mk), before=spentFor(c,prev)*frac;
+      /* plannedSpentFor, not spentFor: this rule is about a habit changing, and
+         one emergency in a category would otherwise trip it every time */
+      const now=plannedSpentFor(c,mk), before=plannedSpentFor(c,prev)*frac;
       if(before>=40&&now-before>=40){ const pct=Math.round((now-before)/before*100);
         if(pct>=25&&(!worst||pct>worst.pct)) worst={c,pct,now}; } });
     if(worst) push("pace-"+worst.c,"warn",`<b>${esc(worst.c)}</b> is running ${worst.pct}% ahead of last month's pace — ${fmt(worst.now)} so far.`,"expenses");
+  }
+  /* the month looks expensive, and here is the reason */
+  {
+    const u=unplannedIn(mk);
+    if(u>=150){
+      const eps=(db.oneoffs||[]).filter(o=>oneoffTxs(o.id).some(t=>monthKey(t.date)===mk));
+      const who=eps.length===1?`<b>${esc(eps[0].name)}</b>`:`<b>${esc(plural(eps.length,"unplanned thing"))}</b>`;
+      const rest=monthTotals(mk).exp-u;
+      push("unplanned-"+mk,"info",
+        `${fmt(u)} of this month went on ${who}. The rest of your spending is ${fmt(rest)}.`,"expenses");
+    }
   }
   /* an envelope nearly gone with real month left */
   {
@@ -2866,12 +2920,12 @@ function applyStub(text){
    the active ones show as removable chips, and a running total tells you what the
    filtered slice actually cost. With several accounts synced, "what did I spend on
    food with the Chase card last month" has to be one question, not four. */
-const txFilter={acct:"all",cat:"all",when:"all",dir:"all",min:"",max:"",sort:"new"};
+const txFilter={acct:"all",cat:"all",when:"all",dir:"all",one:"all",min:"",max:"",sort:"new"};
 let txShowAll=false; let filtOpen=false;
 function activeFilterCount(){
   const q=((document.getElementById("txSearch")||{}).value||"").trim();
   let n=q?1:0;
-  ["acct","cat","when","dir"].forEach(k=>{ if(txFilter[k]!=="all")n++; });
+  ["acct","cat","when","dir","one"].forEach(k=>{ if(txFilter[k]!=="all")n++; });
   if(txFilter.min!=="")n++; if(txFilter.max!=="")n++;
   return n;
 }
@@ -2941,6 +2995,9 @@ function filteredTx(){
     if(win&&(t.date<win[0]||t.date>win[1]))return false;
     if(f.dir==="out"&&t.amount>=0)return false;
     if(f.dir==="in"&&t.amount<=0)return false;
+    if(f.one==="any"){ if(!unplannedTx(t))return false; }
+    else if(f.one==="none"){ if(unplannedTx(t))return false; }
+    else if(f.one!=="all"&&t.oneId!==f.one)return false;
     const abs=Math.abs(num(t.amount));
     if(mn!=null&&abs<mn)return false;
     if(mx!=null&&abs>mx)return false;
@@ -2952,6 +3009,62 @@ function filteredTx(){
     :(a,b)=>b.date.localeCompare(a.date));
   return list;
 }
+/* ---------- unplanned spending ----------
+   A pair of glasses is not one expense. It is an eye exam, then frames, then
+   lenses, spread over three weeks and filed under three categories, and by the
+   time the month closes it reads as "you overspent on Health" rather than as
+   the one thing that actually happened.
+
+   An episode gathers those transactions under a name. Nothing is hidden from
+   the budget or the totals — the money left, and pretending otherwise would
+   make every other figure a lie. What it buys you is the ability to ask two
+   questions the ledger alone cannot answer: was this month actually expensive,
+   or was it just unlucky; and how much do unlucky months cost in a year. The
+   second one is the size of the buffer you should be holding. */
+const oneoffOf = id => (db.oneoffs||[]).find(o=>o.id===id)||null;
+const oneoffKind = o => ONEOFF_KINDS[o&&o.kind]||ONEOFF_KINDS.other;
+const oneoffRunning = o => !!o&&!o.closed;
+const oneoffTxs = id => db.transactions.filter(t=>t.oneId===id)
+  .sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+/* Net, not gross. If insurance sent $180 back, the glasses cost $180 less —
+   logging the refund into the episode is the whole point of it being a group. */
+const oneoffNet = id => oneoffTxs(id).reduce((s,t)=>s-personalAmt(t),0);
+const oneoffSpan = id => { const x=oneoffTxs(id); return x.length?{from:x[0].date,to:x[x.length-1].date}:null; };
+/* An episode is "settled" once nothing has been added for a while — not a
+   state you have to remember to set, just a hint that it can be closed. */
+const oneoffQuietDays = id => { const sp=oneoffSpan(id); return sp?daysBetween(sp.to,todayISO()):null; };
+
+const unplannedTx = t => !!(t&&t.oneId&&oneoffOf(t.oneId));
+function unplannedIn(mk){
+  let n=0; for(const t of db.transactions){ if(!unplannedTx(t)||isNeutral(t))continue;
+    if(monthKey(t.date)===mk) n-=personalAmt(t); }
+  return n;
+}
+/* What the unexpected has cost over a rolling year, and what that averages to a
+   month. The average is the useful half: it is what a buffer has to absorb. */
+function unplannedYear(n){
+  const months=monthsRange(n||12), first=months[0];
+  const seen=new Set(); const byKind={};
+  let total=0;
+  for(const t of db.transactions){
+    if(!unplannedTx(t)||isNeutral(t))continue;
+    const m=monthKey(t.date); if(m<first||m>months[months.length-1])continue;
+    const o=oneoffOf(t.oneId), amt=-personalAmt(t);
+    total+=amt; seen.add(o.id);
+    byKind[o.kind]=(byKind[o.kind]||0)+amt;
+  }
+  return {total,months:months.length,perMonth:total/months.length,episodes:seen.size,
+    byKind:Object.entries(byKind).sort((a,b)=>b[1]-a[1])};
+}
+/* Same as spentFor, minus anything tagged unplanned. Used where the question is
+   about habits — "are you spending more on this than usual" — which a broken
+   pair of glasses answers wrongly. Never used for envelope math. */
+function plannedSpentFor(cat,m){
+  let t=0; for(const x of db.transactions){ if(x.oneId)continue;
+    const a=personalAmt(x); if(a<0&&!isNeutral(x)&&x.category===cat&&monthKey(x.date)===m) t+=-a; }
+  return t;
+}
+
 function renderTxFilters(){
   const q=((document.getElementById("txSearch")||{}).value||"").trim();
   const used=db.accounts.filter(a=>db.transactions.some(t=>t.acctId===a.id));
@@ -2964,7 +3077,13 @@ function renderTxFilters(){
   const inUse=[...new Set(db.transactions.map(t=>t.category))].sort();
   if(cv) cv.innerHTML=`<option value="all">All categories</option><option value="uncat" ${txFilter.cat==="uncat"?"selected":""}>Uncategorized only</option>`+
     inUse.map(c=>`<option value="${esc(c)}" ${txFilter.cat===c?"selected":""}>${esc(c)}</option>`).join("");
-  ["when","dir","sort"].forEach(k=>{const el=document.getElementById("f-"+k); if(el)el.value=txFilter[k];});
+  const ov=document.getElementById("f-one");
+  if(ov){ const eps=(db.oneoffs||[]).filter(o=>oneoffTxs(o.id).length)
+      .sort((a,b)=>String(b.opened).localeCompare(String(a.opened)));
+    ov.innerHTML=`<option value="all">Everything</option><option value="any">Unplanned only</option><option value="none">Planned only</option>`+
+      (eps.length?`<optgroup label="One of these">`+eps.map(o=>`<option value="${o.id}">${esc(o.name)}</option>`).join("")+`</optgroup>`:"");
+  }
+  ["when","dir","one","sort"].forEach(k=>{const el=document.getElementById("f-"+k); if(el)el.value=txFilter[k];});
   ["min","max"].forEach(k=>{const el=document.getElementById("f-"+k); if(el&&el.value!==txFilter[k])el.value=txFilter[k];});
   const WHEN={"30":"Last 30 days",tm:"This month",lm:"Last month","90":"Last 3 months",ytd:"This year"};
   const DIR={out:"Money out",in:"Money in"};
@@ -2974,6 +3093,8 @@ function renderTxFilters(){
   if(txFilter.cat!=="all")chips.push(["cat",txFilter.cat==="uncat"?"Uncategorized":`<b>${esc(txFilter.cat)}</b>`]);
   if(txFilter.when!=="all")chips.push(["when",WHEN[txFilter.when]||txFilter.when]);
   if(txFilter.dir!=="all")chips.push(["dir",DIR[txFilter.dir]]);
+  if(txFilter.one!=="all")chips.push(["one",txFilter.one==="any"?"Unplanned only":txFilter.one==="none"?"Planned only"
+    :`<b>${esc((oneoffOf(txFilter.one)||{}).name||"Unplanned")}</b>`]);
   if(txFilter.min!=="")chips.push(["min",`Over ${fmt(num(txFilter.min))}`]);
   if(txFilter.max!=="")chips.push(["max",`Under ${fmt(num(txFilter.max))}`]);
   const n=activeFilterCount();
@@ -2989,7 +3110,7 @@ function renderTxFilters(){
       else txFilter[k]="all";
       renderTx();});
     const ca=document.getElementById("fClearAll");
-    if(ca)ca.onclick=()=>{ Object.assign(txFilter,{acct:"all",cat:"all",when:"all",dir:"all",min:"",max:"",sort:txFilter.sort});
+    if(ca)ca.onclick=()=>{ Object.assign(txFilter,{acct:"all",cat:"all",when:"all",dir:"all",one:"all",min:"",max:"",sort:txFilter.sort});
       const el=document.getElementById("txSearch"); if(el)el.value=""; renderTx(); };
   }
 }
@@ -3039,7 +3160,9 @@ function renderTx(){
       /* "from Income" next to the Income category stuttered; what it is, is a
          paycheck, and tapping it goes to where paychecks are edited */
       t._pay?`<span class="tagline">paycheck</span>`:(an?esc(an):null),
-      bz?`${esc(bz.name)}${share<100?` ${share}%`:""}`:null].filter(Boolean).join(" · ");
+      bz?`${esc(bz.name)}${share<100?` ${share}%`:""}`:null,
+      (()=>{const o=oneoffOf(t.oneId); return o?`<span class="ootag">${esc(o.name)}</span>`:null;})()
+    ].filter(Boolean).join(" · ");
     return `<div class="brow trow${bz?" bizrow":""}"${bz?` style="--bizc:${bz.color}"`:""}>
       <div class="bmain" ${t._pay?`data-payjump="${esc(t.payId)}"`:`data-txopen="${esc(t.id)}"`}>
         <span class="tdate">${esc(txDate(t.date))}</span>
@@ -3059,6 +3182,159 @@ function renderTx(){
     const row=document.querySelector(`[data-payopen="${el.dataset.payjump}"]`);
     if(row)row.scrollIntoView({block:"center"});});
 }
+/* ---------- unplanned: the card on Spending and its sheet ---------- */
+let _oneEdit=null, _oneAdd=false, _oneQ="";
+const oneHue = o => `var(${oneoffKind(o).hue})`;
+function oneoffSpanText(o){
+  const sp=oneoffSpan(o.id);
+  if(!sp) return "nothing logged to it yet";
+  const n=oneoffTxs(o.id).length;
+  const range=sp.from===sp.to?txDate(sp.from):`${txDate(sp.from)} – ${txDate(sp.to)}`;
+  return `${plural(n,"thing")} · ${range}`;
+}
+function renderOneoffs(){
+  const card=document.getElementById("oneoffCard"); if(!card)return;
+  const eps=(db.oneoffs||[]).slice().sort((a,b)=>
+    (oneoffRunning(b)?1:0)-(oneoffRunning(a)?1:0) ||
+    String(b.opened).localeCompare(String(a.opened)));
+  const y=unplannedYear(12);
+  /* The headline is the rolling year, not this month. One expensive month tells
+     you nothing; twelve of them tell you how big a buffer has to be. */
+  const sub=y.total>0
+    ? `The unexpected has cost you <b>${fmt(y.total)}</b> over the last 12 months — about <b>${fmt(y.perMonth)}</b> a month.`
+    : `Tag the eye exam, the frames and the lenses as one thing, and a heavy month stops looking like a spending problem.`;
+  card.innerHTML=`<div class="oohead">
+      <div style="min-width:0;flex:1">
+        <div class="t">Unplanned</div>
+        <div class="s">${sub}</div>
+      </div>
+      <button class="btn sm" id="ooAdd">Log one</button>
+    </div>
+    ${eps.length?`<div class="${eps.length>5?"scrollrows bills":""}">${eps.map(o=>{
+      const k=oneoffKind(o), net=oneoffNet(o.id), quiet=oneoffQuietDays(o.id);
+      return `<div class="brow oorow">
+        <div class="bmain" data-oneopen="${o.id}">
+          <i class="oodot" style="background:${oneHue(o)}"></i>
+          <div class="binfo">
+            <div class="bname">${esc(o.name)} <span class="ookind" style="color:${oneHue(o)};background:color-mix(in srgb, ${oneHue(o)} 14%, transparent)">${esc(k.short)}</span></div>
+            <div class="bmeta">${esc(oneoffSpanText(o))}${o.closed?` · <span class="oodone">settled</span>`
+              :quiet!=null&&quiet>=30?` · <span class="ooquiet">quiet ${quiet} days</span>`:""}</div>
+          </div>
+          <div class="bamt ${net<0?"pos":net===0?"muted":""}">${net<0?"+":""}${fmt(Math.abs(net))}</div>
+        </div>
+      </div>`;}).join("")}</div>`
+    :`<div class="empty" style="padding:18px 14px">Nothing unplanned logged. When something breaks, log it here and every cost that follows can hang off the same entry.</div>`}`;
+  const add=document.getElementById("ooAdd"); if(add)add.onclick=openNewOneoff;
+  card.querySelectorAll("[data-oneopen]").forEach(el=>el.onclick=()=>openOneoff(el.dataset.oneopen));
+}
+function openNewOneoff(){
+  const o={id:uid(),name:"",kind:"other",opened:todayISO(),closed:"",note:""};
+  db.oneoffs.push(o); persistQuiet(); openOneoff(o.id,true);
+}
+function openOneoff(id,fresh){
+  const o=oneoffOf(id); if(!o)return;
+  _oneEdit=id; _oneAdd=!!fresh;
+  openEditor({kicker:"Unplanned", title:o.name||"Something unplanned",
+    closeLabel:"Done", html:oneoffHTML, wire:wireOneoff,
+    onClose:()=>{
+      /* an entry opened and abandoned without a name or a penny in it should not
+         be left lying on the Spending screen */
+      const x=oneoffOf(_oneEdit);
+      if(x&&!String(x.name).trim()&&!oneoffTxs(x.id).length)
+        db.oneoffs=db.oneoffs.filter(e=>e.id!==x.id);
+      _oneEdit=null; _oneAdd=false; saveAll();}});
+}
+/* Anything that could plausibly belong to this: money out, not already claimed
+   by another episode, most recent first. */
+function oneoffCandidates(q){
+  const s=String(q||"").toLowerCase().trim();
+  return db.transactions.filter(t=>num(t.amount)<0&&!isNeutral(t)&&!t.oneId)
+    .filter(t=>!s||String(t.desc||"").toLowerCase().includes(s)||String(t.category||"").toLowerCase().includes(s))
+    .sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,40);
+}
+function oneoffHTML(){
+  const o=oneoffOf(_oneEdit); if(!o)return "";
+  const mine=oneoffTxs(o.id), net=oneoffNet(o.id);
+  const back=mine.filter(t=>num(t.amount)>0).reduce((s,t)=>s+personalAmt(t),0);
+  const k=oneoffKind(o);
+  return `<div class="formgrid">
+      <div class="field" style="grid-column:1/-1"><label>What happened</label>
+        <input id="one-name" value="${esc(o.name)}" placeholder="New glasses"></div>
+      <div class="field"><label>Kind</label><select id="one-kind">${
+        Object.entries(ONEOFF_KINDS).map(([v,x])=>`<option value="${v}" ${o.kind===v?"selected":""}>${esc(x.label)}</option>`).join("")}</select></div>
+      <div class="field"><label>Started</label><input type="date" id="one-open" value="${esc(o.opened)}"></div>
+      <div class="field" style="grid-column:1/-1"><label>Note</label>
+        <input id="one-note" value="${esc(o.note)}" placeholder="optional"></div>
+    </div>
+    <div class="note" style="margin-top:12px;font-size:13px">${esc(k.blurb)}</div>
+    <div class="oototal">
+      <div><div class="k">What it has cost</div><div class="v ${net<0?"pos":""}">${fmt2(net)}</div></div>
+      ${back>0?`<div class="oob">${fmt2(back)} came back, and is already taken off that.</div>`:""}
+    </div>
+    <div class="sectiontitle" style="margin:20px 0 10px"><h2>What it took</h2>
+      <span class="spacer"></span>
+      <button class="btn sm ${_oneAdd?"":"primary"}" id="one-addtoggle">${_oneAdd?"Done adding":"Add spending"}</button></div>
+    ${mine.length?`<div class="${mine.length>6?"scrollrows":""}">${mine.map(t=>{
+      const a=num(t.amount);
+      return `<div class="brow ooitem">
+        <div class="bmain" style="cursor:default">
+          <div class="binfo"><div class="bname">${esc(t.desc||"—")}</div>
+            <div class="bmeta">${esc(txDate(t.date))} · ${esc(t.category||"Uncategorized")}</div></div>
+          <div class="bamt ${a<0?"neg":"pos"}">${a>0?"+":""}${fmt2(a)}</div>
+          <button class="oox" data-onedrop="${esc(t.id)}" aria-label="Take this out">&#10005;</button>
+        </div>
+      </div>`;}).join("")}</div>`
+      :`<div class="empty" style="padding:16px 4px">Nothing attached yet. Add the transactions this cost you — or tag them one at a time from the transaction itself.</div>`}
+    ${_oneAdd?(()=>{ const list=oneoffCandidates(_oneQ);
+      return `<div class="ooadd">
+        <div class="searchrow" style="margin:12px 0 8px">
+          <svg class="searchico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+          <input id="one-q" value="${esc(_oneQ||"")}" placeholder="Find a transaction…">
+        </div>
+        ${list.length?`<div class="scrollrows">${list.map(t=>`<div class="brow ooitem">
+          <div class="bmain" data-oneadd="${esc(t.id)}">
+            <div class="binfo"><div class="bname">${esc(t.desc||"—")}</div>
+              <div class="bmeta">${esc(txDate(t.date))} · ${esc(t.category||"Uncategorized")}</div></div>
+            <div class="bamt neg">${fmt2(num(t.amount))}</div>
+            <span class="ooplus">+</span>
+          </div>
+        </div>`).join("")}</div>`
+        :`<div class="empty" style="padding:14px 4px">${_oneQ?"Nothing matches that.":"Every spend is either already attached to something or there is nothing to attach."}</div>`}
+      </div>`;})():""}
+    <div class="toolbar" style="margin:18px 0 0">
+      <button class="btn sm danger" id="one-del">Delete</button>
+      <div class="spacer"></div>
+      <button class="btn sm" id="one-close">${o.closed?"Reopen":"Mark settled"}</button>
+    </div>
+    ${o.closed?`<div class="note" style="margin-top:10px;font-size:13px">Settled ${esc(shortDate(o.closed))}. It still counts in every total — settled only means you stopped expecting more bills from it.</div>`:""}`;
+}
+function wireOneoff(body){
+  const g=id=>body.querySelector("#"+id);
+  const o=()=>oneoffOf(_oneEdit);
+  const on=(id,fn,ev)=>{const el=g(id); if(el)el[ev||"onchange"]=e=>{const x=o(); if(x){fn(x,e.target.value);persistQuiet();}}};
+  on("one-name",(x,v)=>{x.name=v; const t=document.getElementById("editTitle"); if(t)t.textContent=v||"Something unplanned";},"oninput");
+  on("one-note",(x,v)=>{x.note=v;},"oninput");
+  on("one-open",(x,v)=>{ if(v)x.opened=v; });
+  const ks=g("one-kind"); if(ks)ks.onchange=e=>{const x=o(); if(!x)return; x.kind=e.target.value; persistQuiet(); renderEditor();};
+  const at=g("one-addtoggle"); if(at)at.onclick=()=>{_oneAdd=!_oneAdd; if(!_oneAdd)_oneQ=""; renderEditor();};
+  const q=g("one-q"); if(q){ q.oninput=e=>{_oneQ=e.target.value; renderEditor();
+      /* redrawing the list steals the caret back, so put it where it was */
+      const n=document.getElementById("one-q"); if(n){n.focus(); n.setSelectionRange(n.value.length,n.value.length);} }; }
+  body.querySelectorAll("[data-oneadd]").forEach(el=>el.onclick=()=>{
+    const t=db.transactions.find(x=>x.id===el.dataset.oneadd); if(!t)return;
+    t.oneId=_oneEdit; persistQuiet(); renderEditor();});
+  body.querySelectorAll("[data-onedrop]").forEach(el=>el.onclick=()=>{
+    const t=db.transactions.find(x=>x.id===el.dataset.onedrop); if(!t)return;
+    delete t.oneId; persistQuiet(); renderEditor();});
+  const c=g("one-close"); if(c)c.onclick=()=>{const x=o(); if(!x)return;
+    x.closed=x.closed?"":todayISO(); persistQuiet(); renderEditor();};
+  const d=g("one-del"); if(d)d.onclick=()=>armConfirm(d,()=>{
+    /* the transactions are real spending and stay — only the grouping goes */
+    db.transactions.forEach(t=>{ if(t.oneId===_oneEdit) delete t.oneId; });
+    db.oneoffs=db.oneoffs.filter(x=>x.id!==_oneEdit);
+    _oneEdit=null; closeEditor(); saveAll();});
+}
+
 /* Correcting a category here teaches a rule, exactly as it did when the dropdown
    sat on the row — that is how imports get smarter, and it should not be lost to
    the editor moving. */
@@ -3139,6 +3415,11 @@ function txEditorHTML(){
       ${bizList().length?`<div class="field"><label>Business</label><select id="tx-biz"><option value="">Personal</option>${
         bizList().map(b=>`<option value="${b.id}" ${t.bizId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
       ${bz?`<div class="field"><label>Business share %</label><input type="number" min="0" max="100" step="5" id="tx-bizpct" value="${share}"></div>`:""}`:""}
+      ${num(t.amount)<0||t.oneId?`<div class="field" style="grid-column:1/-1"><label>Part of something unplanned</label>
+        <select id="tx-one"><option value="">No — ordinary spending</option>${
+          (db.oneoffs||[]).slice().sort((a,b)=>String(b.opened).localeCompare(String(a.opened)))
+            .map(o=>`<option value="${o.id}" ${t.oneId===o.id?"selected":""}>${esc(o.name||"Untitled")}</option>`).join("")
+        }<option value="__new">＋ Something new…</option></select></div>`:""}
     </div>
     ${full?`<div class="note" style="margin-top:14px;font-size:13px">From <b>${esc(full)}</b>${
       full!==shortAcctName(full)?` — shown as <b>${esc(shortAcctName(full))}</b> in the list.`:"."}</div>`:""}
@@ -3166,6 +3447,15 @@ function wireTxEditor(body){
   on("tx-amt",(x,v)=>{x.amount=num(v);});
   on("tx-cat",(x,v)=>{x.category=v;learnFromTx(x,v);});
   on("tx-bizpct",(x,v)=>{x.bizPct=Math.max(0,Math.min(100,num(v)));});
+  const os=g("tx-one"); if(os)os.onchange=e=>{const x=t(); if(!x)return;
+    if(e.target.value==="__new"){
+      /* naming it is the only thing that matters, and it matters now — so the
+         episode opens for editing with this transaction already inside it */
+      const o={id:uid(),name:x.desc||"",kind:"other",opened:x.date||todayISO(),closed:"",note:""};
+      db.oneoffs.push(o); x.oneId=o.id; saveAll(); closeEditor(); setTimeout(()=>openOneoff(o.id,true),60); return;
+    }
+    if(e.target.value) x.oneId=e.target.value; else delete x.oneId;
+    saveAll(); renderEditor();};
   const bs=g("tx-biz"); if(bs)bs.onchange=e=>{const x=t(); if(!x)return;
     if(e.target.value){ x.bizId=e.target.value; if(x.bizPct===undefined)x.bizPct=100; }
     else { delete x.bizId; delete x.bizPct; }
@@ -7734,7 +8024,7 @@ const VIEW_RENDERERS={
   dash:()=>{renderDash();renderTrends();renderInsights();renderSTS();},
   accounts:()=>{renderCash();},
   income:()=>{renderIncome();renderPaychecks();},
-  expenses:()=>{renderTx();renderReview();},
+  expenses:()=>{renderTx();renderReview();renderOneoffs();},
   budget:()=>{renderBudget();},
   goals:()=>{renderGoals();renderForecast();},
   credit:()=>{renderCredit();},
@@ -7775,7 +8065,7 @@ document.getElementById("csvFile").addEventListener("change",e=>{const f=e.targe
 document.getElementById("txSearch").addEventListener("input",renderTx);
 document.getElementById("filtToggle").addEventListener("click",()=>{setFiltOpen(!filtOpen);setPref("filtOpen",filtOpen);});
 document.getElementById("billFiltToggle").addEventListener("click",()=>{setBillFiltOpen(!billFiltOpen);setPref("billFiltOpen",billFiltOpen);});
-["acct","cat","when","dir","sort"].forEach(k=>{const el=document.getElementById("f-"+k);
+["acct","cat","when","dir","one","sort"].forEach(k=>{const el=document.getElementById("f-"+k);
   if(el)el.addEventListener("change",e=>{txFilter[k]=e.target.value;renderTx();});});
 ["min","max"].forEach(k=>{const el=document.getElementById("f-"+k);
   if(el)el.addEventListener("input",e=>{txFilter[k]=e.target.value.trim();renderTx();});});
@@ -8777,7 +9067,7 @@ function envSetup(){
 /* go — never let one failure blank the whole app */
 [["renderBudget"],["renderPaychecks"],["renderInvest"],["renderRetire"],["renderCredit"],["renderGoalsList"],
  ["renderTax"],["renderBusiness"],["renderBizDeduct"],["renderReview"],["renderHistoryList"],["renderNWSheet"],
- ["renderTx"],["renderIncome"],["renderDash"]].forEach(([n])=>{
+ ["renderTx"],["renderIncome"],["renderDash"],["renderOneoffs"]].forEach(([n])=>{
   try{ if(typeof window[n]==="function") window[n]=_keepScroll(window[n]); }catch(e){} });
 try{ load(); }catch(e){ db=seed(); normalize(); }
 /* anything that paid itself while the app was closed */
