@@ -884,6 +884,25 @@
   .wdot::before{content:"";position:absolute;inset:-11px}
   .wdot.on{width:20px;border-radius:999px;background:var(--accent)}
   @media(max-width:420px){ .wrapcard{padding:58px 18px 22px} .wckick{left:18px} .wcbig{font-size:44px} }
+  /* what an estimated bill really costs, month by month */
+  .varbox{margin-top:14px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--raise)}
+  /* stacked, not a row: "What it actually costs" needs two lines on a phone and
+     was colliding with its own figure */
+  .varhead{padding:12px 14px;border-bottom:1px solid var(--line)}
+  .varhead .k{font-size:12px;font-weight:660;letter-spacing:.03em;color:var(--muted);text-transform:uppercase}
+  .varhead .v{margin-top:3px;font-size:24px;font-weight:740;letter-spacing:-.03em;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .varhead .v em{font-style:normal;font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:0}
+  .varrows{display:flex;flex-direction:column}
+  .varrow{display:flex;align-items:baseline;gap:10px;padding:8px 14px;font-size:13.5px;border-top:1px solid var(--line)}
+  .varrow:first-child{border-top:0}
+  .varrow .m{color:var(--ink2);flex:1;min-width:0}
+  .varrow .p{font-variant-numeric:tabular-nums;font-weight:660}
+  .varrow .d{font-variant-numeric:tabular-nums;font-weight:660;min-width:74px;text-align:right}
+  .varrow .d.over{color:var(--neg-ink)} .varrow .d.under{color:var(--pos-ink)} .varrow .d.level{color:var(--muted)}
+  .varfoot{padding:11px 14px;border-top:1px solid var(--line);font-size:13px;color:var(--ink2);
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .varfoot .btn{margin-left:auto}
+  .bover{color:var(--neg-ink);font-weight:660}
   .floornote{font-size:13px;color:var(--muted);margin:0 0 12px 2px;line-height:1.4}
   .floornote b{color:var(--ink)}
   .smonly{display:none}

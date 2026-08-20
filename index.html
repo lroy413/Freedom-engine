@@ -4037,6 +4037,50 @@ function downloadBillsICS(){
 function billTxs(bill,mk){ const p=billRefKey(bill,mk);
   return db.transactions.filter(t=>t.billRef===p||String(t.billRef||"").startsWith(p+"|")); }
 function billPaidRaw(bill,mk){ return billTxs(bill,mk).reduce((s,t)=>s+Math.abs(num(t.amount)),0); }
+/* A water bill is not a rent cheque.
+
+   Rent is exactly what it says, so paying more is paying ahead and the surplus
+   belongs to next month. A utility bill is an ESTIMATE — a number you planned
+   against — and what the meter says is what you owe. Rolling that difference
+   forward as credit told you next month's water was already part paid, which it
+   never was, and quietly hid the thing you actually wanted to see: that you
+   plan 75 and pay 88.
+
+   `varies` marks the second kind. The amount stays a plan, the payment is the
+   truth, and the gap between them is kept rather than absorbed. */
+const billVaries = b => !!(b && b.varies && !b.open);
+/* What a month actually cost against what it was planned at. Positive is over.
+   null when it was not due, or nothing has been paid yet — an unpaid month is
+   not an underspend. */
+function billVarianceIn(bill,mk){
+  if(!bill||bill.open||!billDueIn(bill,mk)) return null;
+  const paid=billPaidRaw(bill,mk); if(paid<=0.005) return null;
+  return paid-billAmountIn(bill,mk);
+}
+/* The months this bill was actually paid, newest first, with what each cost. */
+function billHistory(bill,n){
+  const out=[], want=n||6, d=dayOf(todayISO());
+  for(let i=0;i<36&&out.length<want;i++){
+    const mk=monthOf(new Date(d.getFullYear(),d.getMonth()-i,1));
+    const v=billVarianceIn(bill,mk); if(v===null) continue;
+    out.push({mk,planned:billAmountIn(bill,mk),paid:billPaidRaw(bill,mk),diff:v});
+  }
+  return out;
+}
+/* What it really costs: the average of the months you have paid. */
+function billTypical(bill,n){
+  const h=billHistory(bill,n); if(!h.length) return null;
+  return h.reduce((s,x)=>s+x.paid,0)/h.length;
+}
+/* Across every bill in a month — the "what am I actually paying" figure. */
+function billsVarianceIn(mk){
+  let over=0,under=0,n=0;
+  for(const b of (db.recurring||[])){
+    const v=billVarianceIn(b,mk); if(v===null||Math.abs(v)<0.005) continue;
+    n++; if(v>0) over+=v; else under+=-v;
+  }
+  return {over,under,net:over-under,n};
+}
 /* Overpaying a bill rolls forward as credit toward the next month it's due.
    Computed cumulatively from the first recorded payment: each month's surplus
    carries in, and a shortfall clamps at zero — unpaid is unpaid, not a debt to
@@ -4044,6 +4088,9 @@ function billPaidRaw(bill,mk){ return billTxs(bill,mk).reduce((s,t)=>s+Math.abs(
    due of zero and simply pass the credit along. */
 function billCredit(bill,mk){
   if(bill.open) return 0;                    // a pay-as-you-go bill has no fixed due to overshoot
+  /* and an estimated one has nothing to overshoot either: paying 88 on a 75
+     plan is what the month cost, not 13 paid toward the next one */
+  if(billVaries(bill)) return 0;
   let first=null;
   for(const t of db.transactions){ if(!t.billRef)continue; const p=String(t.billRef).split("|");
     if(p[0]===bill.id&&p[1]&&p[1]<mk&&(first===null||p[1]<first)) first=p[1]; }
@@ -4309,9 +4356,19 @@ function renderBudget(){
           :`<span class="chk ghosted"></span>`}
         <div class="binfo">
           <div class="bname">${esc(b.name)}${b.biz?` <span class="bizmark" title="Business expense">BIZ</span>`:""}</div>
-          <div class="bmeta"><span class="bdot" style="background:${hueOf(to)}" title="${esc(to.label)} — ${esc(to.note)}"></span><span class="bcat">${esc(billGroup(b))} · </span>${f.n>1?`${esc(f.label.toLowerCase())} · `:""}${dueNow?(b.open?`no set amount`:`due the ${ord(num(b.dueDay)||1)}`):`next in ${esc(shortMonth(nextM))}`}${autopayOn(b)?` · <span class="bauto">autopay</span>`:""}${dueNow&&st.k!=="paid"&&(st.cls||b.open)?` · <span class="${st.cls==='bad'?'bneg':st.cls==='warn'?'bwarn':''}">${esc(st.label)}</span>`:""}${part&&!b.open?` · <span class="bpart">${fmt(paidAmt)} paid${billCredit(b,mk)>0.005?" (incl. credit)":""}</span>`:""}</div>
+          <div class="bmeta"><span class="bdot" style="background:${hueOf(to)}" title="${esc(to.label)} — ${esc(to.note)}"></span><span class="bcat">${esc(billGroup(b))} · </span>${f.n>1?`${esc(f.label.toLowerCase())} · `:""}${dueNow?(b.open?`no set amount`:`due the ${ord(num(b.dueDay)||1)}`):`next in ${esc(shortMonth(nextM))}`}${autopayOn(b)?` · <span class="bauto">autopay</span>`:""}${(()=>{
+  /* a month that cost more than it was planned at should say so on the row,
+     not only inside the bill */
+  const v=billVarianceIn(b,mk); return (v!==null&&v>0.005)?` · <span class="bover">${fmt(v)} over</span>`:"";})()}${dueNow&&st.k!=="paid"&&(st.cls||b.open)?` · <span class="${st.cls==='bad'?'bneg':st.cls==='warn'?'bwarn':''}">${esc(st.label)}</span>`:""}${part&&!b.open?` · <span class="bpart">${fmt(paidAmt)} paid${billCredit(b,mk)>0.005?" (incl. credit)":""}</span>`:""}</div>
         </div>
-        <div class="bamt${f.n>1||part||b.open?" roll":""}">${b.open?fmt(dueNow?billPaidRaw(b,mk):0):fmt(dueNow&&part?left:num(b.amount))}${b.open?`<em>~${fmt(num(b.amount))} typical</em>`:part?`<em>of ${fmt(num(b.amount))} left</em>`:(f.n>1?`<em>${fmt(billMonthly(b))}/mo</em>`:"")}</div>
+        ${(()=>{
+          /* An estimated bill that has been paid should show what it COST, not
+             the figure you planned it at — a struck-through $75 on a month you
+             paid $95 for is the exact confusion this feature exists to end. */
+          const varPaid=billVaries(b)&&dueNow&&paid&&billPaidRaw(b,mk)>0.005;
+          if(varPaid){ const act=billPaidRaw(b,mk);
+            return `<div class="bamt roll">${fmt(act)}<em>planned ${fmt(num(b.amount))}</em></div>`; }
+          return `<div class="bamt${f.n>1||part||b.open?" roll":""}">${b.open?fmt(dueNow?billPaidRaw(b,mk):0):fmt(dueNow&&part?left:num(b.amount))}${b.open?`<em>~${fmt(num(b.amount))} typical</em>`:part?`<em>of ${fmt(num(b.amount))} left</em>`:(f.n>1?`<em>${fmt(billMonthly(b))}/mo</em>`:"")}</div>`;})()}
         ${dueNow&&(!paid||b.open)?`<button class="btn ghost sm bpay" data-billpay="${b.id}">${payBill===b.id?"Cancel":"Pay"}</button>`:""}
         <button class="aedit${editing?" on":""}" data-billedit="${b.id}" aria-label="Edit ${esc(b.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
       </div>
@@ -4353,6 +4410,23 @@ function renderBudget(){
         ${b.open?"":`<label class="flex" style="font-size:15px;margin-top:12px;gap:8px;align-items:flex-start">
           <input type="checkbox" data-billauto="${b.id}" ${b.autopay?"checked":""} style="margin-top:3px">
           <span>It pays itself — autopay<br><span class="muted" style="font-size:13px">Ticks itself off on the due date and records the payment, so a subscription you never think about stops asking to be thought about. It only ever starts from the month you switch it on.${b.autopay&&b.autoThru?` Handled through <b>${esc(prettyMonth(b.autoThru))}</b>.`:""}</span></span></label>`}
+        ${b.open?"":`<label class="flex" style="font-size:15px;margin-top:12px;gap:8px;align-items:flex-start">
+          <input type="checkbox" data-billvaries="${b.id}" ${b.varies?"checked":""} style="margin-top:3px">
+          <span>The amount changes each month<br><span class="muted" style="font-size:13px">Water, power, gas. The figure above becomes your estimate, what you pay is what the month cost, and paying over stops being treated as credit against next month.</span></span></label>`}
+        ${billVaries(b)?(()=>{ const h=billHistory(b,6), typ=billTypical(b,6);
+          if(!h.length) return `<div class="note" style="margin-top:12px;font-size:13px">Once you have paid it a few times this will show what it really costs against the ${fmt(num(b.amount))} you planned.</div>`;
+          const over=h.filter(x=>x.diff>0.005).length;
+          return `<div class="varbox">
+            <div class="varhead"><span class="k">What it actually costs</span>
+              <span class="v">${money(typ)}<em>avg of ${plural(h.length,"month")}</em></span></div>
+            <div class="varrows">${h.map(x=>`<div class="varrow">
+              <span class="m">${esc(prettyMonth(x.mk))}</span>
+              <span class="p">${fmt2(x.paid)}</span>
+              <span class="d ${x.diff>0.005?"over":x.diff<-0.005?"under":"level"}">${
+                Math.abs(x.diff)<0.005?"on plan":(x.diff>0?"+":"−")+fmt2(Math.abs(x.diff))}</span></div>`).join("")}</div>
+            <div class="varfoot">${over?`Over the plan in <b>${over}</b> of ${plural(h.length,"month")}.`:`Never over the plan.`}${
+              Math.abs(typ-num(b.amount))>=1?` <button class="btn sm" data-billadopt="${b.id}" data-amt="${Math.round(typ)}">Plan for ${fmt(typ)} instead</button>`:""}</div>
+          </div>`;})():""}
         <label class="flex" style="font-size:15px;margin-top:12px;gap:8px;align-items:flex-start">
           <input type="checkbox" data-billopenflag="${b.id}" ${b.open?"checked":""} style="margin-top:3px">
           <span>No set amount — prepaid / pay-as-you-go<br><span class="muted" style="font-size:13px">Prepaid power, a top-up phone, tolls. Log payments whenever they happen; the amount above becomes a typical-month figure used only for planning.</span></span></label>
@@ -4396,6 +4470,12 @@ function renderBudget(){
     if(b){b.category=e.currentTarget.value;saveAll();}});
   bl.querySelectorAll("[data-billopenflag]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billopenflag);
     if(b){b.open=e.currentTarget.checked;saveAll();}});
+  bl.querySelectorAll("[data-billvaries]").forEach(i=>i.onchange=e=>{
+    const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billvaries);
+    if(b){ b.varies=e.currentTarget.checked; saveAll(); }});
+  bl.querySelectorAll("[data-billadopt]").forEach(btn=>btn.onclick=e=>{
+    const t=e.currentTarget, b=db.recurring.find(x=>x.id===t.dataset.billadopt);
+    if(b){ b.amount=num(t.dataset.amt); saveAll(); }});
   bl.querySelectorAll("[data-billauto]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billauto);
     if(!b)return;
     b.autopay=e.currentTarget.checked;
@@ -9209,12 +9289,16 @@ let _newBill=null;
 function openAddBill(){
   const first=db.categories.find(c=>c!=="Income")||"Other";
   _newBill={name:"",cat:first,amt:"",freq:"monthly",day:"",
-    auto:CAT_AUTOPAYS.test(first),autoTouched:false};
+    auto:CAT_AUTOPAYS.test(first),autoTouched:false,
+    varies:CAT_VARIES.test(first),variesTouched:false};
   openEditor({kicker:"New bill",title:"Add a bill",closeLabel:"Cancel",
     html:addBillHTML, wire:wireAddBill, onClose:()=>{_newBill=null;}});
 }
 /* the categories that come out on their own whether you look or not */
 const CAT_AUTOPAYS=/^(subscriptions|internet|phone|insurance|streaming)$/i;
+/* and the ones that are never the same twice — metered, so the amount you set
+   is a plan rather than a price */
+const CAT_VARIES=/^(water|electric|gas \(utility\)|trash|sewer|utilities)$/i;
 function addBillHTML(){
   const d=_newBill||{}, f=BILL_FREQ[d.freq]||BILL_FREQ.monthly;
   const subLike=CAT_AUTOPAYS.test(String(d.cat||""));
@@ -9227,6 +9311,9 @@ function addBillHTML(){
         .map(([v,o])=>`<option value="${v}" ${d.freq===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
       <div class="field"><label>Due day of month</label><input id="recDay" type="number" min="1" max="28" value="${esc(d.day||"")}" placeholder="1"></div>
     </div>
+    <label class="flex" style="font-size:15px;margin-top:14px;gap:8px;align-items:flex-start">
+      <input type="checkbox" id="recVaries" ${d.varies?"checked":""} style="margin-top:3px">
+      <span>The amount changes each month<br><span class="muted" style="font-size:13px">Water, power, gas. What you set becomes an estimate and the app keeps what each month really cost.${CAT_VARIES.test(String(d.cat||""))?" Suggested, because metered bills rarely repeat.":""}</span></span></label>
     <label class="flex" style="font-size:15px;margin-top:14px;gap:8px;align-items:flex-start">
       <input type="checkbox" id="recAuto" ${d.auto?"checked":""} style="margin-top:3px">
       <span>It pays itself — autopay<br><span class="muted" style="font-size:13px">Ticks itself off on the due date and records the payment.${subLike?" Suggested, because a subscription comes out whether or not you remember it.":""}</span></span></label>
@@ -9242,8 +9329,10 @@ function wireAddBill(body){
      you have already made on this form */
   const c=g("recCat"); if(c)c.onchange=()=>{ keep();
     if(!d.autoTouched) d.auto=CAT_AUTOPAYS.test(String(d.cat||""));
+    if(!d.variesTouched) d.varies=CAT_VARIES.test(String(d.cat||""));
     renderEditor(); };
   const ap=g("recAuto"); if(ap)ap.onchange=()=>{d.auto=ap.checked;d.autoTouched=true;};
+  const vr=g("recVaries"); if(vr)vr.onchange=()=>{d.varies=vr.checked;d.variesTouched=true;};
   /* the sheet redraws on frequency so the amount label and the note follow it */
   const fr=g("recFreq"); if(fr)fr.onchange=()=>{keep();renderEditor();};
   const a=g("addRecBtn"); if(a)a.onclick=()=>{ keep();
@@ -9254,6 +9343,7 @@ function wireAddBill(body){
     if(BILL_FREQ[b.freq]&&BILL_FREQ[b.freq].n>1) b.anchor=monthKey(todayISO());
     b.group=CAT_GROUP[b.category]||"Other"; b.tier=DEFAULT_TIER[b.group]||"flexible";
     if(d.auto){ b.autopay=true; b.autoSince=monthKey(todayISO()); }
+    if(d.varies) b.varies=true;
     db.recurring.push(b);
     if(b.autopay) runAutopay();
     closeEditor();
