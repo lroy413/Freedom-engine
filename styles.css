@@ -783,6 +783,29 @@
   .ooitem [data-oneadd]{cursor:pointer}
   .ooitem [data-oneadd]:hover .ooplus{background:var(--accent);color:#fff;border-color:var(--accent)}
 
+  /* splitting one purchase across categories */
+  .sptag{color:var(--c-sky);font-weight:620}
+  .splithead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .splithead .k{font-size:12px;font-weight:640;color:var(--muted);letter-spacing:.02em}
+  .splithead .v{font-size:28px;font-weight:740;letter-spacing:-.03em;margin-top:2px;font-variant-numeric:tabular-nums}
+  .splitparts{display:flex;flex-direction:column;gap:14px}
+  .splitrow .sptop{display:flex;align-items:center;gap:8px}
+  .splitrow .catsel{flex:1 1 auto;min-width:0}
+  .spval{position:relative;flex:none;width:104px}
+  .spval input{width:100%;padding-left:24px;font-variant-numeric:tabular-nums;font-weight:620}
+  .spval::before{content:"$";position:absolute;left:11px;top:50%;transform:translateY(-50%);
+    color:var(--muted);font-size:15px;font-weight:620;pointer-events:none;z-index:1}
+  .spval.pct::before{content:"%"}
+  .spsub{font-size:12.5px;color:var(--muted);margin:5px 0 0 4px;font-variant-numeric:tabular-nums}
+  .splitfoot{margin-top:16px;padding:11px 14px;border-radius:var(--radius);font-size:13.5px;
+    border:1px solid var(--line);background:var(--raise);color:var(--ink2)}
+  .splitfoot b{font-variant-numeric:tabular-nums}
+  .splitfoot.ok{border-color:color-mix(in srgb, var(--pos) 34%, var(--line));
+    background:color-mix(in srgb, var(--pos) 8%, var(--raise));color:var(--pos-ink)}
+  .splitfoot.warn{border-color:color-mix(in srgb, var(--c-amber) 40%, var(--line));
+    background:color-mix(in srgb, var(--c-amber) 9%, var(--raise))}
+  .splitfoot.warn b{color:var(--c-amber)}
+
   .taxclasssel{width:auto;text-align:left;flex:none;max-width:52%}
   @media(max-width:640px){
     /* the dropdown was squeezing stream names down to four characters */

@@ -777,6 +777,10 @@ function normalize(){
     if(o.closed===undefined)o.closed="";
     o.note=String(o.note||"");
   });
+  /* a split that lost its siblings is just a transaction again */
+  { const n={};
+    (db.transactions||[]).forEach(t=>{ if(t&&t.splitId) n[t.splitId]=(n[t.splitId]||0)+1; });
+    (db.transactions||[]).forEach(t=>{ if(t&&t.splitId&&n[t.splitId]<2) delete t.splitId; }); }
   { const live=new Set(db.oneoffs.map(o=>o.id));
     (db.transactions||[]).forEach(t=>{ if(t&&t.oneId&&!live.has(t.oneId)) delete t.oneId; }); }
   /* Rollover is per budget now, and each one records the month it started so a
@@ -3018,6 +3022,66 @@ function filteredTx(){
     :(a,b)=>b.date.localeCompare(a.date));
   return list;
 }
+/* ---------- splitting one purchase across categories ----------
+   A $140 Walmart run is groceries and a lamp and a pair of socks. Filing all of
+   it under one category is the difference between a budget you trust and one
+   you argue with.
+
+   A split produces REAL transactions — one per part, sharing a splitId. Nothing
+   downstream needs to know: budgets, the recap, the tax reserve and the business
+   P&L all see ordinary rows and add them up the way they always did. The
+   alternative — a parent row holding a list of parts — would mean teaching every
+   one of those about splits, and getting it wrong somewhere quiet. */
+const splitParts = gid => db.transactions.filter(t=>t.splitId===gid);
+const splitCount = t => t&&t.splitId ? splitParts(t.splitId).length : 0;
+const splitIndex = t => t&&t.splitId ? splitParts(t.splitId).findIndex(x=>x.id===t.id)+1 : 0;
+const splitTotal = gid => splitParts(gid).reduce((s,x)=>s+num(x.amount),0);
+/* Whole cents, and they must add up: dividing 140 three ways gives two rows of
+   46.67 and one of 46.66, never three of 46.67 and a penny that vanished. */
+function evenAmounts(total,n){
+  const c=Math.round(Math.abs(total)*100), base=Math.floor(c/n), extra=c-base*n;
+  return Array.from({length:n},(_,i)=>(base+(i<extra?1:0))/100);
+}
+function pctToAmounts(total,pcts){
+  const c=Math.round(Math.abs(total)*100);
+  const raw=pcts.map(x=>Math.round(c*num(x)/100));
+  const diff=c-raw.reduce((a,b)=>a+b,0);
+  /* the rounding remainder goes on the largest part, where a cent shows least */
+  if(diff){ let bi=0; raw.forEach((v,i)=>{ if(v>raw[bi])bi=i; }); raw[bi]+=diff; }
+  return raw.map(x=>x/100);
+}
+/* The row you were editing stays the row it was — same id, same account, same
+   bill link — and the other parts are inserted after it. Anything already
+   pointing at this transaction keeps pointing at something real. */
+function applySplit(t,parts){
+  const sign=num(t.amount)<0?-1:1, gid=t.splitId||uid();
+  const at=db.transactions.indexOf(t);
+  t.amount=+(sign*num(parts[0].amt)).toFixed(2); t.category=parts[0].cat; t.splitId=gid;
+  delete t.review;
+  const made=parts.slice(1).map(pp=>{
+    const c=Object.assign({},t,{id:uid(),amount:+(sign*num(pp.amt)).toFixed(2),category:pp.cat,splitId:gid});
+    /* one payment against a bill however many categories it covered, so the
+       bill link does not get duplicated across the parts */
+    delete c.billRef; delete c.review;
+    return c;
+  });
+  db.transactions.splice(at+1,0,...made);
+  return gid;
+}
+/* Folding it back: the biggest part keeps the row, and inherits the bill link if
+   it was not the one holding it. */
+function unsplit(gid){
+  const parts=splitParts(gid); if(parts.length<2) return null;
+  const keep=parts.reduce((a,b)=>Math.abs(num(b.amount))>Math.abs(num(a.amount))?b:a);
+  const total=parts.reduce((s,x)=>s+num(x.amount),0);
+  const bill=parts.find(x=>x.billRef);
+  keep.amount=+total.toFixed(2);
+  if(bill&&!keep.billRef) keep.billRef=bill.billRef;
+  delete keep.splitId;
+  db.transactions=db.transactions.filter(x=>x.splitId!==gid);
+  return keep.id;
+}
+
 /* ---------- unplanned spending ----------
    A pair of glasses is not one expense. It is an eye exam, then frames, then
    lenses, spread over three weeks and filed under three categories, and by the
@@ -3166,6 +3230,10 @@ function renderTx(){
     /* the category rides in the meta line with its own colour rather than as a
        pill that needs a row to itself — two lines a transaction, even heights */
     const meta=[esc(t.category||"Uncategorized"),
+      /* the split marker rides right behind the category, because the line is
+         ellipsised on a phone and "one of three" is the thing that stops you
+         reading a $90 row as the whole $140 purchase */
+      (()=>{const n=splitCount(t); return n>1?`<span class="sptag">split ${splitIndex(t)}/${n}</span>`:null;})(),
       /* "from Income" next to the Income category stuttered; what it is, is a
          paycheck, and tapping it goes to where paychecks are edited */
       t._pay?`<span class="tagline">paycheck</span>`:(an?esc(an):null),
@@ -3407,12 +3475,72 @@ function wireAddTx(body){
 let _txEdit=null;
 function openTxEditor(id){
   const t=db.transactions.find(x=>x.id===id); if(!t)return;
-  _txEdit=id;
+  _txEdit=id; _txSplit=null;
   openEditor({kicker:"Transaction", title:t.desc||"Transaction",
-    html:txEditorHTML, wire:wireTxEditor, onClose:()=>{_txEdit=null;renderTx();}});
+    html:txEditorHTML, wire:wireTxEditor, onClose:()=>{_txEdit=null;_txSplit=null;renderTx();}});
+}
+let _txSplit=null;
+function beginSplit(t){
+  const total=Math.abs(num(t.amount));
+  /* Opening on the whole amount in one part and an empty second is the shape
+     people expect: you are taking something OFF the first line, not building
+     the purchase up from nothing. */
+  _txSplit={mode:"amount",parts:[
+    {cat:t.category||"Uncategorized",amt:total},
+    {cat:"Uncategorized",amt:0}]};
+  renderEditor();
+}
+const splitAssigned = sp => sp.parts.reduce((s,p)=>s+num(p.amt),0);
+/* The footer and the Save button have to agree. When they disagreed — "adds up"
+   next to a button that refused — the button looked broken. */
+function splitState(sp,total){
+  const left=+(total-splitAssigned(sp)).toFixed(2);
+  const real=sp.parts.filter(pp=>num(pp.amt)>0.005).length;
+  if(Math.abs(left)>=0.005) return {ok:false,
+    msg:left>0?`<b>${fmt2(left)}</b> still to put somewhere`:`<b>${fmt2(-left)}</b> more than the transaction`};
+  if(real<2) return {ok:false,msg:"Give a second part an amount — a split needs at least two."};
+  return {ok:true,msg:"Adds up to the whole amount."};
+}
+function txSplitHTML(t){
+  const sp=_txSplit, total=Math.abs(num(t.amount));
+  const st=splitState(sp,total);
+  const pctOf=a=>total?Math.round(num(a)/total*1000)/10:0;
+  return `<div class="splithead">
+      <div><div class="k">Splitting</div><div class="v">${fmt2(total)}</div></div>
+      <span class="spacer"></span>
+      <div class="segoptions">
+        <button class="seg ${sp.mode==="amount"?"active":""}" data-spmode="amount">Amount</button>
+        <button class="seg ${sp.mode==="percent"?"active":""}" data-spmode="percent">Percent</button>
+      </div>
+    </div>
+    <div class="splitparts">${sp.parts.map((p,i)=>`
+      <div class="splitrow">
+        <div class="sptop">
+          <div class="spval ${sp.mode==="percent"?"pct":""}">
+            <input type="number" inputmode="decimal" step="${sp.mode==="percent"?"1":"0.01"}" min="0"
+              data-spval="${i}" value="${sp.mode==="percent"?pctOf(p.amt):(+num(p.amt).toFixed(2))}">
+          </div>
+          <select class="catsel" data-spcat="${i}">${catOpts(p.cat)}</select>
+          ${sp.parts.length>2?`<button class="oox" data-sprm="${i}" aria-label="Remove this part">&#10005;</button>`:``}
+        </div>
+        <div class="spsub" data-spsub="${i}">${sp.mode==="percent"?fmt2(num(p.amt)):pctOf(p.amt)+"% of it"}</div>
+      </div>`).join("")}
+    </div>
+    <div class="splitfoot ${st.ok?"ok":"warn"}" id="spFoot">${st.msg}</div>
+    <div class="toolbar" style="margin:14px 0 0">
+      <button class="btn sm" id="sp-add">Add a part</button>
+      <button class="btn sm ghost" id="sp-even">Even split</button>
+    </div>
+    <div class="toolbar" style="margin:16px 0 0">
+      <button class="btn sm ghost" id="sp-cancel">Cancel</button>
+      <div class="spacer"></div>
+      <button class="btn sm primary" id="sp-save" ${st.ok?"":"disabled"}>Split into ${
+        sp.parts.filter(pp=>num(pp.amt)>0.005).length||sp.parts.length}</button>
+    </div>`;
 }
 function txEditorHTML(){
   const t=db.transactions.find(x=>x.id===_txEdit); if(!t)return "";
+  if(_txSplit) return txSplitHTML(t);
   const bz=bizOf(t.bizId), share=t.bizPct===undefined?100:num(t.bizPct);
   const full=acctName(t.acctId);
   return `<div class="formgrid">
@@ -3438,9 +3566,12 @@ function txEditorHTML(){
       /* the pairing is quiet until you go looking for it, and this is where a
          person would look when a figure seems to be missing an entry */
       return `<div class="note" style="margin-top:12px;font-size:13px">Same money as the <b>${esc(p.source||"paycheck")}</b> stub logged ${esc(shortDate(p.date))}, so it is counted once. The stub keeps the gross and what was withheld.</div>`;})()}
+    ${t.splitId?`<div class="note" style="margin-top:12px;font-size:13px">Part <b>${splitIndex(t)}</b> of <b>${splitCount(t)}</b> of a ${fmt2(Math.abs(splitTotal(t.splitId)))} purchase. Each part is a transaction of its own — edit this one freely, or put them back together.</div>`:""}
     <div class="toolbar" style="margin:16px 0 0">
       <button class="btn sm danger" id="tx-del">Delete</button>
       <div class="spacer"></div>
+      ${t.splitId?`<button class="btn sm" id="tx-unsplit">Undo split</button>`
+        :Math.abs(num(t.amount))>0.01?`<button class="btn sm" id="tx-split">Split</button>`:""}
       <button class="btn sm primary" id="tx-done">Done</button>
     </div>`;
 }
@@ -3472,6 +3603,56 @@ function wireTxEditor(body){
   const d=g("tx-del"); if(d)d.onclick=()=>armConfirm(d,()=>{
     db.transactions=db.transactions.filter(x=>x.id!==_txEdit); closeEditor(); saveAll();});
   const done=g("tx-done"); if(done)done.onclick=()=>closeEditor();
+  const sb=g("tx-split"); if(sb)sb.onclick=()=>beginSplit(t());
+  const ub=g("tx-unsplit"); if(ub)ub.onclick=()=>armConfirm(ub,()=>{
+    const x=t(); if(!x)return; const id=unsplit(x.splitId);
+    _txEdit=id||_txEdit; saveAll(); renderEditor();});
+  wireSplit(body);
+}
+function wireSplit(body){
+  if(!_txSplit)return;
+  const sp=_txSplit, t=db.transactions.find(x=>x.id===_txEdit); if(!t)return;
+  const total=Math.abs(num(t.amount));
+  const q=id=>body.querySelector("#"+id);
+  /* Re-rendering on every keystroke would take the caret with it, so typing
+     only refreshes the figures that are derived from what you typed. */
+  const refresh=()=>{
+    const st=splitState(sp,total);
+    sp.parts.forEach((p,i)=>{ const el=body.querySelector(`[data-spsub="${i}"]`);
+      if(el) el.textContent=sp.mode==="percent"?fmt2(num(p.amt))
+        :(total?Math.round(num(p.amt)/total*1000)/10:0)+"% of it"; });
+    const f=q("spFoot"); if(f){ f.className="splitfoot "+(st.ok?"ok":"warn"); f.innerHTML=st.msg; }
+    const sv=q("sp-save"); if(sv){ sv.disabled=!st.ok;
+      sv.textContent="Split into "+(sp.parts.filter(pp=>num(pp.amt)>0.005).length||sp.parts.length); }
+  };
+  body.querySelectorAll("[data-spmode]").forEach(b=>b.onclick=()=>{
+    sp.mode=b.dataset.spmode; renderEditor();});
+  body.querySelectorAll("[data-spval]").forEach(el=>el.oninput=()=>{
+    const i=+el.dataset.spval, v=num(el.value);
+    sp.parts[i].amt=sp.mode==="percent"?+(Math.round(total*v)/100).toFixed(2):+v.toFixed(2);
+    refresh();});
+  body.querySelectorAll("[data-spcat]").forEach(el=>el.onchange=()=>{
+    sp.parts[+el.dataset.spcat].cat=el.value;});
+  body.querySelectorAll("[data-sprm]").forEach(el=>el.onclick=()=>{
+    sp.parts.splice(+el.dataset.sprm,1); renderEditor();});
+  const add=q("sp-add"); if(add)add.onclick=()=>{
+    /* a new part starts on whatever is left over, which is nearly always what
+       you meant by adding one */
+    const left=Math.max(0,+(total-splitAssigned(sp)).toFixed(2));
+    sp.parts.push({cat:"Uncategorized",amt:left}); renderEditor();};
+  const ev=q("sp-even"); if(ev)ev.onclick=()=>{
+    evenAmounts(total,sp.parts.length).forEach((a,i)=>sp.parts[i].amt=a); renderEditor();};
+  const cx=q("sp-cancel"); if(cx)cx.onclick=()=>{_txSplit=null; renderEditor();};
+  const sv=q("sp-save"); if(sv)sv.onclick=()=>{
+    if(!splitState(sp,total).ok){ refresh(); return; }
+    const parts=sp.parts.filter(pp=>num(pp.amt)>0.005);
+    /* percent mode is where the pennies go missing — rebuild from the
+       percentages so the parts add up to the cent */
+    if(sp.mode==="percent"){
+      const amts=pctToAmounts(total,parts.map(pp=>num(pp.amt)/total*100));
+      amts.forEach((a,i)=>parts[i].amt=a);
+    }
+    applySplit(t,parts); _txSplit=null; closeEditor(); saveAll();};
 }
 function merchantKey(desc){ const c=(desc||"").toLowerCase().replace(/[^a-z ]+/g," ").replace(/\s+/g," ").trim();
   const stop=["the","and","llc","inc","co","pos","ach","debit","credit","card","payment","purchase","recurring","online","store","www","com"];
