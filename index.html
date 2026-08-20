@@ -5361,7 +5361,7 @@ function renderCash(){
   if(hero){ const cash=totalCash();
     hero.innerHTML=`<div class="hero">
       <div class="hlabel">Money on hand</div>
-      <div class="hval">${fmt(cash)}</div>
+      <div class="hval" id="hvOnHand">${money(cash)}</div>
       <div class="hsub">across ${db.accounts.length} account${db.accounts.length===1?"":"s"} · updated by you</div>
       <div class="hsplit">
         <div class="hitem"><div class="k">Banks</div><div class="v">${fmt(groupTotal("Bank accounts"))}</div></div>
@@ -5369,7 +5369,8 @@ function renderCash(){
         <div class="hitem"><div class="k">Cash</div><div class="v">${fmt(groupTotal("Cash"))}</div></div>
         <div class="hitem"><div class="k">Investments</div><div class="v">${fmt(investedTotal())}</div></div>
         ${cardAccounts().length?`<div class="hitem"><div class="k">Owed</div><div class="v neg">${fmt(Math.abs(groupTotal("Cards & credit"))+Math.abs(groupTotal("Loans")))}</div></div>`:""}
-      </div></div>`; }
+      </div></div>`;
+    countUpOnce("accounts","hvOnHand",cash); }
   const box=document.getElementById("acctList"); if(!box)return;
   const opts=(list,cur)=>list.map(([v,o])=>`<option value="${v}" ${cur===v?"selected":""}>${o.label}</option>`).join("");
   const rowFor=(a,isSub)=>{ const o=kindOf(a), kids=kidsOf(a.id), isHolder=o.holder, open=kids.length&&!a.collapsed;
@@ -6561,7 +6562,7 @@ function renderBizIndex(){
     <div class="dh-top"><div class="dh-col">
       <div class="dh-greet">${live.length} business${live.length===1?"":"es"} · ${esc(y)}</div>
       <div class="dh-label">Combined profit</div>
-      <div class="dh-val">${fmt(profit)}</div>
+      <div class="dh-val" id="bizProfitVal">${money(profit)}</div>
       <div class="dh-delta">${margin==null?"nothing tagged yet":`${Math.round(margin)}% margin on ${fmt(rev)} of work`}</div>
     </div></div>
     <div class="dh-rule"></div>

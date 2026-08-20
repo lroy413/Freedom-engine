@@ -174,7 +174,10 @@
   .kpi.headline .val{font-size:46px;letter-spacing:-.04em;margin-top:6px}
   .kpi.headline .label{font-size:12px}
   @media(max-width:520px){ .kpi.headline .val{font-size:38px} }
-  .herotop{display:flex;align-items:flex-start;gap:14px}
+  /* The chip sits beside the value until the label needs two lines for itself;
+     "Projected on Jun 30 '27" was squeezing it into a three-line stack. */
+  .herotop{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap}
+  .herotop>div:first-child{min-width:0;flex:1 1 62%}
   .herotop .spacer{flex:1}
   /* the movement chip, so gain does not need a card of its own */
   .movechip{flex:none;display:inline-flex;align-items:baseline;gap:6px;padding:6px 11px;border-radius:999px;
