@@ -4279,7 +4279,16 @@ function renderBudget(){
        and an overpaid one shows the surplus as credit, never a negative */
       const leftAmt=Math.max(0,billsTotal-billsPaidAmt);
       const over=Math.max(0,billsPaidAmt-billsTotal);
-      return `<div class="card kpi"><div class="label">Bills left</div><div class="val ${leftAmt<=0.005?"pos":""}">${leftAmt<=0.005?money(0):money(leftAmt)}</div><div class="sub">${leftAmt<=0.005?`all ${fmt(billsTotal)} covered`:`of ${fmt(billsTotal)} this month · ${fmt(billsPaidAmt)} paid`}${over>0.5?` · ${fmt(over)} ahead → next month`:""}${Math.abs(billsMonthlyCost-billsTotal)>=1?` · ${fmt(billsMonthlyCost)}/mo true cost`:""}</div></div>`;})()}
+      return `<div class="card kpi"><div class="label">Bills left</div><div class="val ${leftAmt<=0.005?"pos":""}">${leftAmt<=0.005?money(0):money(leftAmt)}</div><div class="sub">${leftAmt<=0.005?`all ${fmt(billsTotal)} covered`:`of ${fmt(billsTotal)} this month · ${fmt(billsPaidAmt)} paid`}${over>0.5?` · ${fmt(over)} ahead → next month`:""}${Math.abs(billsMonthlyCost-billsTotal)>=1?` · ${fmt(billsMonthlyCost)}/mo true cost`:""}</div>${(()=>{
+        /* What the month actually cost against what it was planned at. Its own
+           line rather than a fourth clause on the subtitle — this is the answer
+           to "what am I really paying", and it should not arrive as an aside. */
+        const v=billsVarianceIn(mk);
+        if(!v.n||Math.abs(v.net)<0.5) return "";
+        const up=v.net>0;
+        const detail=v.over>0.5&&v.under>0.5?`${fmt(v.over)} over and ${fmt(v.under)} under, across ${plural(v.n,"bill")}`:`across ${plural(v.n,"bill")}`;
+        return `<div class="billvar ${up?"over":"under"}" title="${esc(detail)}">
+          <b>${fmt(Math.abs(v.net))} ${up?"over":"under"} plan</b><span>${esc(detail)}</span></div>`;})()}</div>`;})()}
     <div class="card kpi"><div class="label">Free to save / attack debt</div><div class="val ${free<0?'neg':'pos'}">${money(free)}</div><div class="sub">income − bills − budgets</div></div>`;
   countUpOnce("budget","kpiBudget",flexAvail);
   // bills list

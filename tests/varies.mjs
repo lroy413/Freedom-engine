@@ -94,6 +94,24 @@ chk('  and one tap adopts what it really costs', await ev(async () => {
   btn.click(); await new Promise(r => setTimeout(r, 600));
   return db.recurring.find(b2 => b2.id === 'w1').amount === want && want >= 85 && want <= 95; }), true);
 
+console.log('\n— and the month says it on the Budget card —');
+/* $5, not $20: the adopt button above moved the plan from 75 to 90, and this
+   month's payment was 95. That the figure follows the plan it was measured
+   against is the point, so assert the number the earlier step made true. */
+chk('the whole-month figure appears', await ev(async () => {
+  setView('budget'); await new Promise(r => setTimeout(r, 700));
+  const e = document.querySelector('#budgetKpis .billvar');
+  return e ? e.querySelector('b').textContent.trim() : 'none'; }), '$5 over plan');
+chk('  and says how many bills it is across', await ev(() =>
+  /across 1 bill\b/.test(document.querySelector('#budgetKpis .billvar span').textContent)), true);
+chk('  it stays away when nothing has moved', await ev(async () => {
+  const keep = db.recurring.find(x => x.id === 'w1').amount;
+  db.recurring.find(x => x.id === 'w1').amount = 95;   // plan matches what was paid
+  renderBudget(); await new Promise(r => setTimeout(r, 400));
+  const gone = !document.querySelector('#budgetKpis .billvar');
+  db.recurring.find(x => x.id === 'w1').amount = keep; renderBudget();
+  return gone; }), true);
+
 console.log('\n— a metered category suggests it —');
 chk('water suggests the flag, rent does not', await ev(() =>
   ['Water', 'Electric', 'Gas (Utility)', 'Rent/Mortgage', 'Subscriptions'].map(c => CAT_VARIES.test(c))),

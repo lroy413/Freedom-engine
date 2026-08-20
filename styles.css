@@ -884,6 +884,15 @@
   .wdot::before{content:"";position:absolute;inset:-11px}
   .wdot.on{width:20px;border-radius:999px;background:var(--accent)}
   @media(max-width:420px){ .wrapcard{padding:58px 18px 22px} .wckick{left:18px} .wcbig{font-size:44px} }
+  /* the month's bills against what they were planned at, on the Budget card */
+  /* A pill is the wrong shape for text that wraps, and in a half-width card
+     this text always wraps — it rendered as a four-line green blob. A rule and
+     two lines carry the same thing at any width. */
+  .billvar{margin-top:10px;padding-top:9px;border-top:1px solid var(--line);line-height:1.35}
+  .billvar b{display:block;font-size:13.5px;font-weight:700;font-variant-numeric:tabular-nums}
+  .billvar span{display:block;font-size:12px;font-weight:540;color:var(--muted);margin-top:1px}
+  .billvar.over b{color:var(--neg-ink)}
+  .billvar.under b{color:var(--pos-ink)}
   /* what an estimated bill really costs, month by month */
   .varbox{margin-top:14px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--raise)}
   /* stacked, not a row: "What it actually costs" needs two lines on a phone and
