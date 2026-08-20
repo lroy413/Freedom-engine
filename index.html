@@ -6233,50 +6233,95 @@ function openRecap(mk){ recapOpen=true; recapMonth=mk||monthKey(todayISO());
   const sc=document.querySelector("#recapSheet .sheetscroll"); if(sc)sc.scrollTop=0; }
 function closeRecap(){ recapOpen=false; document.body.classList.remove("sheetopen");
   document.getElementById("recapSheet").hidden=true; sheetPop(); }
+/* The month, as a deck rather than a page.
+
+   Everything here was already in the recap; it was a single scroll of cards and
+   lists, which is a report. One idea a card, swiped, is a story — and this is
+   the one screen in the app whose job is to be read rather than used. */
+function recapCards(r,t){
+  const c=[], add=(o)=>{ if(o) c.push(o); };
+  const pct=(v)=>r.spend>0?Math.round(v/r.spend*100):0;
+  add({hue:"--c-emerald",kicker:"The month you had",big:t.t,sub:t.s,opener:true});
+  add({hue:"--c-rose",kicker:"You spent",big:money(r.spend),
+    sub:!(r.prevSpend>0)?"Nothing logged last month to compare it with."
+      :(()=>{ const d=r.spend-r.prevSpend, p=Math.abs(Math.round(d/r.prevSpend*100));
+        return p>200?`${fmt(Math.abs(d))} ${d>=0?"more":"less"} than last month.`
+          :`${p}% ${d>=0?"more":"less"} than last month.`; })()});
+  add(r.income>0?{hue:"--c-teal",kicker:"Came in",big:money(r.income),
+    sub:r.income>=r.spend?`${fmt(r.income-r.spend)} more than went out.`
+      :`${fmt(r.spend-r.income)} short of what went out.`}:null);
+  add(r.cats.length?{hue:"--c-amber",kicker:"Where it went",list:
+    r.cats.slice(0,5).map(([k,v])=>({k,v:fmt(v),w:pct(v),hue:catColorOf(k)})),
+    sub:`${esc(r.cats[0][0])} took ${pct(r.cats[0][1])}% of it.`}:null);
+  add(r.merch.length&&r.merch[0][1].n>=3?{hue:"--c-violet",kicker:"The regular",
+    big:esc(r.merch[0][0]),sub:`${r.merch[0][1].n} visits · ${fmt(r.merch[0][1].amt)} between them.`,
+    small:true}:null);
+  add(r.biggest?{hue:"--c-sky",kicker:"The biggest single thing",
+    big:money(Math.abs(personalAmt(r.biggest))),
+    sub:`${esc(r.biggest.desc||"—")} · ${esc(shortDate(r.biggest.date))} · ${esc(r.biggest.category||"Uncategorized")}`}:null);
+  add(r.unplanned>0?{hue:"--c-fuchsia",kicker:"Unplanned",big:money(r.unplanned),
+    sub:`Take that out and you spent ${fmt(r.spend-r.unplanned)}.`}:null);
+  add({hue:"--c-cyan",kicker:"Quiet days",big:String(r.noSpend),
+    sub:`of ${r.elapsed} days nothing left your accounts${r.bestStreak>1?` — the best run was ${r.bestStreak} in a row`:""}.`});
+  add(r.billsDue?{hue:"--c-lime",kicker:"Bills",big:`${r.billsPaid}/${r.billsDue}`,
+    sub:r.billsPaid===r.billsDue?"Every one due this month, paid."
+      :`${r.billsDue-r.billsPaid} still open.`}:null);
+  add(r.budgets?{hue:"--c-orange",kicker:"Envelopes",big:`${r.held}/${r.budgets}`,
+    sub:r.held===r.budgets?"All of them stayed inside their limit."
+      :`${r.budgets-r.held} went over.`}:null);
+  add(r.nwMove!=null?{hue:r.nwMove>=0?"--c-emerald":"--c-rose",kicker:"Net worth",
+    big:moneySigned(r.nwMove),sub:`What you own minus what you owe moved ${r.nwMove>=0?"up":"down"} over the month.`}:null);
+  add({hue:"--c-violet",kicker:"The long game",big:money(r.passive)+`<span class="wcper">/mo</span>`,
+    sub:`Arriving without you — ${Math.round(r.freedomPct)}% of ${esc(r.freedomLabel)}.`,last:true});
+  return c;
+}
+let recapIdx=0;
 function renderRecap(){
   if(!recapOpen)return;
   const el=document.getElementById("recapBody"); if(!el)return;
   const r=monthRecap(recapMonth), t=recapTitle(r);
-  document.getElementById("recapKicker").textContent=
+  document.getElementById("recapKicker").textContent="Month in review";
+  document.getElementById("recapTitle").textContent=
     prettyMonth(recapMonth)+(r.isNow?" · so far":"");
-  document.getElementById("recapTitle").textContent=t.t;
-  const line=(name,val,hue)=>`<div class="rcline">${hue?`<span class="rcdot" style="background:${hue}"></span>`:""}<span class="rcn">${esc(name)}</span><span class="rcv">${val}</span></div>`;
+  const cards=recapCards(r,t);
   const months=monthsWithData();
   el.innerHTML=`
-    <div class="rcbig">${esc(t.s)}</div>
-    <div class="rcstat">
-      <div class="rccard"><div class="k">Spent</div><div class="v">${fmt(r.spend)}</div>
-        <div class="s">${(()=>{ if(!(r.prevSpend>0)) return "nothing logged last month to compare";
-          const d=r.spend-r.prevSpend, pct=Math.abs(Math.round(d/r.prevSpend*100));
-          /* past a point the percentage stops meaning anything — say the money */
-          if(pct>200) return `${fmt(Math.abs(d))} ${d>=0?"more":"less"} than last month`;
-          return `${pct}% ${d>=0?"more":"less"} than last month`; })()}</div></div>
-      <div class="rccard"><div class="k">Came in</div><div class="v pos">${fmt(r.income)}</div>
-        <div class="s">${r.income>r.spend?`${fmt(r.income-r.spend)} more than went out`:`${fmt(r.spend-r.income)} short of what went out`}</div></div>
-      <div class="rccard"><div class="k">No-spend days</div><div class="v">${r.noSpend}</div>
-        <div class="s">of ${r.elapsed}${r.bestStreak>1?` · best run ${r.bestStreak}`:""}</div></div>
-      <div class="rccard"><div class="k">Bills</div><div class="v">${r.billsDue?`${r.billsPaid}/${r.billsDue}`:"—"}</div>
-        <div class="s">${r.billsDue?(r.billsPaid===r.billsDue?"all paid":`${r.billsDue-r.billsPaid} still open`):"none due"}</div></div>
+    <div class="wrapdeck" id="wrapDeck">${cards.map((c,i)=>`
+      <article class="wrapcard${c.opener?" opener":""}" style="--wc:var(${c.hue})">
+        <div class="wckick">${esc(c.kicker)}</div>
+        ${c.list?`<div class="wclist">${c.list.map(x=>`
+          <div class="wcrow"><span class="wck">${esc(x.k)}</span><span class="wcv">${x.v}</span>
+            <span class="wcbar"><i style="width:${Math.max(3,x.w)}%;background:${x.hue}"></i></span></div>`).join("")}</div>`
+        :`<div class="wcbig${c.small?" sm":""}">${c.big}</div>`}
+        <div class="wcsub">${c.sub}</div>
+        <div class="wcstep">${i+1} of ${cards.length}</div>
+      </article>`).join("")}
     </div>
-    ${r.nwMove!=null?`<div class="note ${r.nwMove>=0?"ok":"warn"}" style="font-size:13px">Net worth moved <b>${r.nwMove>=0?"up":"down"} ${fmt(Math.abs(r.nwMove))}</b> this month.</div>`:""}
-    ${r.cats.length?`<div class="nwsec" style="margin-top:18px"><span class="t">Where it went</span></div>
-      ${r.cats.slice(0,5).map(([c,v])=>line(c,`${fmt(v)} <span class="rcquiet">${Math.round(v/r.spend*100)}%</span>`,catColorOf(c))).join("")}`:""}
-    ${r.merch.length?`<div class="nwsec" style="margin-top:18px"><span class="t">Places you kept going back to</span></div>
-      ${r.merch.slice(0,3).map(([m,o])=>line(m,`${o.n}× <span class="rcquiet">${fmt(o.amt)}</span>`)).join("")}`:""}
-    ${r.biggest?`<div class="nwsec" style="margin-top:18px"><span class="t">The single biggest thing</span></div>
-      ${line(r.biggest.desc||"—",fmt(Math.abs(personalAmt(r.biggest))),catColorOf(r.biggest.category))}
-      <div class="rcquiet" style="margin-top:2px">${esc(shortDate(r.biggest.date))} · ${esc(r.biggest.category||"Uncategorized")}</div>`:""}
-    ${r.budgets?`<div class="nwsec" style="margin-top:18px"><span class="t">Envelopes</span></div>
-      ${line(`${r.held} of ${r.budgets} stayed inside their limit`,r.held===r.budgets?"clean":`${r.budgets-r.held} over`)}`:""}
-    <div class="nwsec" style="margin-top:18px"><span class="t">The long game</span></div>
-    ${line(`${fmt(r.passive)}/mo arriving without you`,`${Math.round(r.freedomPct)}% of ${esc(r.freedomLabel)}`)}
-    <div class="rcquiet" style="margin-top:14px">Built from what you logged — a month you didn't track will look quieter than it was.</div>
-    <div class="field" style="margin-top:16px"><label>Look at another month</label>
+    <div class="wrapdots" id="wrapDots">${cards.map((c,i)=>
+      `<button class="wdot${i===0?" on":""}" data-wdot="${i}" aria-label="Card ${i+1}"></button>`).join("")}</div>
+    <div class="rcquiet" style="margin-top:16px">Built from what you logged — a month you didn't track will look quieter than it was.</div>
+    <div class="field" style="margin-top:14px"><label>Look at another month</label>
       <select id="recapMonthSel">${months.slice().reverse().map(m=>`<option value="${m}" ${m===recapMonth?"selected":""}>${esc(prettyMonth(m))}</option>`).join("")}</select></div>`;
   const sel=document.getElementById("recapMonthSel");
-  if(sel) sel.onchange=e=>{recapMonth=e.currentTarget.value;renderRecap();};
+  if(sel) sel.onchange=e=>{recapMonth=e.currentTarget.value;recapIdx=0;renderRecap();};
+  wireDeck(cards.length);
 }
-function renderSTS(){
+/* Keeps the dots in step with the swipe, and the swipe in step with the dots. */
+function wireDeck(n){
+  const deck=document.getElementById("wrapDeck"), dots=document.getElementById("wrapDots");
+  if(!deck||!dots)return;
+  const w=()=>deck.clientWidth||1;
+  if(recapIdx>0) deck.scrollLeft=recapIdx*w();
+  let tick=null;
+  deck.onscroll=()=>{ if(tick)return; tick=requestAnimationFrame(()=>{ tick=null;
+    const i=Math.round(deck.scrollLeft/w());
+    if(i!==recapIdx&&i>=0&&i<n){ recapIdx=i;
+      dots.querySelectorAll(".wdot").forEach((d,k)=>d.classList.toggle("on",k===i)); } });};
+  dots.querySelectorAll("[data-wdot]").forEach(d=>d.onclick=()=>{
+    const i=+d.dataset.wdot; recapIdx=i;
+    deck.scrollTo({left:i*w(),behavior:lessMotion()?"auto":"smooth"});
+    dots.querySelectorAll(".wdot").forEach((x,k)=>x.classList.toggle("on",k===i));});
+}function renderSTS(){
   if(!stsOpen)return;
   const el=document.getElementById("stsBody"), st=safeToSpend();
   document.getElementById("stsVal").innerHTML=`<span class="${st.safe>=0?"pos":"neg"}">${fmt(st.safe)}</span>`;
@@ -6628,7 +6673,7 @@ function renderBizIndex(){
         ${e.owed>e.reserved?`Still to set aside: <b class="neg">${fmt(e.owed-e.reserved)}</b>.`:`Fully covered.`}
         <a href="#" data-go="tax">Open Tax</a> to change the rates or log a payment.</div>
     </div>`;
-  tw.querySelectorAll("[data-go]").forEach(a=>a.onclick=ev=>{ev.preventDefault();setView(a.dataset.go);});
+  tw.querySelectorAll("[data-go]").forEach(a=>a.onclick=ev=>{ev.preventDefault();goView(a.dataset.go);});
 }
 /* ---------- one business ---------- */
 function renderBizOne(b){
@@ -6782,7 +6827,7 @@ function renderBizTax(b,y){
     ${st&&st.none?`<div class="note ok" style="margin-top:14px;font-size:13px">${esc(st.name)} takes no state income tax, so only federal${k.se?" and self-employment":""} tax applies to this profit.</div>`:""}
     ${!k.se&&!k.entity?"":""}
     <div class="note" style="margin-top:14px;font-size:13px">${esc(st?(st.flat?"A flat rate, so this is the rate":"A graduated rate — this is roughly the marginal rate at a freelancer's income; set yours on the Tax screen if you know it"):"")}. Rates are a 2026 starting point, not a lookup. <a href="#" data-go="tax">Tax</a> holds the ones you can change.</div>`;
-  el.querySelectorAll("[data-go]").forEach(a=>a.onclick=ev=>{ev.preventDefault();setView(a.dataset.go);});
+  el.querySelectorAll("[data-go]").forEach(a=>a.onclick=ev=>{ev.preventDefault();goView(a.dataset.go);});
 }
 /* ---------- deductions ---------- */
 /* Claimed and open are different things: a deduction you switched on months ago
@@ -7646,7 +7691,7 @@ function renderTax(){
     </div>
     ${away.length?`<div class="note warn" style="margin-top:12px;font-size:13px">${away.length===1?`<b>${esc(away[0].name)}</b> operates in <b>${esc(stateName(away[0].state))}</b>`:`${away.length} businesses operate outside ${esc(c.stateName)}`} — expect a return in each state. Your home state normally credits what you pay away, so this charges the higher rate once rather than both. <a href="#" data-go="business">Business</a> holds the details.</div>`:""}`:""}
     <div class="note warn" style="margin-top:14px">An estimate from the rates above, not a filing. It uses your <b>marginal</b> federal rate on all of it, which over-reserves slightly on purpose — being short in April is worse than being early. Confirm the numbers with a CPA who knows film-industry 1099 work.</div>`;
-  document.querySelectorAll("#taxBreak [data-go]").forEach(a=>a.onclick=ev=>{ev.preventDefault();setView(a.dataset.go);});
+  document.querySelectorAll("#taxBreak [data-go]").forEach(a=>a.onclick=ev=>{ev.preventDefault();goView(a.dataset.go);});
 
   /* editable assumptions */
   const f=(id,label,val,sub,step)=>`<div class="field"><label>${label}</label>
@@ -8187,6 +8232,20 @@ function navPageOf(id){
   return 0;
 }
 let navPage=0;   // restored from prefs at boot, see the boot block
+/* A view swap is the one moment this can feel like an app rather than a page.
+   The View Transitions API does the cross-fade in the compositor, so it costs
+   nothing at the point where the new screen is being built anyway.
+
+   Wrapped at the click, deliberately, rather than inside setView: the callback
+   runs a frame late, and setView is called directly from all over the code and
+   from every test, where "the DOM has changed by the time this returns" is the
+   contract. Only a tap gets the animation. */
+const lessMotion=()=>!!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
+function goView(id,before){
+  const run=()=>{ if(before)before(); setView(id); };
+  if(!document.startViewTransition||lessMotion()) return run();
+  try{ document.startViewTransition(run); }catch(e){ run(); }
+}
 function setView(id){
   if(!VIEWS.some(v=>v.id===id))id="dash";
   /* A month can turn over while the app sits open on a phone, so autopay is
@@ -8314,9 +8373,9 @@ addEventListener("resize",syncHeader);
 function openDrawer(){ document.getElementById("sidebar").classList.add("open"); document.getElementById("scrim").classList.add("on"); }
 function closeDrawer(){ const sb=document.getElementById("sidebar"); if(sb)sb.classList.remove("open"); const sc=document.getElementById("scrim"); if(sc)sc.classList.remove("on"); }
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-go]"); if(!b)return;
-  /* a business card on the dashboard opens that business, not the list of them */
-  if(b.dataset.gobiz&&bizOf(b.dataset.gobiz)) bizOpen=b.dataset.gobiz;
-  setView(b.dataset.go); });
+  goView(b.dataset.go,()=>{
+    /* a business card on the dashboard opens that business, not the list of them */
+    if(b.dataset.gobiz&&bizOf(b.dataset.gobiz)) bizOpen=b.dataset.gobiz; }); });
 
 /* Each screen's intro paragraph explains it once and then costs vertical space
    forever. Tuck it behind a small (i) beside the title — clear, one tap, no clutter. */
