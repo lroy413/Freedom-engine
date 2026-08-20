@@ -332,7 +332,9 @@
     <div class="card pad">
       <div class="big" id="runwayValG" style="line-height:1.05">—</div>
       <div class="muted" style="font-size:13px;margin-top:4px" id="runwaySubG"></div>
-      <div class="field" style="margin-top:14px;width:auto"><label>Monthly burn used ($)</label><input id="burnInputG" class="miniedit" style="width:140px;text-align:left"><span class="muted" style="font-size:12px" id="burnHintG"></span></div>
+      <div class="burnrow"><label for="burnInputG">Monthly burn</label>
+        <input id="burnInputG" class="miniedit" inputmode="decimal" placeholder="—">
+        <span class="muted" id="burnHintG"></span></div>
     </div>
 
     <div class="sectiontitle"><h2>Cash flow forecast</h2><span class="hint">paydays in, bills and budgets out</span></div>
@@ -1565,7 +1567,16 @@ function dedupeName(n){
   }
   return String(n||"").trim();
 }
-function acctInitials(n){ const w=(n||"?").trim().split(/\s+/).filter(Boolean); return ((w[0]||"?")[0]+(w[1]?w[1][0]:"")).toUpperCase(); }
+/* Initials people would actually write. Taking the first letter of the first
+   two words made "Empower 401(k)" into E4 and "Bank of America" into BO —
+   numbers and joining words are not initials, so they are skipped. */
+const INIT_SKIP=/^(of|on|the|and|at|for|to|a|an|my|de|la)$/i;
+function acctInitials(n){
+  const w=(n||"?").trim().split(/\s+/)
+    .filter(x=>/^\p{L}/u.test(x)&&!INIT_SKIP.test(x));
+  if(!w.length) return ((n||"?").trim()[0]||"?").toUpperCase();
+  return (w[0][0]+(w[1]?w[1][0]:"")).toUpperCase();
+}
 const investTotal=()=>db.holdings.reduce((s,h)=>s+num(h.shares)*num(h.price),0);
 const holdingCost=h=>num(h.shares)*num(h.avgCost);
 const investCost=()=>db.holdings.reduce((s,h)=>s+holdingCost(h),0);
@@ -6569,7 +6580,7 @@ function renderBizIndex(){
     <div class="dh-stats">
       <div class="dh-stat"><div class="k">Revenue</div><div class="v">${fmt(rev)}</div></div>
       <div class="dh-stat"><div class="k">Expenses</div><div class="v">${fmt(exp)}</div></div>
-      ${owedAll>0?`<div class="dh-stat"><div class="k">Owed to you</div><div class="v">${fmt(owedAll)}</div>${lateAll>0?`<div class="dh-sub">${fmt(lateAll)} past due</div>`:""}</div>`
+      ${owedAll>0?`<div class="dh-stat"><div class="k">Owed to you</div><div class="v">${fmt(owedAll)}</div>${lateAll>0?`<div class="dh-sub late">${fmt(lateAll)} past due</div>`:""}</div>`
         :`<div class="dh-stat"><div class="k">Reaches you</div><div class="v">${fmt(draw)}</div></div>`}
     </div></div>`:"";
 
@@ -6579,7 +6590,9 @@ function renderBizIndex(){
     const off=b.active===false;
     return `<div class="brow${off?" muted":""}">
       <button class="bmain" data-bizgo="${b.id}" style="width:100%;background:none;border:0;text-align:left;font:inherit;color:inherit;cursor:pointer">
-        <span class="tdot" style="background:${b.color};width:10px;height:10px;flex:none"></span>
+        <!-- a tile, the way Accounts and Settings mark a row: a 10px dot is
+             hard to aim at and reads as decoration rather than identity -->
+        <span class="glyph" style="background:${b.color}">${esc(acctInitials(b.name))}</span>
         <div class="binfo"><div class="bname">${esc(b.name)}${off?` <span class="tag neutral">paused</span>`:""}</div>
           <div class="bmeta"><span class="tmeta">${esc(k.label)} · ${esc(st?st.name:"—")}${b.linkProfit?"":` · <span class="bwarn">kept separate</span>`}</span></div></div>
         <div style="text-align:right;flex:none">
@@ -8106,12 +8119,17 @@ function renderGoals(){
     el.style.opacity=burnIsSettled()?"":"0.72";
     el.title=burnIsSettled()?"":"Based on very little spending history — treat it as provisional.";});
   set("runwaySubG",el=>el.textContent=`${fmt(spendableCash())} spendable ÷ ${fmt(effectiveBurn())}/mo of spending${taxHeld()>0?` · ${fmt(taxHeld())} held for tax`:""}`);
-  set("burnInputG",el=>el.value=(db.settings.burnOverride!=null&&db.settings.burnOverride!=="")?db.settings.burnOverride:"");
   const a=avgMonthlyBurn();
+  set("burnInputG",el=>{
+    el.value=(db.settings.burnOverride!=null&&db.settings.burnOverride!=="")?db.settings.burnOverride:"";
+    /* the worked-out figure sits in the box as a placeholder, so an untouched
+       override still shows you the number it is standing in for */
+    el.placeholder=a==null?"—":String(Math.round(a));
+  });
   set("burnHintG",el=>{ if(db.settings.burnOverride){el.textContent="";return;}
     if(a==null){el.textContent=" no spending logged yet — using your bills as a stand-in";return;}
     const n=burnMonths();
-    el.innerHTML=` auto: ~${fmt(Math.round(a))}/mo, averaged over ${n} month${n===1?"":"s"} of imports`+
+    el.innerHTML=`averaged over ${n} month${n===1?"":"s"} of imports — type to use your own`+
       (n<2?` — <span class="bwarn">too little to lean on yet</span>`:"");});
   /* keep the legacy single goal pointed at the first cash goal so the dashboard
      bar, the income projection horizon and the forecast all still line up */
