@@ -9,13 +9,27 @@
 
    node tools/check.mjs            check
    node tools/check.mjs --quiet    only speak up when something is wrong */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync as _write } from "node:fs";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const quiet = process.argv.includes("--quiet");
+if (process.argv.includes("--stamp")) {
+  const { readFileSync: rf, writeFileSync: wf, existsSync: ex } = await import("node:fs");
+  const { createHash: ch } = await import("node:crypto");
+  let src = rf("index.html", "utf8");
+  for (const f of ["styles.css", "data.js"]) {
+    if (!ex(f)) continue;
+    const v = ch("sha1").update(rf(f)).digest("hex").slice(0, 8);
+    src = src.replace(new RegExp(f.replace(".", "\\.") + '(\\?v=[0-9a-f]{8})?(?=")'), f + "?v=" + v);
+  }
+  wf("index.html", src);
+  console.log("stamped index.html with the current asset hashes");
+  process.exit(0);
+}
 const problems = [];
 const notes = [];
 const fail = (where, msg) => problems.push(`${where}: ${msg}`);
@@ -34,7 +48,7 @@ const scripts = [];
   let m;
   while ((m = re.exec(html))) {
     const src = /src=["']([^"']+)["']/.exec(m.groups.attrs);
-    if (src) scripts.push({ name: src[1], body: read(src[1]), external: true });
+    if (src) { const f = src[1].split("?")[0]; scripts.push({ name: f, body: read(f), external: true }); }
     else scripts.push({ name: `index.html inline @${html.slice(0, m.index).split("\n").length}`, body: m.groups.body });
   }
 }
@@ -108,7 +122,7 @@ if (css !== null) {
 /* A classic script's top-level const joins the shared global scope, but only
    once it has run. Getting the order wrong is a blank page. */
 {
-  const dataAt = html.indexOf('src="data.js"');
+  const dataAt = html.search(/src="data\.js(\?[^"]*)?"/);
   const appAt = html.lastIndexOf("\n<script>\n");
   if (dataAt < 0) fail("index.html", "does not load data.js");
   else if (dataAt > appAt) fail("index.html", "loads data.js AFTER the app — the tables will not exist yet");
@@ -206,6 +220,25 @@ if (css !== null) {
       " — this app fetches nothing at runtime, and a font CDN would announce every launch");
     else ok(`${faces.length} self-hosted font file(s) present`);
   }
+}
+
+/* ---------- 10b. the cache keys match the files they stand for ---------- */
+/* index.html and styles.css are cached independently, so a returning browser
+   can pair new markup with an old stylesheet and the app simply looks broken.
+   A content hash in the query makes a changed file a different URL. Forgetting
+   to bump it is the whole failure mode, so it is checked rather than trusted. */
+{
+  const shortHash = f => createHash("sha1").update(readFileSync(f)).digest("hex").slice(0, 8);
+  const stale = [];
+  for (const f of ["styles.css", "data.js"]) {
+    if (!existsSync(f)) continue;
+    const m = new RegExp(f.replace(".", "\\.") + '\\?v=([0-9a-f]{8})').exec(html);
+    const want = shortHash(f);
+    if (!m) stale.push(`${f} is linked without a ?v= cache key (should be ?v=${want})`);
+    else if (m[1] !== want) stale.push(`${f} is stamped ?v=${m[1]} but its contents hash to ${want}`);
+  }
+  if (stale.length) fail("index.html", "stale cache key — run node tools/check.mjs --stamp\n   " + stale.join("\n   "));
+  else ok("asset cache keys match their files");
 }
 
 /* ---------- 9. nothing secret got committed ---------- */
