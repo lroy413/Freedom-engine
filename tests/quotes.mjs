@@ -83,6 +83,72 @@ console.log('\n— the old behaviour, for the record —');
    guaranteed the failure, whatever the network did. */
 chk('3 calls x 9 holdings would have overrun the day', 3 * 9 > 25, true);
 
+console.log('\n— one key for prices, another for dividends —');
+/* Alpha Vantage is the only one carrying dividends, and prices are the thing
+   you refresh daily. Splitting the jobs means the 25-a-day limit stops being
+   the ceiling on how often a portfolio can be priced. */
+const two = await p.evaluate(async ({ TICKERS }) => {
+  db.holdings = TICKERS.map((t, i) => ({ id: 'h' + i, name: t, ticker: t, shares: 1,
+    price: 100, avgCost: 100, divPerShare: 0, divFreq: 'quarterly', divBasis: 'payment' }));
+  db.settings.mdProvider = 'finnhub'; db.settings.mdKey = 'FINN';
+  db.settings.divKey = 'AVKEY'; _avCapped = false;
+  const seen = { finnhub: 0, avOverview: 0, avDividends: 0, avQuote: 0 };
+  const keys = { finnhub: new Set(), av: new Set() };
+  window.fetch = async (url) => {
+    const u = String(url);
+    if (/finnhub/.test(u)) { seen.finnhub++; keys.finnhub.add(/token=([^&]+)/.exec(u)[1]);
+      return { ok: true, json: async () => ({ c: 200.5 }) }; }
+    if (/alphavantage/.test(u)) {
+      keys.av.add(/apikey=([^&]+)/.exec(u)[1]);
+      const fn = /function=([A-Z_]+)/.exec(u)[1];
+      if (fn === 'GLOBAL_QUOTE') seen.avQuote++;
+      if (fn === 'OVERVIEW') { seen.avOverview++;
+        return { ok: true, json: async () => ({ Symbol: 'X', DividendPerShare: '2.00', DividendYield: '0.03' }) }; }
+      seen.avDividends++;
+      return { ok: true, json: async () => ({ data: [{ ex_dividend_date: todayISO(), amount: '0.50' }] }) };
+    }
+    throw new TypeError('Failed to fetch');
+  };
+  setView('invest'); await new Promise(r => setTimeout(r, 400));
+  document.getElementById('refreshAllBtn').click();
+  await new Promise(r => setTimeout(r, 9000));
+  return { seen, finnKeys: [...keys.finnhub], avKeys: [...keys.av],
+    priced: db.holdings.filter(h => h.lastQuote === todayISO()).length,
+    said: document.getElementById('quoteStatus').textContent.replace(/\s+/g, ' ').trim(),
+    budget: divBudgetPerRun() };
+}, { TICKERS });
+
+chk('all nine priced by the quote provider', [two.priced, two.seen.finnhub], [9, 9]);
+chk('  and Alpha Vantage was never asked for a price', two.seen.avQuote, 0);
+chk('each key is used only for its own job', [two.finnKeys, two.avKeys], [['FINN'], ['AVKEY']]);
+chk('dividends still come from Alpha Vantage', [two.seen.avOverview, two.seen.avDividends], [6, 6]);
+chk('  and get a bigger share per run now that prices are elsewhere', two.budget, 6);
+chk('nothing failed', /Couldn't price/.test(two.said), false);
+
+console.log('\n— a book that predates any of this —');
+chk('an Alpha Vantage quote key still does dividends with nothing else set', await p.evaluate(() => {
+  db.settings.mdProvider = 'alphavantage'; db.settings.mdKey = 'OLDKEY'; delete db.settings.divKey;
+  return [divKeyOf(), divBudgetPerRun()]; }), ['OLDKEY', 2]);
+chk('  and moving prices to Finnhub carries that key over by itself', await p.evaluate(async () => {
+  setView('settings'); await new Promise(r => setTimeout(r, 300));
+  if (typeof openSetPane === 'function') openSetPane('market');
+  renderMarketSettings(); await new Promise(r => setTimeout(r, 200));
+  const sel = document.getElementById('mdProvider');
+  sel.value = 'finnhub'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+  await new Promise(r => setTimeout(r, 350));
+  return { carried: db.settings.divKey, stillWorks: divKeyOf(),
+    boxShown: !document.getElementById('divKeyBox').hidden,
+    field: document.getElementById('divKey').value }; }),
+  { carried: 'OLDKEY', stillWorks: 'OLDKEY', boxShown: true, field: 'OLDKEY' });
+chk('  the dividend panel is hidden again when Alpha Vantage does both', await p.evaluate(async () => {
+  const sel = document.getElementById('mdProvider');
+  sel.value = 'alphavantage'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+  await new Promise(r => setTimeout(r, 300));
+  return document.getElementById('divKeyBox').hidden; }), true);
+chk('no key at all means no dividend calls, but prices still go out', await p.evaluate(() => {
+  db.settings.mdProvider = 'finnhub'; db.settings.mdKey = 'FINN'; db.settings.divKey = '';
+  return [divKeyOf(), divBudgetPerRun()]; }), ['', 6]);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 console.log('page errors:', errs.length ? errs : 'none');
 await b.close();

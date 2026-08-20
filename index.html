@@ -559,6 +559,17 @@
           <button class="btn primary" id="avSave">Save key</button>
         </div>
         <div id="mdHint" class="muted" style="font-size:13px;margin-top:10px"></div>
+        <!-- Dividends are a separate job with a separate appetite, so they get a
+             separate key. Only shown when the quote provider cannot do them. -->
+        <div id="divKeyBox" hidden style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px">
+          <div class="sectiontitle" style="margin:0 0 10px"><h2>Dividends</h2></div>
+          <p class="muted" style="font-size:14px;margin:0 0 12px">Only Alpha Vantage carries dividend data, and prices are what you refresh often — so keep an Alpha Vantage key here just for dividends and let the provider above do the prices. Its 25 lookups a day then stop being the ceiling on how often you can price your holdings.</p>
+          <div class="formgrid">
+            <div class="field" style="grid-column:span 2"><label>Alpha Vantage key</label><input id="divKey" placeholder="paste key here"></div>
+            <button class="btn" id="divSave">Save</button>
+          </div>
+          <div id="divStatus" class="muted" style="font-size:13px;margin-top:8px"></div>
+        </div>
         <label class="flex" style="font-size:15px;margin-top:12px;gap:8px"><input type="checkbox" id="mdProxy"> Also try a public relay if direct sources are blocked <span class="muted">(sends only the ticker symbol)</span></label>
         <div id="avStatus" class="muted" style="font-size:13px;margin-top:8px"></div>
       </div>
@@ -1203,6 +1214,22 @@ function viaRelay(url){ const r=(syncCfg.sfRelay||"").trim(); return r?r.replace
 async function jget(url){ const r=await fetch(viaRelay(url),{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
 /* keyed providers send CORS headers, so these work even from a downloaded file */
 let _avCapped=false;   // remembers a tripped daily cap for this session so the rest of the list skips straight to the free sources
+/* Quotes and dividends are different jobs with different appetites. Prices want
+   refreshing daily and Finnhub gives 60 calls a minute for them; dividends
+   change quarterly at most and only Alpha Vantage carries them at all. So the
+   dividend lookups get their own key, and Alpha Vantage's 25 a day stops being
+   the ceiling on how often you can price a portfolio.
+
+   With nothing set, this falls back to the quote key when that key is already
+   an Alpha Vantage one — so a book set up before any of this keeps working
+   without the user touching a thing. */
+const divKeyOf = () => (db.settings.divKey||"").trim() ||
+  (((db.settings.mdProvider||"alphavantage")==="alphavantage") ? (db.settings.mdKey||"").trim() : "");
+/* When Alpha Vantage is doing both jobs its budget is mostly gone on prices, so
+   dividends take two holdings a run. When it is only doing dividends the whole
+   25 is theirs and a nine-holding list comes round in two taps instead of five. */
+const divBudgetPerRun = () =>
+  ((db.settings.mdProvider||"alphavantage")==="alphavantage") ? 2 : 6;
 async function quoteFromKey(t){
   const key=(db.settings.mdKey||"").trim(); if(!key) return null;
   const prov=db.settings.mdProvider||"alphavantage";
@@ -1264,10 +1291,12 @@ async function fetchQuote(ticker){
        : "your browser blocked the free sources — either add a free API key under Settings → Market data, or set a Relay URL under Bank connection and quotes will route through it too"));
 }
 async function fetchDividend(ticker){
-  const key=(db.settings.mdKey||"").trim();
-  if(!key||(db.settings.mdProvider||"alphavantage")!=="alphavantage") return null;
+  const key=divKeyOf();
+  if(!key||_avCapped) return null;
   try{
     const j=await jget(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${encodeURIComponent((ticker||"").trim().toUpperCase())}&apikey=${encodeURIComponent(key)}`);
+    /* a spent key answers every remaining holding the same way — stop asking */
+    if(j&&(j.Note||j.Information)){ _avCapped=true; return null; }
     if(!j||!j.Symbol) return null;
     const dps=parseFloat(j.DividendPerShare); const dy=parseFloat(j.DividendYield);
     return {divPerShare:isNaN(dps)?0:dps,divYield:isNaN(dy)?0:dy,name:j.Name||""};
@@ -1277,10 +1306,11 @@ async function fetchDividend(ticker){
    The DIVIDENDS endpoint lists the actual payments, so counting the ones in the last
    year tells us the real cadence — 12 for a monthly REIT, 4 for a typical fund. */
 async function fetchDivSchedule(ticker){
-  const key=(db.settings.mdKey||"").trim();
-  if(!key||(db.settings.mdProvider||"alphavantage")!=="alphavantage") return null;
+  const key=divKeyOf();
+  if(!key||_avCapped) return null;
   try{
     const j=await jget(`https://www.alphavantage.co/query?function=DIVIDENDS&symbol=${encodeURIComponent((ticker||"").trim().toUpperCase())}&apikey=${encodeURIComponent(key)}`);
+    if(j&&(j.Note||j.Information)){ _avCapped=true; return null; }
     const raw=(j&&(j.data||j.dividends))||null;
     if(!Array.isArray(raw)||!raw.length) return null;
     const rows=raw.map(r=>({d:String(r.ex_dividend_date||r.payment_date||r.date||"").slice(0,10),a:parseFloat(r.amount)}))
@@ -1304,7 +1334,6 @@ async function fetchDivSchedule(ticker){
    The price is what you tapped for. Dividends change quarterly at most, so a
    whole-list refresh looks them up for the two most overdue holdings and lets
    the rest come round on later taps. Nine holdings now cost 13 calls, not 27. */
-const DIV_LOOKUPS_PER_RUN=2;
 const divIsDue=h=>!h.divChecked||daysBetween(h.divChecked,todayISO())>=7;
 async function refreshHolding(h,statusEl,opts){
   if(!h.ticker){ if(statusEl)statusEl.textContent="Add a ticker first."; return false; }
@@ -8365,7 +8394,7 @@ document.getElementById("refreshAllBtn").addEventListener("click",async e=>{
   /* whoever has gone longest without one gets this run's dividend lookups */
   const divTurn=new Set(list.filter(divIsDue)
     .sort((a,b)=>String(a.divChecked||"").localeCompare(String(b.divChecked||"")))
-    .slice(0,DIV_LOOKUPS_PER_RUN).map(h=>h.id));
+    .slice(0,divKeyOf()?divBudgetPerRun():0).map(h=>h.id));
   for(let i2=0;i2<list.length;i2++){ const h=list[i2];
     if(st)st.textContent=`Updating ${i2+1} of ${list.length} — ${h.ticker.toUpperCase()}…`;
     if(await refreshHolding(h,st,{priceOnly:!divTurn.has(h.id)})){ recordPrice(h); ok++; }
@@ -8384,9 +8413,19 @@ document.getElementById("refreshAllBtn").addEventListener("click",async e=>{
       <b>Twelve Data</b> (800 a day). Both are free and neither will run out on a list this size.
     </div>`:"");
   saveAll();});
+document.getElementById("divSave").addEventListener("click",()=>{
+  const dk=document.getElementById("divKey");
+  db.settings.divKey=dk.value.trim(); delete dk.dataset.touched;
+  _avCapped=false;
+  document.getElementById("divStatus").textContent=db.settings.divKey
+    ?`Saved on this device ✓ — dividends will use this key, prices will use ${MD_PROVIDERS[db.settings.mdProvider||"alphavantage"].name}.`
+    :"Cleared. Prices still refresh; the dividend figures stay as you left them.";
+  persist();});
 document.getElementById("avSave").addEventListener("click",()=>{db.settings.mdKey=document.getElementById("avKey").value.trim();
   db.settings.mdProvider=document.getElementById("mdProvider").value;
-  document.getElementById("avStatus").textContent=db.settings.mdKey?`Key saved on this device ✓ — using ${MD_PROVIDERS[db.settings.mdProvider].name}. Hit ↻ on the Investments tab.`:"Key cleared.";persist();});
+  _avCapped=false;
+  document.getElementById("avStatus").textContent=db.settings.mdKey?`Key saved on this device ✓ — using ${MD_PROVIDERS[db.settings.mdProvider].name}. Hit ↻ on the Investments tab.`:"Key cleared.";
+  renderMarketSettings(); persist();});
 document.getElementById("addCatBtn").addEventListener("click",()=>{const i=document.getElementById("newCat");
   const v=i.value.trim(); if(!v)return;
   if(db.categories.some(c=>c.toLowerCase()===v.toLowerCase())){ i.value=""; return; }
@@ -8400,7 +8439,16 @@ document.getElementById("syncPull").addEventListener("click",()=>doPull(false));
 document.getElementById("syncToggle").addEventListener("click",e=>{const s=document.getElementById("syncSetup");
   const show=s.style.display==="none"; s.style.display=show?"block":"none";
   e.currentTarget.textContent=show?"Hide setup":"Set up"; renderSync();});
-document.getElementById("mdProvider").addEventListener("change",e=>{db.settings.mdProvider=e.target.value;renderMarketSettings();persist();});
+document.getElementById("mdProvider").addEventListener("change",e=>{
+  const was=db.settings.mdProvider||"alphavantage";
+  db.settings.mdProvider=e.target.value;
+  /* Moving prices off Alpha Vantage should not quietly cost you the dividend
+     data — the key you already pasted moves into the dividend slot by itself. */
+  if(was==="alphavantage"&&e.target.value!=="alphavantage"
+     &&!(db.settings.divKey||"").trim()&&(db.settings.mdKey||"").trim())
+    db.settings.divKey=db.settings.mdKey.trim();
+  _avCapped=false;
+  renderMarketSettings();persist();});
 document.getElementById("mdProxy").addEventListener("change",e=>{db.settings.mdProxy=e.target.checked;persist();});
 
 /* ---------- SimpleFIN bank sync ----------
@@ -8739,6 +8787,26 @@ function renderMarketSettings(){
   document.getElementById("mdHint").innerHTML=`${p.note} — <a href="${p.signup}" target="_blank" rel="noopener">get a free ${esc(p.name)} key →</a>`;
   const k=document.getElementById("avKey"); if(k&&!k.value&&db.settings.mdKey)k.value=db.settings.mdKey;
   const px=document.getElementById("mdProxy"); if(px)px.checked=!!db.settings.mdProxy;
+  /* Alpha Vantage doing both jobs needs no second key; anything else does, or
+     the dividend figures quietly stop updating. */
+  const box=document.getElementById("divKeyBox");
+  if(box){
+    box.hidden = cur==="alphavantage";
+    const dk=document.getElementById("divKey");
+    /* switching provider with an Alpha Vantage key already saved: offer it back
+       here rather than making them go and find it again */
+    /* mirror the saved key until the field has actually been typed in — a key
+       that carried itself across a provider change has to show up here, but a
+       half-typed one must not be wiped by a re-render */
+    if(dk){
+      if(!dk.dataset.touched) dk.value=(db.settings.divKey||"").trim();
+      dk.oninput=()=>{dk.dataset.touched="1";};
+    }
+    const ds=document.getElementById("divStatus");
+    if(ds) ds.textContent=divKeyOf()
+      ? "Dividends will refresh for up to "+divBudgetPerRun()+" holdings each time you tap ↻."
+      : "Without a key here, prices still refresh — the dividend figures just stay as you left them.";
+  }
 }
 /* Logging a payment on a holding you've marked as reinvesting has to move the
    share count, or the position quietly stops matching the brokerage. The shares
