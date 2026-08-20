@@ -1416,15 +1416,23 @@
   .dh-rgo svg{width:13px;height:13px}
   .dh-rgo:hover{background:rgba(255,255,255,.24);transform:translateX(1px)}
   .dh-rgo::before{content:"";position:absolute;left:-9px;right:-9px;top:-9px;bottom:-9px}
-  .dh-rtrack{position:relative;height:44px;margin-top:10px}
+  .dh-rtrack{position:relative;height:56px;margin-top:10px}
   .dh-rtrack svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
   /* No vector-effect here on purpose: the track's height equals the viewBox
      height so vertical scale is 1:1 and near-horizontal strokes keep their
      width — while non-scaling-stroke makes Chromium measure dashes in screen
      units, which painted phantom cap-dots down the road every 100px. */
-  .dh-rtrack .jbase{fill:none;stroke:rgba(255,255,255,.28);stroke-width:2.2px;stroke-linecap:round}
-  .dh-rtrack .jfill{fill:none;stroke:#fff;stroke-width:2.6px;stroke-linecap:round;animation:roadin 1s cubic-bezier(.22,1,.36,1)}
-  @keyframes roadin{from{stroke-dasharray:0 999}}
+  /* the road surface, the stretch already travelled, and the centre line */
+  /* Asphalt, not a ribbon: darker than the ground it crosses, with light
+     markings on it. A pale band reads as a chart line no matter how it tapers —
+     the darkness is what makes it a surface. */
+  /* neutral black, not a green one: the hero is emerald in three themes and
+     deep red in bushido, and a green-tinted asphalt went muddy on the red */
+  .dh-rtrack .jroad{fill:rgba(0,0,0,.26);stroke:rgba(255,255,255,.20);stroke-width:.5px;stroke-linejoin:round}
+  .dh-rtrack .jworn{fill:rgba(255,255,255,.18);animation:roadin .9s cubic-bezier(.22,1,.36,1)}
+  .dh-rtrack .jdash{fill:rgba(255,255,255,.78)}
+  @keyframes roadin{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+  @media(prefers-reduced-motion:reduce){ .dh-rtrack .jworn{animation:none} }
   /* stops are controls now: each carries its tier's colour, and tapping one
      names it — which is what freed the labels from being crammed underneath */
   .jstop{position:absolute;width:12px;height:12px;border-radius:50%;transform:translate(-50%,-50%);

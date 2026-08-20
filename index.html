@@ -2251,7 +2251,7 @@ function treeSVG(shape,coins,rnd){
 
    Positions are fixed across the whole road rather than spread over the covered
    part, precisely so growth adds trees instead of shuffling the ones you had. */
-const WOOD_H=84;    // track (44) + the caption band beneath it; keep in step with .dh-wood's bottom
+const WOOD_H=96;    // track (56) + the caption band beneath it; keep in step with .dh-wood's bottom
 function roadWood(yFor,cov){
   if(db.settings.trees===false) return "";
   let s=915311;
@@ -2342,11 +2342,34 @@ function renderDashHero(){
     const fs=freedomState(), th=fs.tiers[fs.tiers.length-1];
     if(!(th&&th.need>0)) return "";
     const cov=Math.min(1,fs.passive.total/th.need);
-    const P0=[0,34],P1=[58,30],P2=[100,9];
+    const P0=[0,42],P1=[58,36],P2=[100,10];
     const q=(t,a,b,c)=>(1-t)*(1-t)*a+2*(1-t)*t*b+t*t*c;
     const tFor=x=>{let lo=0,hi=1;for(let i=0;i<24;i++){const m=(lo+hi)/2;(q(m,P0[0],P1[0],P2[0])<x)?lo=m:hi=m;}return (lo+hi)/2;};
     const yFor=x=>q(tFor(x),P0[1],P1[1],P2[1]);
     const d=`M${P0[0]},${P0[1]} Q${P1[0]},${P1[1]} ${P2[0]},${P2[1]}`;
+    /* A line says "progress". A road says "how far there is to go", which is
+       the actual question — and it is the app's own mark, the one on the home
+       screen: a road running away from you with a climb out of the far end.
+       Same curve, same stops, same everything that reads it; the stroke became
+       a surface that narrows as it recedes.
+       The track's height equals the viewBox height, so a y-unit is a pixel and
+       these widths are literal. */
+    const hw=x=>1.4+9.6*Math.pow(1-Math.min(1,Math.max(0,x)/100),1.15);
+    const ribbon=(x0,x1,k)=>{
+      const N=40, top=[], bot=[];
+      for(let i=0;i<=N;i++){ const x=x0+(x1-x0)*i/N, y=yFor(x), w=hw(x)*(k||1);
+        top.push(`${x.toFixed(2)},${(y-w).toFixed(2)}`); bot.push(`${x.toFixed(2)},${(y+w).toFixed(2)}`); }
+      return `M${top.join(" L")} L${bot.reverse().join(" L")} Z`;
+    };
+    /* Centre line. The markings crowd together as they recede — that spacing is
+       most of what sells the perspective, more than the taper does. */
+    const dashes=(()=>{ const n=8, out=[];
+      for(let k=0;k<n;k++){
+        const a=100*(1-Math.pow(1-k/n,1.9)), b=100*(1-Math.pow(1-(k+0.5)/n,1.9));
+        if(b-a<0.4) continue;
+        out.push(`<path class="jdash" d="${ribbon(a,b,0.13)}"/>`);
+      }
+      return out.join(""); })();
     /* the tier tokens are tuned for a card, not for emerald — these keep the
        same green -> cyan -> violet progression while staying legible on it */
     const HUE={survive:"#7cf0b8",maintain:"#5ee7f5",thrive:"#c4b5fd"};
@@ -2382,8 +2405,8 @@ function renderDashHero(){
                    [q(t1,P0[0],P1[0],P2[0]),q(t1,P0[1],P1[1],P2[1])]];
           proj=`<path class="jproj" d="M${Q[0][0].toFixed(1)},${Q[0][1].toFixed(1)} Q${Q[1][0].toFixed(1)},${Q[1][1].toFixed(1)} ${Q[2][0].toFixed(1)},${Q[2][1].toFixed(1)}"/>`;
           const gx=covP*100, gy=yFor(Math.min(99.5,gx));
-          projGhost=`<span class="jghost" style="left:${gx.toFixed(1)}%;top:${(gy/44*100).toFixed(1)}%" title="Projected in 12 months at your recent investing pace"></span>`
-            +(gx<93&&gx-yx>=7?`<span class="jeta" style="left:${gx.toFixed(1)}%;top:${(gy/44*100).toFixed(1)}%">+12 mo</span>`:"");
+          projGhost=`<span class="jghost" style="left:${gx.toFixed(1)}%;top:${(gy/56*100).toFixed(1)}%" title="Projected in 12 months at your recent investing pace"></span>`
+            +(gx<93&&gx-yx>=7?`<span class="jeta" style="left:${gx.toFixed(1)}%;top:${(gy/56*100).toFixed(1)}%">+12 mo</span>`:"");
         }
       }
     }
@@ -2403,15 +2426,18 @@ function renderDashHero(){
         <button class="dh-rgo" data-go="goals" aria-label="Open the freedom tracker">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button></div>
       <div class="dh-rtrack">
-        ${roadWood(yFor,cov)}
-        <svg viewBox="0 0 100 44" preserveAspectRatio="none" aria-hidden="true">
-          <path class="jbase" d="${d}"/>
-          ${cov>0.004?`<path class="jfill" d="${d}" pathLength="100" style="stroke-dasharray:${(cov*100).toFixed(2)} 999"/>`:""}
+        ${roadWood(x=>yFor(x)+hw(x),cov)}
+        <svg viewBox="0 0 100 56" preserveAspectRatio="none" aria-hidden="true">
+          <!-- the near end runs off the left edge rather than stopping at it:
+               a road you are already on, not one that begins in mid-air -->
+          <path class="jroad" d="${ribbon(-9,100)}"/>
+          ${cov>0.004?`<path class="jworn" d="${ribbon(-9,Math.max(0.6,cov*100))}"/>`:""}
+          ${dashes}
           ${proj}
         </svg>
-        ${stops.map(s2=>`<button class="jstop${s2.cleared?" done":""}${s2.nxt?" nxt":""}${roadPick===s2.key?" sel":""}" data-roadpick="${s2.key}" aria-label="${esc(s2.lab)} — ${fmtK(s2.amt)} a month" style="left:${s2.x.toFixed(1)}%;top:${(s2.y/44*100).toFixed(1)}%;--jc:${s2.color}"></button>`).join("")}
+        ${stops.map(s2=>`<button class="jstop${s2.cleared?" done":""}${s2.nxt?" nxt":""}${roadPick===s2.key?" sel":""}" data-roadpick="${s2.key}" aria-label="${esc(s2.lab)} — ${fmtK(s2.amt)} a month" style="left:${s2.x.toFixed(1)}%;top:${(s2.y/56*100).toFixed(1)}%;--jc:${s2.color}"></button>`).join("")}
         ${projGhost}
-        <span class="jyou" style="left:${yx.toFixed(1)}%;top:${(yy/44*100).toFixed(1)}%"></span>
+        <span class="jyou" style="left:${yx.toFixed(1)}%;top:${(yy/56*100).toFixed(1)}%"></span>
       </div>
       <div class="dh-rcap">${cap}</div>
     </div>`;})();
