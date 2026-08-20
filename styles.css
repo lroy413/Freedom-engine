@@ -148,7 +148,10 @@
 
   /* Money reads better when the currency mark stops competing with the figure.
      Used in the places where a number is the point — heroes and KPI values. */
-  .cur{font-size:.62em;font-weight:640;color:var(--muted);margin-right:.06em;vertical-align:.09em;letter-spacing:0}
+  /* currentColor, not a muted token: the mark has to sit on a green hero, a
+     coloured value and plain ink alike. "The number's own colour, quieter"
+     works on all of them; a fixed grey went muddy on the dashboard. */
+  .cur{font-size:.62em;font-weight:640;color:currentColor;opacity:.5;margin-right:.06em;vertical-align:.09em;letter-spacing:0}
   .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 
   /* One number per screen that is allowed to be large. Named `headline`

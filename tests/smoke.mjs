@@ -891,6 +891,12 @@ chk('a misfiled account is questioned, not corrected',await p.evaluate(()=>({
   untouched:db.accounts.find(a=>a.id==="e1").kind})),{flags:[true,true,false],untouched:"r401k"});
 
 console.log('\n— the retirement screen —');
+/* Headline figures count up on arrival, so reading one is a race with the
+   animation — this caught a frame mid-count. The app honours
+   prefers-reduced-motion by writing the final figure straight away, so ask for
+   it here and assert the settled number. Set from this point on rather than in
+   the context, because the leaf-drift checks above need animations running. */
+await p.emulateMedia({reducedMotion:'reduce'});
 const rt=await p.evaluate(async()=>{
   db.settings.retire={age:34,target:65,rate:7,monthly:600};
   setView('retire'); await new Promise(r=>setTimeout(r,300));

@@ -664,11 +664,43 @@ const plural = (n,one,many) => `${n} ${num(n)===1?one:(many||one+"s")}`;
    stylesheet can treat differently — a smaller, quieter $ against tabular
    digits. HTML, so only for places that render markup: heroes and KPI values,
    never a textContent assignment. */
-const money = n => `<span class="num"><span class="cur">$</span>${
-  Math.abs(Math.round(num(n))).toLocaleString()}</span>`;
-const moneySigned = n => `<span class="num">${num(n)<0?"−":"+"}<span class="cur">$</span>${
-  Math.abs(Math.round(num(n))).toLocaleString()}</span>`;
+/* The sign follows the ROUNDED figure: −40 cents is not "−$0", it is $0, and a
+   minus sign in front of a zero reads as a bug in the app rather than a small
+   number. */
+const money = n => { const r=Math.round(num(n));
+  return `<span class="num">${r<0?"−":""}<span class="cur">$</span>${Math.abs(r).toLocaleString()}</span>`; };
+const moneySigned = n => { const r=Math.round(num(n));
+  return `<span class="num">${r<0?"−":r>0?"+":""}<span class="cur">$</span>${Math.abs(r).toLocaleString()}</span>`; };
 
+/* One headline per screen: the number you opened the screen to find, at a size
+   that says so, with the movement beside it rather than in a card of its own.
+   Shared so every screen ranks its numbers the same way — three at one size is
+   a pile, not a summary. */
+function kpiHead(label,opts){
+  const o=opts||{};
+  return `<div class="card kpi headline">
+    <div class="herotop">
+      <div style="min-width:0">
+        <div class="label">${label}</div>
+        <div class="val ${o.cls||""}"${o.style?` style="${o.style}"`:""}${o.id?` id="${o.id}"`:""}>${o.val}</div>
+      </div>
+      ${o.chip?`<span class="spacer"></span><span class="movechip ${o.chipCls||"flat"}">${o.chip}</span>`:""}
+    </div>
+    ${o.sub?`<div class="sub">${o.sub}</div>`:""}
+  </div>`;
+}
+/* Which headlines have already played their arrival animation, keyed per
+   element rather than per screen — Investments has two, and keying by screen
+   let the first one claim the flag and the second never animate at all.
+   Cleared for a screen when you navigate to it, so each plays once per visit
+   and never again mid-edit. */
+let _arrived={};
+function countUpOnce(view,elId,to,render){
+  const el=document.getElementById(elId); if(!el)return;
+  const draw=render||money, k=view+":"+elId;
+  if(_arrived[k]){ el.dataset.at=String(to); el.innerHTML=draw(to); return; }
+  _arrived[k]=true; el.dataset.at="0"; countUp(el,to,draw);
+}
 /* Numbers that arrive rather than appear. Cheap, and most of why a screen feels
    built rather than dumped — but only where a figure is the point, and never on
    a list that redraws as you type.
@@ -2398,7 +2430,7 @@ function renderDashHero(){
         <div class="dh-greet">${esc(when)}</div>
         <div class="dh-label">Net worth <button type="button" class="infobtn" id="dashInfoBtn" aria-label="What this screen is for" aria-expanded="false">i</button></div>
         <button class="dh-tap" data-nwopen="1" aria-label="Open net worth detail">
-          <div class="dh-val">${fmt(nw)}</div>
+          <div class="dh-val" id="dhNetWorth">${money(nw)}</div>
           <div class="dh-delta">${delta!=null?`${delta>=0?"▲":"▼"} ${fmt(Math.abs(delta))} since ${esc(shortMonth(snaps[0].m))}`:"Tracking starts now — a point is saved each month"}</div>
           <span class="dh-more">Full breakdown
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" style="width:11px;height:11px"><path d="M9 6l6 6-6 6"/></svg></span>
@@ -2464,6 +2496,7 @@ function renderDashHero(){
   el.querySelectorAll("[data-roadpick]").forEach(b=>b.onclick=e=>{
     e.stopPropagation(); const k=e.currentTarget.dataset.roadpick;
     roadPick=roadPick===k?null:k; renderDashHero();});
+  countUpOnce("dash","dhNetWorth",nw);
   /* the hero carries the screen's (i) now that the "Home" title is gone */
   const ib=el.querySelector("#dashInfoBtn"), dlead=document.querySelector("#view-dash p.lead");
   if(ib&&dlead) ib.onclick=e=>{ e.stopPropagation(); const show=dlead.hidden; dlead.hidden=!show;
@@ -2662,16 +2695,19 @@ function renderIncome(){
   const yr=yearIncome(); const np=nextPaydayAll();
   const taxed=db.settings.taxEnabled;
   document.getElementById("incomeKpis").innerHTML=`
-    <div class="card kpi"><div class="label">Est. monthly income</div><div class="val pos">${fmt(est)}</div><div class="sub">${taxed?`after ~${num(db.settings.taxRate)}% tax`:"recurring streams combined"}</div></div>
+    ${kpiHead("Est. monthly income",{id:"kpiIncome",cls:"pos",val:money(est),
+      sub:taxed?`after ~${num(db.settings.taxRate)}% tax`:"recurring streams combined",
+      chip:est>0?`${money(Math.round(est)*12)} <em>a year</em>`:"",chipCls:"flat"})}
     <div class="card kpi"><div class="label">Next payday</div><div class="val">${np?esc(shortDate(np)):"—"}</div><div class="sub">${np?(daysUntil(np)<=0?"today":daysUntil(np)===1?"tomorrow":"in "+daysUntil(np)+" days"):"add a first paycheck date"}</div></div>
-    <div class="card kpi"><div class="label">Income in ${yr.year}</div><div class="val">${fmt(yr.totalNet)}</div><div class="sub">${fmt(yr.earnedNet)} earned${yr.basis==="estimated"?" (est.)":""} + ${fmt(yr.projectedNet)} projected</div></div>`;
+    <div class="card kpi"><div class="label">Income in ${yr.year}</div><div class="val">${money(yr.totalNet)}</div><div class="sub">${fmt(yr.earnedNet)} earned${yr.basis==="estimated"?" (est.)":""} + ${fmt(yr.projectedNet)} projected</div></div>`;
+  countUpOnce("income","kpiIncome",est);
   // projection
   let to;
   if(horizon==="goal"){ to=db.goal.deadline||from; } else { const d=dayOf(from); d.setMonth(d.getMonth()+ +horizon); to=isoOf(d); }
   const pr=projectIncome(from, to<from?from:to);
   const label = horizon==="goal"?`through ${shortDate(db.goal.deadline)}`:`next ${horizon} month${horizon==="1"?"":"s"}`;
   document.getElementById("projBox").innerHTML=`
-    <div class="big pos" style="line-height:1.05">${fmt(pr.totalNet)}</div>
+    <div class="big pos" style="line-height:1.05">${money(pr.totalNet)}</div>
     <div class="muted" style="font-size:13px;margin-top:4px">${esc(label)}${taxNote()} · ${esc(shortDate(from))} → ${esc(shortDate(to<from?from:to))}</div>
     ${pr.parts.filter(p=>p.amt>0).length?`<div class="deflist" style="margin-top:14px;border-top:1px solid var(--line);padding-top:6px">
       ${pr.parts.filter(p=>p.amt>0).map(p=>`<div class="defrow"><span class="k">${esc(p.name)}${p.notax?` · not taxed`:""}</span><span class="v pos">${fmt(p.net)}</span></div>`).join("")}</div>`
@@ -2880,9 +2916,10 @@ function renderPaychecks(){
     </div>`; };
   box.innerHTML=`
    <div class="grid kpis" style="margin-bottom:14px">
-     <div class="card kpi"><div class="label">Received this month</div><div class="val pos">${fmt(net)}</div><div class="sub">${tm.length} entr${tm.length===1?"y":"ies"}${fromSpending?` · ${fromSpending} from Spending`:""}</div></div>
-     <div class="card kpi"><div class="label">Gross this month</div><div class="val">${fmt(gross)}</div><div class="sub">${gross>0?"before taxes · from stubs":"no stubs logged"}</div></div>
-     <div class="card kpi"><div class="label">Estimated (gross)</div><div class="val">${fmt(est)}</div><div class="sub">from your streams</div></div>
+     ${kpiHead("Received this month",{cls:"pos",val:money(net),
+       sub:`${tm.length} entr${tm.length===1?"y":"ies"}${fromSpending?` · ${fromSpending} from Spending`:""}${gross>0?` · ${fmt(gross-net)} withheld`:""}`,
+       chip:gross>0?`${money(gross)} <em>gross</em>`:"",chipCls:"flat"})}
+     <div class="card kpi"><div class="label">Estimated (gross)</div><div class="val">${money(est)}</div><div class="sub">from your streams</div></div>
    </div>
    ${list.length?`<div class="paylist ${list.length>5?"scrollrows bills":""}">${list.map(row).join("")}</div>`
      :`<div class="empty" style="padding:20px">Nothing logged yet — hit <b>+ Income</b>, scan a stub, or add income on the Spending screen and it lands here too.</div>`}
@@ -4120,14 +4157,18 @@ function renderBudget(){
   const income=actualIncome>0?actualIncome:estIncome;
   const free=income-billsTotal-flexLimit;
   document.getElementById("budgetKpis").innerHTML=`
-    <div class="card kpi"><div class="label">Income this month</div><div class="val pos">${fmt(income)}</div><div class="sub">${actualIncome>0?"actual received":"estimated"+(db.settings.taxEnabled?" · after tax":"")}</div></div>
+    ${kpiHead("Available to spend",{id:"kpiBudget",cls:flexAvail<0?"neg":"pos",val:money(flexAvail),
+      sub:db.settings.rollover?"across your envelopes":`${fmt(flexSpent)} spent of ${fmt(flexLimit)}`,
+      chip:flexLimit>0?`${money(flexSpent)} <em>spent of ${fmt(flexLimit)}</em>`:"",
+      chipCls:flexAvail<0?"neg":"flat"})}
+    <div class="card kpi"><div class="label">Income this month</div><div class="val pos">${money(income)}</div><div class="sub">${actualIncome>0?"actual received":"estimated"+(db.settings.taxEnabled?" · after tax":"")}</div></div>
     ${(()=>{ /* "owed" must mean what's still unpaid — a paid-up month reads $0,
        and an overpaid one shows the surplus as credit, never a negative */
       const leftAmt=Math.max(0,billsTotal-billsPaidAmt);
       const over=Math.max(0,billsPaidAmt-billsTotal);
-      return `<div class="card kpi"><div class="label">Bills left</div><div class="val ${leftAmt<=0.005?"pos":""}">${leftAmt<=0.005?"$0":fmt(leftAmt)}</div><div class="sub">${leftAmt<=0.005?`all ${fmt(billsTotal)} covered`:`of ${fmt(billsTotal)} this month · ${fmt(billsPaidAmt)} paid`}${over>0.5?` · ${fmt(over)} ahead → next month`:""}${Math.abs(billsMonthlyCost-billsTotal)>=1?` · ${fmt(billsMonthlyCost)}/mo true cost`:""}</div></div>`;})()}
-    <div class="card kpi"><div class="label">Available to spend</div><div class="val ${flexAvail<0?'neg':'pos'}">${fmt(flexAvail)}</div><div class="sub">${db.settings.rollover?"across your envelopes":`${fmt(flexSpent)} spent of ${fmt(flexLimit)}`}</div></div>
-    <div class="card kpi"><div class="label">Free to save / attack debt</div><div class="val ${free<0?'neg':'pos'}">${fmt(free)}</div><div class="sub">income − bills − budgets</div></div>`;
+      return `<div class="card kpi"><div class="label">Bills left</div><div class="val ${leftAmt<=0.005?"pos":""}">${leftAmt<=0.005?money(0):money(leftAmt)}</div><div class="sub">${leftAmt<=0.005?`all ${fmt(billsTotal)} covered`:`of ${fmt(billsTotal)} this month · ${fmt(billsPaidAmt)} paid`}${over>0.5?` · ${fmt(over)} ahead → next month`:""}${Math.abs(billsMonthlyCost-billsTotal)>=1?` · ${fmt(billsMonthlyCost)}/mo true cost`:""}</div></div>`;})()}
+    <div class="card kpi"><div class="label">Free to save / attack debt</div><div class="val ${free<0?'neg':'pos'}">${money(free)}</div><div class="sub">income − bills − budgets</div></div>`;
+  countUpOnce("budget","kpiBudget",flexAvail);
   // bills list
   /* what's due this month first, in due-day order; everything else after */
   const billsSorted=[...db.recurring].sort((a,b)=>{
@@ -4467,10 +4508,15 @@ function renderCredit(){
   const paid=debtPaidLogged(),payN=debtPayCount(),lifetime=Math.max(0,start-total);
   const sc=latestScore(),u=utilization();
   document.getElementById("creditKpis").innerHTML=`
-    <div class="card kpi"><div class="label">Total debt left</div><div class="val neg">${fmt(total)}</div><div class="sub">${start>total?`${fmt(lifetime)} of ${fmt(start)} already cleared`:"across "+db.debts.length+" debt"+(db.debts.length===1?"":"s")}</div></div>
-    <div class="card kpi"><div class="label">Payments logged</div><div class="val pos">${fmt(paid)}</div><div class="sub">${payN?`${payN} payment${payN===1?"":"s"} recorded here`:"hit Log a payment on any debt"}</div></div>
+    ${kpiHead("Total debt left",{id:"kpiDebt",cls:total>0?"neg":"pos",val:money(total),
+      sub:start>total?`${fmt(lifetime)} of ${fmt(start)} already cleared`:`across ${plural(db.debts.length,"debt")}`,
+      /* plain, not signed: paying debt down is the good direction, and a minus
+         sign in front of a green "cleared" reads as a mistake */
+      chip:start>total?`${money(start-total)} <em>cleared</em>`:"",chipCls:"pos"})}
+    <div class="card kpi"><div class="label">Payments logged</div><div class="val pos">${money(paid)}</div><div class="sub">${payN?`${payN} payment${payN===1?"":"s"} recorded here`:"hit Log a payment on any debt"}</div></div>
     <div class="card kpi"><div class="label">Credit score</div><div class="val">${sc?sc.score:"—"}</div><div class="sub">${sc?"as of "+esc(txDate(sc.date)):"log one to start"}</div></div>
     <div class="card kpi"><div class="label">Card utilization</div><div class="val ${u.pct!=null&&u.pct>30?'neg':u.pct!=null?'pos':''}">${u.pct!=null?u.pct.toFixed(0)+"%":"—"}</div><div class="sub">${u.pct!=null?"lower is better":"add card limits"}</div></div>`;
+  countUpOnce("credit","kpiDebt",total);
   const pts=[...db.creditLog].sort((a,b)=>a.date.localeCompare(b.date));
   const cc=document.getElementById("creditChart");
   cc.hidden=pts.length<2; cc.innerHTML=pts.length<2?"":sparkline(pts,360,112);
@@ -4790,10 +4836,12 @@ function renderRetire(){
   const monthlyAt=pj.end*(assumedYield()/100)/12;
   const k=document.getElementById("retireKpis");
   if(k) k.innerHTML=`
-    <div class="card kpi"><div class="label">Put away</div><div class="val" style="color:var(--invest)">${fmt(bal)}</div><div class="sub">${accts.length?`across ${accts.length} account${accts.length===1?"":"s"}`:"no retirement accounts yet"}</div></div>
-    <div class="card kpi"><div class="label">In this year</div><div class="val pos">${fmt(mine+emp)}</div><div class="sub">${emp>0?`${fmt(mine)} you · ${fmt(emp)} employer`:(mine>0?"all yours":"nothing logged yet")}</div></div>
+    ${kpiHead("Put away",{id:"kpiRetire",style:"color:var(--invest)",val:money(bal),
+      sub:accts.length?`across ${plural(accts.length,"account")}`:"add a retirement account to track this",
+      chip:(mine+emp)>0?`${moneySigned(mine+emp)} <em>this year</em>`:"",chipCls:"pos"})}
     <div class="card kpi"><div class="label">${pj.years!=null?`At ${c.target}`:"Projected"}</div><div class="val">${pj.years!=null?fmt(pj.end):"—"}</div><div class="sub">${pj.years!=null?`${pj.years} year${pj.years===1?"":"s"} of growth`:"add your age below"}</div></div>
     <div class="card kpi"><div class="label">Would pay you</div><div class="val">${pj.years!=null?fmt(monthlyAt):"—"}</div><div class="sub">${pj.years!=null?`a month at ${assumedYield()}%`:"set an age to see it"}</div></div>`;
+  countUpOnce("retire","kpiRetire",bal);
   const list=document.getElementById("retireList");
   if(list) list.innerHTML=accts.length?accts.map(a=>{
     const kd=kindOf(a), inY=contribIn(a,y), open=editRetire===a.id;
@@ -4875,7 +4923,6 @@ function renderRetire(){
       saveAll();}));
   }
 }
-let _investArrived=false;
 function renderInvest(){
   const val=investTotal(),cost=investCost(),gain=val-cost;
   /* Three numbers at the same size compete; nothing is the answer. Portfolio
@@ -4909,9 +4956,7 @@ function renderInvest(){
       return dr>0?`${fmt(estAnnualDivCash())} cash · ${fmt(dr)} reinvested`:yld;})()}</div></div>`;
   /* the hero counts up to its figure — but only on arrival, not on every save,
      or logging a dividend would set the whole number spinning again */
-  { const el=document.getElementById("kpiPortfolio");
-    if(el&&!_investArrived){ _investArrived=true; el.dataset.at="0"; countUp(el,val,money); }
-    else if(el){ el.dataset.at=String(val); } }
+  countUpOnce("invest","kpiPortfolio",val);
   const box=document.getElementById("holdingTable");
   /* "24% of holdings" is text doing a chart's job. One bar across the top says
      the same thing in a glance and gives every row a colour to be known by. */
@@ -5097,9 +5142,11 @@ function renderInvest(){
         <div class="upamt pos">+${fmt2(upCash)}</div></div>`
       :`<div class="empty" style="padding:22px">Set how often each holding pays and when it last paid — the schedule shows up here.</div>`; }
   document.getElementById("divKpis").innerHTML=`
-    <div class="card kpi"><div class="label">Received (12 mo)</div><div class="val pos">${fmt(divTrailing12())}</div><div class="sub">trailing 12 months</div></div>
-    <div class="card kpi"><div class="label">All-time dividends</div><div class="val">${fmt(divTotal())}</div><div class="sub">${esc(plural(db.dividends.length,"payment"))}</div></div>
-    <div class="card kpi"><div class="label">Est. monthly</div><div class="val">${fmt(divTrailing12()?divTrailing12()/12:estAnnualDiv()/12)}</div><div class="sub">${divTrailing12()?"average of what you logged":"projected from your holdings"}</div></div>`;
+    ${kpiHead("Last 12 months",{id:"kpiDivRecv",cls:"pos",val:money(divTrailing12()),
+      sub:`${esc(plural(db.dividends.length,"payment"))} logged · ${fmt(divTotal())} all time`,
+      chip:divTrailing12()>0?`${money(divTrailing12()/12)} <em>a month</em>`:"",chipCls:"pos"})}
+  `;
+  countUpOnce("invest","kpiDivRecv",divTrailing12());
   const divs=[...db.dividends].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12);
   document.getElementById("divTable").innerHTML=divs.length?`<table><thead><tr><th>Date</th><th>Holding</th><th class="amt">Amount</th><th></th></tr></thead><tbody>${divs.map(d=>`<tr><td>${esc(txDate(d.date))}</td><td>${esc(d.name)}</td><td class="amt pos">${fmt2(num(d.amount))}</td><td><button class="btn ghost sm" data-divdel="${d.id}">✕</button></td></tr>`).join("")}</tbody></table>`:`<div class="empty">Nothing logged yet — hit <b>+ Dividend</b> when one lands.</div>`;
   document.querySelectorAll("[data-divdel]").forEach(b=>b.onclick=()=>armConfirm(b,()=>{db.dividends=db.dividends.filter(x=>x.id!==b.dataset.divdel);saveAll();}));
@@ -5147,9 +5194,11 @@ function renderForecast(){
   const goal=num(db.goal.target), gap=f.end-goal;
   box.innerHTML=`
     <div class="grid kpis" style="margin-bottom:16px">
-      <div class="card kpi"><div class="label">Projected on ${esc(txDate(target))}</div><div class="val ${f.end>=goal?"pos":""}">${fmt(f.end)}</div><div class="sub">starting from ${fmt(spendableCash())} today</div></div>
-      <div class="card kpi"><div class="label">vs your ${fmt(goal)} goal</div><div class="val ${gap>=0?"pos":"neg"}">${gap>=0?"+":""}${fmt(gap)}</div><div class="sub">${gap>=0?"on track to clear it":"short at this pace"}</div></div>
-      <div class="card kpi"><div class="label">Lowest point</div><div class="val ${f.lowest.v<0?"neg":""}">${fmt(f.lowest.v)}</div><div class="sub">around ${esc(txDate(f.lowest.d))}</div></div>
+      ${kpiHead(`Projected on ${esc(txDate(target))}`,{cls:f.end>=goal?"pos":"",val:money(f.end),
+        sub:`starting from ${fmt(spendableCash())} today`,
+        chip:goal>0?`${moneySigned(gap)} <em>vs your ${fmt(goal)} goal</em>`:"",
+        chipCls:gap>=0?"pos":"neg"})}
+      <div class="card kpi"><div class="label">Lowest point</div><div class="val ${f.lowest.v<0?"neg":""}">${money(f.lowest.v)}</div><div class="sub">around ${esc(txDate(f.lowest.d))}</div></div>
     </div>
     ${chartLine([{name:"Projected cash",color:cssVar("--s1","#059669"),points:f.points,area:true}],
       {labels:f.labels,h:230,ref:goal,refColor:cssVar("--goal","#0ea5a0"),refLabel:`goal ${fmt(goal)}`})}
@@ -7453,7 +7502,7 @@ function renderTax(){
   const held=taxHeld(), short=Math.max(0,e.owed-e.reserved), pct=e.owed>0?Math.min(100,e.reserved/e.owed*100):0;
   heroEl.innerHTML=`<div class="freedom">
     <div class="frhead"><div class="frlabel">Held for tax · ${esc(e.year)}</div>
-      <div class="frbig" style="color:var(--debt)">${fmt(held)}</div>
+      <div class="frbig" style="color:var(--debt)" id="taxHeldVal">${money(held)}</div>
       <div class="frsub">${e.owed>0
         ? (short>0?`${fmt(short)} short of the ${fmt(e.owed)} estimated for the year`:`fully covered — ${fmt(e.reserved-e.owed)} over`)
         : `No self-employed income logged yet this year.`}</div></div>
@@ -7472,6 +7521,7 @@ function renderTax(){
     </div></div>`:""}
   </div>`;
 
+  countUpOnce("tax","taxHeldVal",held);
   const cu=document.getElementById("taxCatchUp");
   if(cu) cu.onclick=()=>{ catchUpReserve(e.year); saveAll(); };
 
@@ -7666,7 +7716,7 @@ function renderFreedom(){
        <div class="frbig">—</div>
        <div class="frsub">Add your bills and budgets and this starts measuring how close you are.</div></div>`
     : `<div class="frhead"><div class="frlabel">Financial freedom</div>
-       <div class="frbig">${fmt2(p.total)}<span class="frper">/mo</span></div>
+       <div class="frbig" id="frPassive">${money(p.total)}<span class="frper">/mo</span></div>
        <div class="frsub">${next?"passive income right now":"every tier covered — you're free"}</div></div>`;
   /* Two tiers that price the same draw as two identical bars, which reads as a
      rendering fault rather than as the true fact underneath it: nothing has been
@@ -7706,6 +7756,7 @@ function renderFreedom(){
       </div>
     </div>`:"";
   el.innerHTML=`<div class="freedom">${head}<div class="frtiers">${bars}</div>${sameNote}${detail}</div>`;
+  countUpOnce("goals","frPassive",p.total,n=>money(n)+`<span class="frper">/mo</span>`);
   el.querySelectorAll("[data-frtier]").forEach(b=>b.onclick=()=>{
     freeOpen=freeOpen===b.dataset.frtier?null:b.dataset.frtier; renderFreedom();});
   const y=el.querySelector("#frYield");
@@ -8068,9 +8119,9 @@ function setView(id){
      checked on the way into a screen as well as at boot. Quietly: nobody wants
      a "Change saved" toast for a subscription doing exactly what it says. */
   if(runAutopay()){ persistQuiet(); Object.keys(VIEW_RENDERERS).forEach(v=>_dirty[v]=true); }
-  /* arriving at a screen is when a headline number is worth animating; a save
+  /* arriving at a screen is when its headline number is worth animating; a save
      while you are already looking at it is not */
-  if(currentView!==id) _investArrived=false;
+  if(currentView!==id) Object.keys(_arrived).forEach(k=>{ if(k.indexOf(id+":")===0) delete _arrived[k]; });
   currentView=id;
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+id));
   const t=document.getElementById("viewTitle"); if(t)t.textContent=viewLabel(id);
