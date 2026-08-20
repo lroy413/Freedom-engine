@@ -193,6 +193,21 @@ else ok(`${wanted.size} referenced element ids all exist`);
   }
 }
 
+/* ---------- 10. the typeface is actually there ---------- */
+/* A @font-face pointing at a file that is not in the repo fails silently: the
+   app falls back to the system stack and simply stops looking like itself. */
+if (css !== null) {
+  const faces = [...css.matchAll(/url\(([^)]+\.woff2?)\)/g)].map(m => m[1].replace(/["']/g, ""));
+  const gone = faces.filter(f => !/^https?:/.test(f) && !existsSync(f));
+  if (gone.length) fail("styles.css", "@font-face names files that are not here: " + gone.join(", "));
+  else if (faces.length) {
+    const remote = faces.filter(f => /^https?:/.test(f));
+    if (remote.length) fail("styles.css", "a font is loaded from another server: " + remote.join(", ") +
+      " — this app fetches nothing at runtime, and a font CDN would announce every launch");
+    else ok(`${faces.length} self-hosted font file(s) present`);
+  }
+}
+
 /* ---------- 9. nothing secret got committed ---------- */
 {
   const leaks = [
