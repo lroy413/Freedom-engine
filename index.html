@@ -857,6 +857,11 @@ function normalize(){
     s.notax=(s.taxClass==="exempt"); });
   /* bills carried a yes/no business flag; it becomes a link to a specific business */
   (db.recurring||[]).forEach(b=>{
+    if(b.autopay===undefined)b.autopay=false;
+    /* switching it on can never reach backwards; without a start month it
+       would treat every month since the bill existed as unpaid and log them */
+    if(b.autopay&&!b.autoSince)b.autoSince=monthKey(todayISO());
+    if(!b.autopay){delete b.autoSince;delete b.autoThru;}
     if(b.biz===true&&!b.bizId&&db.businesses.length) b.bizId=db.businesses[0].id;
     b.biz=!!(b.bizId&&db.businesses.some(x=>x.id===b.bizId));
     if(b.bizId&&!db.businesses.some(x=>x.id===b.bizId)) delete b.bizId; });
@@ -3418,6 +3423,49 @@ function logBillPayment(bill,mk,amt,dateISO){
   db.transactions.push(tx); db.transactions.sort((a,b)=>b.date.localeCompare(a.date));
   return tx;
 }
+/* ---------- bills that pay themselves ----------
+   A subscription comes out whether or not you remember it, so ticking it off by
+   hand every month is a chore that only ever tells the app what already
+   happened. Autopay does the ticking on the due date.
+
+   It logs a real transaction, the same one the tick would have made, because
+   everything downstream — spending totals, the envelope it belongs to, a
+   business split, the credit that carries an overpayment forward — is built on
+   those and nothing else. A separate "counts as paid but isn't in the books"
+   state would have to be threaded through every one of them.
+
+   Two dates keep it honest. `autoSince` is the month it was switched on, so
+   turning it on today never invents payments for January. `autoThru` is the
+   last month handled, so unticking one by hand stays unticked instead of
+   springing back on the next render. */
+const autopayOn=b=>!!(b&&b.autopay&&!b.open);
+function runAutopay(){
+  const today=todayISO(), thisM=monthKey(today);
+  let changed=false;
+  (db.recurring||[]).forEach(b=>{
+    if(!autopayOn(b))return;
+    const from=b.autoThru&&b.autoThru>=b.autoSince
+      ? nextMonthKey(b.autoThru) : (b.autoSince||thisM);
+    if(from>thisM)return;
+    let [y,m]=from.split("-").map(Number);
+    for(let g=0;g<600;g++){
+      const mk=y+"-"+String(m).padStart(2,"0");
+      if(mk>thisM)break;
+      /* only once the money would actually have gone */
+      if(billDueIn(b,mk)&&billDue(b,mk)<=today&&!billPaid(b,mk)){
+        const left=billRemaining(b,mk);
+        if(left>0.005){ const t=logBillPayment(b,mk,left); if(t){t.auto=true;changed=true;} }
+      }
+      b.autoThru=mk; changed=true;
+      m++; if(m>12){m=1;y++;}
+    }
+  });
+  return changed;
+}
+const nextMonthKey=mk=>{let [y,m]=mk.split("-").map(Number);m++;if(m>12){m=1;y++;}
+  return y+"-"+String(m).padStart(2,"0");};
+/* did this month's tick come from autopay rather than from you? */
+const billAutoPaid=(b,mk)=>autopayOn(b)&&billTxs(b,mk).some(t=>t.auto);
 function setBillPaid(bill,mk,paid){
   if(paid){ const left=billRemaining(bill,mk); if(left>0.005) logBillPayment(bill,mk,left); }
   else { const keep=new Set(billTxs(bill,mk).map(t=>t.id));
@@ -3603,12 +3651,12 @@ function renderBudget(){
     const nextM=dueNow?null:nextBillMonth(b,mk);
     return `<div class="brow${paid?" paid":""}${editing?" editing":""}${dueNow?"":" offmonth"}">
       <div class="bmain" data-billopen="${b.id}">
-        ${dueNow&&!b.open?`<button class="chk ${paid?'on':''}" data-billtog="${b.id}" title="${paid?'Paid — tap to undo':part?'Cover the remaining '+fmt(left):'Mark paid in full'}">${paid?'✓':''}</button>`
+        ${dueNow&&!b.open?`<button class="chk ${paid?'on':''}" data-billtog="${b.id}" title="${paid?(billAutoPaid(b,mk)?'Paid by autopay — tap to undo this month':'Paid — tap to undo'):part?'Cover the remaining '+fmt(left):'Mark paid in full'}">${paid?'✓':''}</button>`
           :b.open&&dueNow?`<span class="chk ghosted payg" title="Pay as you go — no fixed amount">~</span>`
           :`<span class="chk ghosted"></span>`}
         <div class="binfo">
           <div class="bname">${esc(b.name)}${b.biz?` <span class="bizmark" title="Business expense">BIZ</span>`:""}</div>
-          <div class="bmeta"><span class="bdot" style="background:${hueOf(to)}" title="${esc(to.label)} — ${esc(to.note)}"></span><span class="bcat">${esc(billGroup(b))} · </span>${f.n>1?`${esc(f.label.toLowerCase())} · `:""}${dueNow?(b.open?`no set amount`:`due the ${ord(num(b.dueDay)||1)}`):`next in ${esc(shortMonth(nextM))}`}${dueNow&&st.k!=="paid"&&(st.cls||b.open)?` · <span class="${st.cls==='bad'?'bneg':st.cls==='warn'?'bwarn':''}">${esc(st.label)}</span>`:""}${part&&!b.open?` · <span class="bpart">${fmt(paidAmt)} paid${billCredit(b,mk)>0.005?" (incl. credit)":""}</span>`:""}</div>
+          <div class="bmeta"><span class="bdot" style="background:${hueOf(to)}" title="${esc(to.label)} — ${esc(to.note)}"></span><span class="bcat">${esc(billGroup(b))} · </span>${f.n>1?`${esc(f.label.toLowerCase())} · `:""}${dueNow?(b.open?`no set amount`:`due the ${ord(num(b.dueDay)||1)}`):`next in ${esc(shortMonth(nextM))}`}${autopayOn(b)?` · <span class="bauto">autopay</span>`:""}${dueNow&&st.k!=="paid"&&(st.cls||b.open)?` · <span class="${st.cls==='bad'?'bneg':st.cls==='warn'?'bwarn':''}">${esc(st.label)}</span>`:""}${part&&!b.open?` · <span class="bpart">${fmt(paidAmt)} paid${billCredit(b,mk)>0.005?" (incl. credit)":""}</span>`:""}</div>
         </div>
         <div class="bamt${f.n>1||part||b.open?" roll":""}">${b.open?fmt(dueNow?billPaidRaw(b,mk):0):fmt(dueNow&&part?left:num(b.amount))}${b.open?`<em>~${fmt(num(b.amount))} typical</em>`:part?`<em>of ${fmt(num(b.amount))} left</em>`:(f.n>1?`<em>${fmt(billMonthly(b))}/mo</em>`:"")}</div>
         ${dueNow&&(!paid||b.open)?`<button class="btn ghost sm bpay" data-billpay="${b.id}">${payBill===b.id?"Cancel":"Pay"}</button>`:""}
@@ -3649,6 +3697,9 @@ function renderBudget(){
         ${b.debtId?(()=>{const dd=db.debts.find(x=>x.id===b.debtId);
           return `<div class="note" style="margin-top:12px;font-size:13px">Tied to <b>${esc(dd?dd.name:"a debt")}</b> in Debt payoff${b.estimated?` — the amount is an <b>estimated minimum</b> (2% of the balance, $25 floor). Type your real payment and it stops guessing.`:"."}</div>`;})():""}
         ${f.n>1?`<div class="note" style="margin-top:12px;font-size:13px"><b>${fmt(num(b.amount))}</b> every ${esc(f.every)} works out to <b>${fmt(billMonthly(b))}</b> a month — that's what counts toward your floor, so it's money you're setting aside rather than a surprise. Next due <b>${esc(shortDate(nextBillDate(b)))}</b>.</div>`:""}
+        ${b.open?"":`<label class="flex" style="font-size:15px;margin-top:12px;gap:8px;align-items:flex-start">
+          <input type="checkbox" data-billauto="${b.id}" ${b.autopay?"checked":""} style="margin-top:3px">
+          <span>It pays itself — autopay<br><span class="muted" style="font-size:13px">Ticks itself off on the due date and records the payment, so a subscription you never think about stops asking to be thought about. It only ever starts from the month you switch it on.${b.autopay&&b.autoThru?` Handled through <b>${esc(prettyMonth(b.autoThru))}</b>.`:""}</span></span></label>`}
         <label class="flex" style="font-size:15px;margin-top:12px;gap:8px;align-items:flex-start">
           <input type="checkbox" data-billopenflag="${b.id}" ${b.open?"checked":""} style="margin-top:3px">
           <span>No set amount — prepaid / pay-as-you-go<br><span class="muted" style="font-size:13px">Prepaid power, a top-up phone, tolls. Log payments whenever they happen; the amount above becomes a typical-month figure used only for planning.</span></span></label>
@@ -3692,6 +3743,12 @@ function renderBudget(){
     if(b){b.category=e.currentTarget.value;saveAll();}});
   bl.querySelectorAll("[data-billopenflag]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billopenflag);
     if(b){b.open=e.currentTarget.checked;saveAll();}});
+  bl.querySelectorAll("[data-billauto]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billauto);
+    if(!b)return;
+    b.autopay=e.currentTarget.checked;
+    if(b.autopay){ b.autoSince=monthKey(todayISO()); delete b.autoThru; runAutopay(); }
+    else { delete b.autoSince; delete b.autoThru; }
+    saveAll();});
   bl.querySelectorAll("[data-billamt]").forEach(i=>i.onchange=e=>{const b=db.recurring.find(x=>x.id===e.currentTarget.dataset.billamt);
     if(b){ b.amount=num(e.currentTarget.value); b.estimated=false;   // a typed figure isn't a guess
       const d=db.debts.find(x=>x.billId===b.id); if(d&&!num(d.payment))d.payment=b.amount;
@@ -5518,6 +5575,32 @@ function renderSTS(){
     <div class="muted" style="font-size:13px;margin-top:12px">Built from money you actually have, not projected income — a promised invoice isn't spendable yet. Logging a paycheck moves this number the moment it lands.</div>`;
 }
 /* ---------- import review queue ---------- */
+/* ---------- an autopay charge arriving twice ----------
+   Autopay records the payment on the due date; a bank import brings the same
+   charge in a few days later, and the review queue would happily add it beside
+   the first. One month of Spotify, two lines in the books.
+
+   The imported one is the truth — it is what the bank actually did — so it
+   takes the bill over and the placeholder goes. Matched on amount and on being
+   within a few days of the placeholder, which is as much as the two records
+   have in common: an import's description is the merchant's, not the bill's. */
+const AUTOPAY_MATCH_DAYS=6;
+function autopayTwin(t){
+  if(!t||num(t.amount)>=0||t.billRef)return null;
+  const amt=Math.abs(num(t.amount));
+  return db.transactions.find(x=>x.auto&&x.billRef&&x.id!==t.id&&
+    Math.abs(Math.abs(num(x.amount))-amt)<=0.02&&
+    Math.abs(daysBetween(x.date,t.date))<=AUTOPAY_MATCH_DAYS)||null;
+}
+/* Accepting the real one: it inherits the bill link, and the placeholder that
+   was standing in for it is removed. */
+function adoptAutopay(t){
+  const twin=autopayTwin(t); if(!twin)return false;
+  t.billRef=twin.billRef; t.category=twin.category;
+  if(twin.bizId){ t.bizId=twin.bizId; if(twin.bizPct!==undefined)t.bizPct=twin.bizPct; }
+  db.transactions=db.transactions.filter(x=>x.id!==twin.id);
+  return true;
+}
 function renderReview(){
   const card=document.getElementById("reviewCard"); if(!card)return;
   const q=reviewQueue().slice().sort((a,b)=>b.date.localeCompare(a.date));
@@ -5539,7 +5622,8 @@ function renderReview(){
         <div class="bmain" style="cursor:default">
           <button class="chk" data-rvok="${t.id}" title="Category is right — accept">✓</button>
           <div class="binfo"><div class="bname">${esc(t.desc||"—")}</div>
-            <div class="bmeta">${esc(txDate(t.date))}${acctName(t.acctId)?` · ${esc(shortAcctName(acctName(t.acctId)))}`:""}</div></div>
+            <div class="bmeta">${esc(txDate(t.date))}${acctName(t.acctId)?` · ${esc(shortAcctName(acctName(t.acctId)))}`:""}${(()=>{const tw=autopayTwin(t);
+              return tw?` · <span class="bauto">replaces the ${esc(tw.desc)} autopay</span>`:"";})()}</div></div>
           <div class="bamt ${t.amount<0?"neg":"pos"}" style="min-width:74px">${t.amount<0?"":"+"}${fmt2(t.amount)}</div>
         </div>
         <div class="rvpick"><select class="catsel" data-rvcat="${t.id}">${catOpts(t.category)}</select></div>
@@ -5554,7 +5638,7 @@ function renderReview(){
   t2.onclick=()=>{rvOpen=!rvOpen;renderReview();};
   card.querySelectorAll("[data-rvok]").forEach(b=>b.onclick=()=>{
     const t=db.transactions.find(x=>x.id===b.dataset.rvok);
-    if(t){ delete t.review; saveAll(); }});
+    if(t){ adoptAutopay(t); delete t.review; saveAll(); }});
   /* correcting the guess is the teaching moment — same rule engine as the table */
   card.querySelectorAll("[data-rvcat]").forEach(sel=>sel.onchange=()=>{
     const t=db.transactions.find(x=>x.id===sel.dataset.rvcat); if(!t)return;
@@ -5563,7 +5647,7 @@ function renderReview(){
     if(kw&&!db.rules.some(r=>r.m===kw)) db.rules.push({m:kw,c:sel.value});
     saveAll();});
   const all=document.getElementById("rvAll");
-  if(all) all.onclick=()=>{ reviewQueue().forEach(t=>delete t.review); saveAll(); };
+  if(all) all.onclick=()=>{ reviewQueue().forEach(t=>{ adoptAutopay(t); delete t.review; }); saveAll(); };
 }
 let rvOpen=true;
 
@@ -7374,6 +7458,10 @@ function navPageOf(id){
 let navPage=0;   // restored from prefs at boot, see the boot block
 function setView(id){
   if(!VIEWS.some(v=>v.id===id))id="dash";
+  /* A month can turn over while the app sits open on a phone, so autopay is
+     checked on the way into a screen as well as at boot. Quietly: nobody wants
+     a "Change saved" toast for a subscription doing exactly what it says. */
+  if(runAutopay()){ persistQuiet(); Object.keys(VIEW_RENDERERS).forEach(v=>_dirty[v]=true); }
   currentView=id;
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="view-"+id));
   const t=document.getElementById("viewTitle"); if(t)t.textContent=viewLabel(id);
@@ -8232,12 +8320,17 @@ document.getElementById("openDivLog").addEventListener("click",openDivLog);
    room to explain itself. */
 let _newBill=null;
 function openAddBill(){
-  _newBill={name:"",cat:(db.categories.find(c=>c!=="Income")||"Other"),amt:"",freq:"monthly",day:""};
+  const first=db.categories.find(c=>c!=="Income")||"Other";
+  _newBill={name:"",cat:first,amt:"",freq:"monthly",day:"",
+    auto:CAT_AUTOPAYS.test(first),autoTouched:false};
   openEditor({kicker:"New bill",title:"Add a bill",closeLabel:"Cancel",
     html:addBillHTML, wire:wireAddBill, onClose:()=>{_newBill=null;}});
 }
+/* the categories that come out on their own whether you look or not */
+const CAT_AUTOPAYS=/^(subscriptions|internet|phone|insurance|streaming)$/i;
 function addBillHTML(){
   const d=_newBill||{}, f=BILL_FREQ[d.freq]||BILL_FREQ.monthly;
+  const subLike=CAT_AUTOPAYS.test(String(d.cat||""));
   return `<div class="formgrid">
       <div class="field"><label>Bill name</label><input id="recName" value="${esc(d.name||"")}" placeholder="Rent"></div>
       <div class="field"><label>Category</label><select id="recCat">${db.categories.filter(c=>c!=="Income")
@@ -8247,6 +8340,9 @@ function addBillHTML(){
         .map(([v,o])=>`<option value="${v}" ${d.freq===v?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
       <div class="field"><label>Due day of month</label><input id="recDay" type="number" min="1" max="28" value="${esc(d.day||"")}" placeholder="1"></div>
     </div>
+    <label class="flex" style="font-size:15px;margin-top:14px;gap:8px;align-items:flex-start">
+      <input type="checkbox" id="recAuto" ${d.auto?"checked":""} style="margin-top:3px">
+      <span>It pays itself — autopay<br><span class="muted" style="font-size:13px">Ticks itself off on the due date and records the payment.${subLike?" Suggested, because a subscription comes out whether or not you remember it.":""}</span></span></label>
     ${f.n>1?`<div class="note" style="margin-top:14px;font-size:13px">A ${esc(f.label.toLowerCase())} bill counts as <b>${fmt2(num(d.amt)/f.n)}/mo</b> against your plan, but only lands in the months it's actually due — starting this one.</div>`:""}
     <button class="btn primary" id="addRecBtn" style="width:100%;margin-top:16px">Add bill</button>`;
 }
@@ -8255,7 +8351,12 @@ function wireAddBill(body){
   const keep=()=>{ d.name=g("recName").value; d.cat=g("recCat").value;
     d.amt=g("recAmt").value; d.freq=g("recFreq").value; d.day=g("recDay").value; };
   ["recName","recAmt","recDay"].forEach(id=>{const el=g(id); if(el)el.oninput=keep;});
-  const c=g("recCat"); if(c)c.onchange=keep;
+  /* picking Subscriptions should suggest autopay without overriding a choice
+     you have already made on this form */
+  const c=g("recCat"); if(c)c.onchange=()=>{ keep();
+    if(!d.autoTouched) d.auto=CAT_AUTOPAYS.test(String(d.cat||""));
+    renderEditor(); };
+  const ap=g("recAuto"); if(ap)ap.onchange=()=>{d.auto=ap.checked;d.autoTouched=true;};
   /* the sheet redraws on frequency so the amount label and the note follow it */
   const fr=g("recFreq"); if(fr)fr.onchange=()=>{keep();renderEditor();};
   const a=g("addRecBtn"); if(a)a.onclick=()=>{ keep();
@@ -8265,7 +8366,9 @@ function wireAddBill(body){
     const b={id:uid(),name,category:d.cat,amount,dueDay:Math.min(28,Math.max(1,num(d.day)||1)),freq:d.freq||"monthly"};
     if(BILL_FREQ[b.freq]&&BILL_FREQ[b.freq].n>1) b.anchor=monthKey(todayISO());
     b.group=CAT_GROUP[b.category]||"Other"; b.tier=DEFAULT_TIER[b.group]||"flexible";
+    if(d.auto){ b.autopay=true; b.autoSince=monthKey(todayISO()); }
     db.recurring.push(b);
+    if(b.autopay) runAutopay();
     closeEditor();
     billTab="all"; billTierFilter=null; editBill=b.id; saveAll();};
 }
@@ -8677,6 +8780,8 @@ function envSetup(){
  ["renderTx"],["renderIncome"],["renderDash"]].forEach(([n])=>{
   try{ if(typeof window[n]==="function") window[n]=_keepScroll(window[n]); }catch(e){} });
 try{ load(); }catch(e){ db=seed(); normalize(); }
+/* anything that paid itself while the app was closed */
+try{ if(runAutopay()) persistQuiet(); }catch(e){}
 try{ loadSyncCfg(); }catch(e){}
 try{ syncTheme(); }catch(e){}
 try{ envSetup(); }catch(e){}

@@ -1091,6 +1091,9 @@
   .bdot{width:7px;height:7px;border-radius:50%;flex:none}
   .bmeta .bneg{color:var(--neg);font-weight:620}
   .bmeta .bpos{color:var(--pos-ink);font-weight:620}
+  /* a bill that handles itself — stated, not shouted: it is a fact about the
+     bill, not a warning and not an achievement */
+  .bmeta .bauto{color:var(--ink2);font-weight:620}
   /* amber for "this number knows less than it looks like it does", wherever it
      is said — bill rows, account rows, a forecast note, a burn hint */
   .bwarn{color:var(--warn-ink);font-weight:620}

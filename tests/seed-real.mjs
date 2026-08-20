@@ -42,8 +42,8 @@ export const SEED = (page) => page.evaluate(() => {
     { id: "r3", name: "AT&T Fiber", category: "Internet", amount: 80, dueDay: 15, tier: "essential", group: "Utilities" },
     { id: "r4", name: "Mint Mobile", category: "Phone", amount: 30, dueDay: 18, tier: "essential", group: "Utilities" },
     { id: "r5", name: "Car insurance", category: "Insurance", amount: 402, dueDay: 6, freq: "quarterly", anchor: MK, tier: "essential", group: "Insurance" },
-    { id: "r6", name: "Adobe CC", category: "Subscriptions", amount: 62, dueDay: 22, tier: "flexible", group: "Subscriptions", bizId: "b1", bizPct: 80 },
-    { id: "r7", name: "Spotify", category: "Subscriptions", amount: 12, dueDay: 9, tier: "luxury", group: "Subscriptions" },
+    { id: "r6", name: "Adobe CC", category: "Subscriptions", amount: 62, dueDay: 22, tier: "flexible", group: "Subscriptions", bizId: "b1", bizPct: 80, autopay: true, autoSince: Y + "-01" },
+    { id: "r7", name: "Spotify", category: "Subscriptions", amount: 12, dueDay: 9, tier: "luxury", group: "Subscriptions", autopay: true, autoSince: Y + "-01" },
     { id: "r8", name: "Planet Fitness", category: "Fitness", amount: 25, dueDay: 17, tier: "luxury", group: "Health" },
   ];
   db.budgets = { Groceries: 480, Restaurants: 220, "Auto & Gas": 180, Gear: 300, Coffee: 60, Entertainment: 120 };

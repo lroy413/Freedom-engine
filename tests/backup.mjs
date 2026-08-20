@@ -35,11 +35,15 @@ const COUNTS = () => p.evaluate(() => ({
   net: Math.round(netWorth()), owed: Math.round(allReceivable()),
   tax: Math.round(taxEstimate().owed), sts: Math.round(safeToSpend().safe) }));
 
+/* Snapshot after the app has settled, not before. Autopay catches a bill up on
+   the first view it is asked for, so a count taken the instant the seed lands
+   describes a book that never existed on disk — and the file downloaded a
+   moment later would fairly "fail" to match it. */
+await p.evaluate(() => setView('data')); await p.waitForTimeout(600);
 const before = await COUNTS();
 console.log('— a full book, backed up —');
 chk('there is a real app to lose', before.transactions > 100 && before.invoices > 3, true);
 
-await p.evaluate(() => setView('data')); await p.waitForTimeout(600);
 const dl = await Promise.all([p.waitForEvent('download'),
   p.evaluate(() => document.getElementById('saveBtn').click())]);
 const path = '/tmp/fb-backup.json';
