@@ -1189,8 +1189,10 @@ function doImport(){
    Both are cross-origin requests, so they only work when the page can reach
    the internet and the source allows it. Everything degrades to manual entry. */
 const MD_PROVIDERS={
-  alphavantage:{name:"Alpha Vantage",signup:"https://www.alphavantage.co/support/#api-key",note:"free key · ~25 lookups/day · includes dividends"},
-  finnhub:{name:"Finnhub",signup:"https://finnhub.io/register",note:"free key · 60 calls/min · price only"},
+  alphavantage:{name:"Alpha Vantage",signup:"https://www.alphavantage.co/support/#api-key",
+    note:"free key · 25 lookups/day · the only one that also carries dividends · too tight for more than about 8 holdings"},
+  finnhub:{name:"Finnhub",signup:"https://finnhub.io/register",
+    note:"free key · 60 calls/min · price only · the one to pick for a longer list"},
   twelvedata:{name:"Twelve Data",signup:"https://twelvedata.com/pricing",note:"free key · 800 calls/day · price only"}
 };
 function viaRelay(url){ const r=(syncCfg.sfRelay||"").trim(); return r?r.replace(/\/+$/,"")+"/?url="+encodeURIComponent(url):url; }
@@ -1289,16 +1291,23 @@ async function fetchDivSchedule(ticker){
     return {freq,count:n,last:rows[0].d,trailingPerShare:trailing};
   }catch(e){ return null; }
 }
-async function refreshHolding(h,statusEl){
+/* Alpha Vantage's free tier is 25 calls a day. A refresh that also looks up
+   dividends costs THREE per holding — the quote, then OVERVIEW, then DIVIDENDS —
+   so nine holdings ask for 27 and the day's budget is gone partway down the
+   list. Everything after that got "couldn't price", because the keyless
+   fallbacks behind it are CORS-blocked in a browser and answer nothing.
+
+   The price is what you tapped for. Dividends change quarterly at most, so a
+   whole-list refresh looks them up for the two most overdue holdings and lets
+   the rest come round on later taps. Nine holdings now cost 13 calls, not 27. */
+const DIV_LOOKUPS_PER_RUN=2;
+const divIsDue=h=>!h.divChecked||daysBetween(h.divChecked,todayISO())>=7;
+async function refreshHolding(h,statusEl,opts){
   if(!h.ticker){ if(statusEl)statusEl.textContent="Add a ticker first."; return false; }
   if(statusEl)statusEl.textContent=`Fetching ${h.ticker.toUpperCase()}…`;
   try{
     const q=await fetchQuote(h.ticker); h.price=q.price; h.lastQuote=todayISO(); recordPrice(h);
-    /* Dividends change quarterly at most; the price is what you tapped for. The
-       overview + schedule are two extra API calls per holding, so checking them
-       on every refresh burned ~21 of Alpha Vantage's 25 free calls a day on a
-       7-holding list. Once a week is plenty. */
-    const needDiv=!h.divChecked||daysBetween(h.divChecked,todayISO())>=7;
+    const needDiv=divIsDue(h)&&!(opts&&opts.priceOnly);
     const d=needDiv?await fetchDividend(h.ticker):null; if(d){ h.divYield=d.divYield; }
     let sched=null;
     if(needDiv){ try{ sched=await fetchDivSchedule(h.ticker); }catch(e){} }
@@ -8172,16 +8181,27 @@ document.getElementById("refreshAllBtn").addEventListener("click",async e=>{
   const st=document.getElementById("quoteStatus"), list=db.holdings.filter(h=>h.ticker);
   if(!list.length){st.textContent="Add a ticker to at least one holding first.";return;}
   btn.disabled=true; let ok=0; const misses=[];
+  /* whoever has gone longest without one gets this run's dividend lookups */
+  const divTurn=new Set(list.filter(divIsDue)
+    .sort((a,b)=>String(a.divChecked||"").localeCompare(String(b.divChecked||"")))
+    .slice(0,DIV_LOOKUPS_PER_RUN).map(h=>h.id));
   for(let i2=0;i2<list.length;i2++){ const h=list[i2];
     if(st)st.textContent=`Updating ${i2+1} of ${list.length} — ${h.ticker.toUpperCase()}…`;
-    if(await refreshHolding(h,st)){ recordPrice(h); ok++; }
+    if(await refreshHolding(h,st,{priceOnly:!divTurn.has(h.id)})){ recordPrice(h); ok++; }
     else misses.push(h.ticker.toUpperCase());
     if(i2<list.length-1) await new Promise(r=>setTimeout(r,350));   // polite spacing
   }
   btn.disabled=false;
+  /* "Couldn't price VOO, ABBV, NVDA…" told you nothing you could act on. When
+     the key is the reason, name the limit and the way out. */
   st.innerHTML=`Updated ${ok} of ${list.length}.`+(misses.length
     ?` <span class="neg">Couldn't price ${misses.map(esc).join(", ")}</span> <span class="muted">— tap one to enter its price by hand.</span>`
-    :"");
+    :"")+(_avCapped?`<div class="note warn" style="margin-top:10px;font-size:13px">
+      That is Alpha Vantage's daily limit, not a problem with your holdings — the free key allows
+      <b>25 lookups a day</b> and this list needs at least <b>${list.length}</b>.
+      Under <b>Settings → Market data</b> you can switch to <b>Finnhub</b> (60 a minute) or
+      <b>Twelve Data</b> (800 a day). Both are free and neither will run out on a list this size.
+    </div>`:"");
   saveAll();});
 document.getElementById("avSave").addEventListener("click",()=>{db.settings.mdKey=document.getElementById("avKey").value.trim();
   db.settings.mdProvider=document.getElementById("mdProvider").value;
