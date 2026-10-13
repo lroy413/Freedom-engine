@@ -9791,7 +9791,11 @@ try{ renderAll(); }catch(e){
 }
 try{ renderSync(); }catch(e){}
 try{ renderBank(); }catch(e){}
-try{ persist(); }catch(e){}
+/* Boot writes back whatever migrate, normalize and the month's snapshot
+   changed — which is real and worth saving, but it is not something YOU did.
+   persist() announced it with "Change saved / Undo" before you had touched
+   anything, and pushed an undo entry, so the first Cmd+Z undid the launch. */
+try{ persistQuiet(); }catch(e){}
 document.addEventListener("keydown",e=>{
   // inside a field, Cmd/Ctrl+Z should undo your typing, not the whole app
   const t=e.target,tag=t&&t.tagName;

@@ -1,0 +1,9 @@
+{
+  "name": "freebound-tests",
+  "private": true,
+  "description": "Test-harness dependencies only. The app itself has no build step and no runtime dependencies — see CLAUDE.md.",
+  "devDependencies": {
+    "playwright": "1.56.0"
+  },
+  "comment": "Pinned exactly, not with a caret: a sandbox ships one Chromium build and Playwright refuses any revision but its own. 1.56.0 is the release whose chromium revision is 1194, which is what these containers provide. If the suites die with 'Executable doesn't exist', the provisioned build has moved — check /opt/pw-browsers and pin the matching release rather than downloading a second browser."
+}
